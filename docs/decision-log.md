@@ -1,0 +1,12 @@
+# Decision Log — Operations Dashboard
+
+Append-only. Every time the spec (`spec.md`) is ambiguous or silent and a call is made, it gets a new row here. Never edit or delete a past row — if a decision is reversed, add a new row that supersedes it and mark the old one's Status accordingly.
+
+| ID | Date | Decision | Context | Who | Status |
+|---|---|---|---|---|---|
+| D-001 | 2026-08-12 | Repo created as `F4LA/OperationsDashboard`, public, PascalCase. | Matches the naming convention of the other Strong Standard dashboards (SalesOS, CoachPulse, testimonial-dashboard) and spec §10's stated repo name. | Bernardo | Locked |
+| D-002 | 2026-08-12 | Module stubs live in `/dashboard`, with `app.js` as the top-level bootstrap/orchestrator at repo root (not `/js` as first suggested). | CoachPulse (the reference dashboard, inspected on disk at `~/Desktop/StrongStandard/CoachPulse`) actually uses `/dashboard` + root `app.js`. Matching the real convention over the informal `/js` suggestion. | Bernardo | Locked |
+| D-003 | 2026-08-12 | Window-global prefix for every module is `OpsDash` (e.g. `OpsDashConfig`, `OpsDashEngine`, `OpsDashBoard`). | Mirrors CoachPulse's own `root.CoachPulse<Module>` attach pattern; kept short per that precedent rather than spelling out `OperationsDashboard` in every global. | Bernardo | Locked |
+| D-004 | 2026-08-12 | Stub modules scaffolded this session (empty, no logic): `dashboard/config.js`, `dashboard/validate.js`, `dashboard/engine.js`, `dashboard/events.js`, `dashboard/metrics.js`, `dashboard/board.js`, `dashboard/network.js`, `dashboard/thisweek.js`, plus root `app.js` and `styles.css`. | One stub per spec piece (§2–§6); `styles.css` added to match CoachPulse's file layout even though not explicitly requested. | Bernardo | Locked |
+| D-005 | 2026-08-12 | Seed data committed this session at `data/rock3-seed.json`, not at the repo root as `sprint-plan.json`. | Spec §10 states the production raw-URL path is `.../main/sprint-plan.json` at repo root. This session is scaffold-only (no fetch/engine logic yet), so the seed was placed where the user's setup instructions asked. **Revisit when §9 step 1's load/validate logic is actually built** — decide then whether to move/rename this file to match §10, or keep both a root `sprint-plan.json` (production) and `data/rock3-seed.json` (test fixture). | Bernardo (via explicit setup instruction) | Open — revisit next session |
+
