@@ -6,9 +6,9 @@
  * decides when liveMode/metrics get recomputed and what gets repainted.
  *
  * Mark-a-task flow (the hot path):
- *   click status control → postEvent("setStatus", …) → on success, patch
- *   currentState for JUST that task (no refetch) → re-run liveMode + metrics
- *   → repaint that one task row + its Rock's progress bar/chip + the
+ *   pick a status in the dropdown → postEvent("setStatus", …) → on success,
+ *   patch currentState for JUST that task (no refetch) → re-run liveMode +
+ *   metrics → repaint that one task row + its Rock's progress bar/chip + the
  *   sprint-wide summary. Every other row keeps its last-rendered dates until
  *   the next mark or Refresh — a deliberate scope limit (not a full
  *   re-render), see the Phase 4 report.
@@ -42,7 +42,7 @@
   };
 
   var dom = {};            // cached DOM refs, filled in mount()
-  var STATUS_CYCLE = ["open", "in_progress", "done"];
+  var STATUS_ORDER = ["open", "in_progress", "done"];
   var STATUS_LABEL = { open: "Open", in_progress: "In progress", done: "Done" };
 
   /* ------------------------------------------------------------------ *
@@ -150,6 +150,33 @@
     return '<span class="chip chip-' + color + '">' + escapeHtml(label) + "</span>";
   }
 
+  /**
+   * Shared overshoot indicator (redesign pass) — a small focusable flag with a
+   * custom popover (dark-navy, matching the toast style), replacing the old
+   * native title="" tooltip on both the Rock-level and milestone-level
+   * overshoot markers so the two read as one consistent pattern. Day count is
+   * a calendar-date diff for display only — same parseISO the engine and
+   * metrics.js already use, no new date semantics.
+   */
+  var overshootIdSeq = 0;
+
+  function overshootFlagHtml(plannedFinish, sprintEnd) {
+    var parseISO = root.OpsDashEngine._internals.parseISO;
+    var days = Math.round((parseISO(plannedFinish) - parseISO(sprintEnd)) / 86400000);
+    var message = "Projected to finish " + plannedFinish + " — " + days +
+      (days === 1 ? " day" : " days") + " past sprint end (" + sprintEnd +
+      "). The engine reports reality; it doesn’t adjust to hide overshoot.";
+    var popId = "overshoot-pop-" + (++overshootIdSeq);
+    return (
+      '<span class="overshoot-wrap">' +
+        '<span class="overshoot-flag" tabindex="0" aria-label="Projected past sprint end" ' +
+          'aria-describedby="' + popId + '">⚠</span>' +
+        '<span class="overshoot-popover" id="' + popId + '" role="tooltip">' +
+          escapeHtml(message) + "</span>" +
+      "</span>"
+    );
+  }
+
   function onTrackLabel(color) {
     if (color === "green") return "On track";
     if (color === "amber") return "Slightly behind";
@@ -163,6 +190,7 @@
       '<div class="summary-left">' +
         '<span class="sprint-name">' + escapeHtml(sprint.name || sprint.id) + "</span>" +
         '<span class="sprint-dates">' + escapeHtml(sprint.start) + " – " + escapeHtml(sprint.end) + "</span>" +
+        '<span class="overshoot-legend">⚠ = projected past sprint end</span>' +
       "</div>" +
       '<div class="summary-right">' +
         '<div class="progress-bar-wrap">' +
@@ -186,12 +214,10 @@
     var finishHtml = "";
     if (live && live.plannedFinish) {
       finishHtml = '<span class="rock-finish">Projected finish: <strong>' +
-        escapeHtml(live.plannedFinish) + "</strong>";
+        escapeHtml(live.plannedFinish) + "</strong></span>";
       if (live.red) {
-        finishHtml += ' <span class="rock-finish-overshoot">— past sprint end (' +
-          escapeHtml(state.plan.sprint.end) + ")</span>";
+        finishHtml += " " + overshootFlagHtml(live.plannedFinish, state.plan.sprint.end);
       }
-      finishHtml += "</span>";
     }
 
     var cuttableBadge = rock.cuttable
@@ -265,13 +291,17 @@
   }
 
   function statusCtrlHtml(taskId, task) {
-    if (task.deferred) return ""; // deferred tasks are not scheduled — nothing to cycle
+    if (task.deferred) return ""; // deferred tasks are not scheduled — nothing to set
     var live = state.liveResult.tasks[taskId];
     var status = live ? live.status : "open";
-    return '<button type="button" class="status-ctrl status-' + status +
-      '" data-action="cycle-status" data-task-id="' + escapeAttr(taskId) + '" ' +
-      'title="Click to mark ' + escapeAttr(STATUS_LABEL[nextStatus(status)]) + '">' +
-      escapeHtml(STATUS_LABEL[status]) + "</button>";
+    var options = STATUS_ORDER.map(function (s) {
+      return '<option value="' + s + '"' + (s === status ? " selected" : "") + ">" +
+        escapeHtml(STATUS_LABEL[s]) + "</option>";
+    }).join("");
+    return '<select class="status-ctrl status-' + status +
+      '" data-action="set-status" data-task-id="' + escapeAttr(taskId) +
+      '" aria-label="Status for ' + escapeAttr(task.desc) + '">' +
+      options + "</select>";
   }
 
   function deliverableHtml(taskId) {
@@ -281,14 +311,14 @@
         '<div class="task-deliverable" data-task-id="' + escapeAttr(taskId) + '">' +
           '<a class="deliverable-link" href="' + escapeAttr(url) + '" target="_blank" rel="noopener noreferrer">Deliverable ↗</a>' +
           '<button type="button" class="deliverable-edit-btn" data-action="edit-deliverable" data-task-id="' +
-            escapeAttr(taskId) + '" title="Change the link">✎</button>' +
+            escapeAttr(taskId) + '" aria-label="Change the deliverable link" title="Change the link">✎</button>' +
         "</div>"
       );
     }
     return (
       '<div class="task-deliverable" data-task-id="' + escapeAttr(taskId) + '">' +
-        '<input type="text" class="deliverable-input" data-task-id="' + escapeAttr(taskId) +
-          '" placeholder="Paste Drive/GHL/PDF link…" />' +
+        '<input type="url" class="deliverable-input" data-task-id="' + escapeAttr(taskId) +
+          '" aria-label="Deliverable link" placeholder="Paste Drive/GHL/PDF link…" />' +
         '<button type="button" class="deliverable-save-btn" data-action="save-deliverable" data-task-id="' +
           escapeAttr(taskId) + '">Save</button>' +
       "</div>"
@@ -351,7 +381,7 @@
     var finishHtml = "";
     if (!deferred && live && live.plannedFinish) {
       finishHtml = '<span class="milestone-finish">→ ' + escapeHtml(live.plannedFinish) + "</span>";
-      if (live.red) finishHtml += ' <span class="milestone-flag" title="Past sprint end">⚠</span>';
+      if (live.red) finishHtml += " " + overshootFlagHtml(live.plannedFinish, state.plan.sprint.end);
     }
 
     return (
@@ -456,11 +486,6 @@
    * Event handlers
    * ------------------------------------------------------------------ */
 
-  function nextStatus(status) {
-    var i = STATUS_CYCLE.indexOf(status);
-    return STATUS_CYCLE[(i + 1) % STATUS_CYCLE.length];
-  }
-
   function requireActor() {
     if (state.actor) return true;
     toast("Select who you are (\u201cActing as\u201d) before marking tasks.", "error");
@@ -502,24 +527,38 @@
       });
   }
 
-  function onCycleStatus(taskId) {
-    if (!requireActor()) return;
+  /**
+   * Direct-select control (redesign pass) \u2014 the chosen option IS the write,
+   * no intermediate cycle state. `selectEl` is passed in because, unlike the
+   * old button, a native <select> already shows the user's newly-picked
+   * option the instant they pick it \u2014 so on any failure we must explicitly
+   * revert both its value AND its status-* color class back to the
+   * pre-change status, or the dropdown would keep showing an unsaved value
+   * as if it had saved. The write itself (postEvent call + args) is
+   * unchanged from the old click handler.
+   */
+  function onSetStatus(taskId, next, selectEl) {
     var task = state.index.tasks[taskId];
-    if (!task || task.deferred) return;
-
     var live = state.liveResult.tasks[taskId];
-    var current = live ? live.status : "open";
-    var next = nextStatus(current);
+    var previous = live ? live.status : "open";
 
-    var btn = dom.mainEl.querySelector('.status-ctrl[data-task-id="' + cssEscape(taskId) + '"]');
-    if (btn) { btn.disabled = true; btn.classList.add("status-saving"); }
+    if (!requireActor()) {
+      selectEl.value = previous;
+      return;
+    }
+    if (!task || task.deferred) { selectEl.value = previous; return; }
+
+    selectEl.disabled = true;
+    selectEl.className = "status-ctrl status-saving status-" + next;
 
     root.OpsDashEvents.postEvent("setStatus", taskId, next, state.actor, "")
       .then(function (result) {
         if (!result.ok) {
           toast("Could not mark \u201c" + task.desc + "\u201d as " + STATUS_LABEL[next] + ": " +
             describeWriteError(result), "error");
-          if (btn) { btn.disabled = false; btn.classList.remove("status-saving"); }
+          selectEl.disabled = false;
+          selectEl.className = "status-ctrl status-" + previous;
+          selectEl.value = previous;
           return;
         }
 
@@ -534,7 +573,9 @@
       })
       .catch(function (err) {
         toast("Could not mark that task: " + err.message, "error");
-        if (btn) { btn.disabled = false; btn.classList.remove("status-saving"); }
+        selectEl.disabled = false;
+        selectEl.className = "status-ctrl status-" + previous;
+        selectEl.value = previous;
       });
   }
 
@@ -550,8 +591,8 @@
     if (!wrap) return;
     var current = state.deliverables[taskId] || "";
     wrap.innerHTML =
-      '<input type="text" class="deliverable-input" data-task-id="' + escapeAttr(taskId) +
-        '" value="' + escapeAttr(current) + '" />' +
+      '<input type="url" class="deliverable-input" data-task-id="' + escapeAttr(taskId) +
+        '" aria-label="Deliverable link" value="' + escapeAttr(current) + '" />' +
       '<button type="button" class="deliverable-save-btn" data-action="save-deliverable" data-task-id="' +
         escapeAttr(taskId) + '">Save</button>';
     var input = wrap.querySelector(".deliverable-input");
@@ -602,9 +643,14 @@
     var action = el.getAttribute("data-action");
     var taskId = el.getAttribute("data-task-id");
 
-    if (action === "cycle-status") onCycleStatus(taskId);
-    else if (action === "edit-deliverable") onEditDeliverable(taskId);
+    if (action === "edit-deliverable") onEditDeliverable(taskId);
     else if (action === "save-deliverable") onSaveDeliverable(taskId);
+  }
+
+  function onMainChange(e) {
+    var el = e.target;
+    if (!el || el.getAttribute("data-action") !== "set-status") return;
+    onSetStatus(el.getAttribute("data-task-id"), el.value, el);
   }
 
   function onMainKeydown(e) {
@@ -650,6 +696,7 @@
     dom.toastContainer = document.getElementById("toast-container");
 
     dom.mainEl.addEventListener("click", onMainClick);
+    dom.mainEl.addEventListener("change", onMainChange);
     dom.mainEl.addEventListener("keydown", onMainKeydown);
 
     recompute();
@@ -661,7 +708,6 @@
     refresh: onRefreshClick,
     // exposed for tests / debugging — not part of the app's own control flow
     _internals: {
-      nextStatus: nextStatus,
       getState: function () { return state; },
       recompute: recompute,
       render: render

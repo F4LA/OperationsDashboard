@@ -24,6 +24,7 @@
   --bg: #F5F7FA;
   --surface: #FFFFFF;
   --surface-2: #FAFBFC;
+  --surface-1: #EEF1F5;
   --border: #E4E8EE;
   --border-strong: #D1D7E0;
 
@@ -247,6 +248,7 @@ a { color: var(--steel-600); }
   color: var(--navy-900);
 }
 .sprint-dates { font-size: 12.5px; color: var(--text-muted); }
+.overshoot-legend { font-size: 11px; color: var(--text-muted); }
 .summary-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 
 /* ---------- Progress bar ---------- */
@@ -286,6 +288,59 @@ a { color: var(--steel-600); }
 .chip-green  { background: var(--green-bg);  color: var(--green); }
 .chip-amber  { background: var(--yellow-bg); color: var(--yellow); }
 .chip-red    { background: var(--red-bg);    color: var(--red); }
+
+/* ---------- Overshoot flag + popover (redesign pass) ----------
+   Replaces the native title="" tooltip on both the Rock-level and
+   milestone-level overshoot indicators with one shared, keyboard-reachable
+   popover (:hover and :focus-within both show it) — reusing the toast's
+   dark-navy styling per the spec rather than inventing a new tooltip look. */
+.overshoot-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.overshoot-flag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--red-bg);
+  color: var(--red);
+  font-size: 12px;
+  line-height: 1;
+  cursor: help;
+}
+.overshoot-flag:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 2px;
+}
+.overshoot-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 230px;
+  background: var(--navy-800);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
+  z-index: 60;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+.overshoot-wrap:hover .overshoot-popover,
+.overshoot-wrap:focus-within .overshoot-popover {
+  opacity: 1;
+  visibility: visible;
+}
 
 /* ---------- Main / Rock layout ---------- */
 main#main {
@@ -337,7 +392,6 @@ main#main {
 }
 .rock-finish { font-size: 12.5px; color: var(--text-muted); }
 .rock-finish strong { color: var(--text); }
-.rock-finish-overshoot { color: var(--red); font-weight: 600; }
 
 .rock-body { padding: 4px 0; }
 .board-empty {
@@ -349,22 +403,33 @@ main#main {
   margin: 0;
 }
 
+/* ---------- Hierarchy rail (redesign pass) ----------
+   Left-side rail color-codes structural depth instead of a flat hairline:
+   Project (navy, 16px indent) > Milestone (steel, 26px) > Task (border, 44px).
+   The thin top-hairline stays underneath — it only separates siblings now;
+   the rail carries the hierarchy weight. border-radius:0 is explicit on every
+   rail-carrying element: a rounded corner on a one-sided border reads as a
+   rendering bug, not a rounded corner. */
+
 /* ---------- Project divider (§7 cuttable badge; not a collapsible section — §6
    keeps milestones directly inside a Rock, no Project level in the view) ---------- */
 .project-divider {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 22px 4px;
+  padding: 10px 22px 10px 16px;
   border-top: 1px solid var(--border);
+  border-left: 6px solid var(--navy-900);
+  border-radius: 0;
+  background: var(--surface-1);
 }
 .rock-body > .project-divider:first-child { border-top: none; }
 .project-name {
-  font-size: 10.5px;
-  font-weight: 700;
+  font-size: 12.5px;
+  font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-faint);
+  color: var(--navy-900);
 }
 
 /* ---------- Milestone group ---------- */
@@ -375,8 +440,10 @@ main#main {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 10px 22px;
-  background: var(--surface);
+  padding: 10px 22px 10px 26px;
+  border-left: 6px solid var(--steel-600);
+  border-radius: 0;
+  background: var(--surface-2);
 }
 .milestone-name {
   font-size: 12px;
@@ -385,7 +452,6 @@ main#main {
   color: var(--steel-700);
 }
 .milestone-finish { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
-.milestone-flag { color: var(--red); }
 .milestone-group.is-deferred { opacity: 0.55; }
 .milestone-group.is-deferred .milestone-header { background: var(--surface-2); }
 
@@ -397,8 +463,11 @@ main#main {
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 16px;
-  padding: 12px 22px;
+  padding: 12px 22px 12px 44px;
   border-top: 1px solid var(--border);
+  border-left: 6px solid var(--border);
+  border-radius: 0;
+  background: var(--surface);
 }
 .milestone-group > .milestone-header + .milestone-tasks .task-row:first-child { border-top: none; }
 .task-row.is-deferred { opacity: 0.55; }
@@ -468,35 +537,52 @@ main#main {
   padding: 2px 8px;
 }
 
-/* ---------- Status control (cycles open → in_progress → done) ---------- */
+/* ---------- Status control — direct-select dropdown (redesign pass) ----------
+   A <select>, not a 3-click cycle: the chosen option IS the write, no
+   intermediate states to click through. appearance:none strips the native
+   look everywhere; the caret is a hand-drawn SVG background-image swapped
+   for a white version on the colored (in_progress/done) backgrounds, since
+   a background-image caret is the one part of a <select> appearance:none
+   doesn't remove and won't repaint on its own. */
 .status-ctrl {
   appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
   border: 1px solid var(--border-strong);
-  background: var(--surface);
+  background-color: var(--surface);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5L6 8l3.5-3.5' stroke='%235A6B82' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 10px;
   color: var(--text-muted);
   border-radius: 9999px;
-  padding: 6px 14px;
+  padding: 6px 28px 6px 14px;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.02em;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 120ms ease;
-  min-width: 96px;
+  transition: border-color 120ms ease, color 120ms ease, background-color 120ms ease;
+  min-width: 112px;
+  text-align: left;
 }
 .status-ctrl:hover:not(:disabled) { border-color: var(--steel-400); color: var(--steel-700); }
+.status-ctrl:focus-visible { outline: 2px solid var(--steel-400); outline-offset: 2px; }
 .status-ctrl:disabled { cursor: not-allowed; }
 .status-ctrl.status-in_progress {
-  background: var(--steel-600);
+  background-color: var(--steel-600);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5L6 8l3.5-3.5' stroke='white' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   border-color: var(--steel-600);
   color: #fff;
 }
 .status-ctrl.status-done {
-  background: var(--green);
+  background-color: var(--green);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5L6 8l3.5-3.5' stroke='white' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   border-color: var(--green);
   color: #fff;
 }
 .status-ctrl.status-saving { opacity: 0.55; pointer-events: none; }
+.status-ctrl option { color: var(--text); background: var(--surface); }
 
 /* ---------- Deliverable link box ---------- */
 .task-deliverable {
@@ -528,7 +614,7 @@ main#main {
   background: var(--surface);
   color: var(--text);
   cursor: pointer;
-  transition: all 120ms ease;
+  transition: border-color 120ms ease, color 120ms ease, background-color 120ms ease;
 }
 .deliverable-save-btn:hover, .deliverable-edit-btn:hover {
   border-color: var(--steel-400);
@@ -543,6 +629,13 @@ main#main {
   max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* ---------- Reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
+  .overshoot-popover { transition: none; }
+  .progress-bar-fill { transition: none; }
 }
 
 /* ---------- Responsive ---------- */
