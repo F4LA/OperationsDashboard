@@ -1,6 +1,6 @@
 # Project Brain — Operations Dashboard
 The current state in one page. Updated at the close of every chat via the push Code session.
-_Last updated: 2026-08-13 — Bernardo (D-020–D-023 locked; Phase 2 engine design frozen, ready for BUILD)_
+_Last updated: 2026-08-13 — Bernardo (Phase 2 plan mode completa y verde; D-024–D-026 registradas)_
 
 > **Source of truth for WHAT to build** is the spec: `docs/spec.md` (v1.1).
 > **Source of truth for WHY** is `docs/decision-log.md`.
@@ -9,10 +9,10 @@ _Last updated: 2026-08-13 — Bernardo (D-020–D-023 locked; Phase 2 engine des
 > Live (placeholder): https://f4la.github.io/OperationsDashboard/
 
 ## Current phase
-Phase 2 (date engine) — diseño y decisiones congelados (D-020–D-023). El engine en sí NO está codeado todavía; listo para que la sesión BUILD lo implemente en dashboard/engine.js contra el fixture tests/expected-plan-mode.json.
+Phase 2 (date engine) — plan mode COMPLETO y verde (commit 8246e65). Falta live mode (§4.7), que depende de timestamps reales. En un chat nuevo se decide si live mode va ahora (testeable con timestamps sintéticos) o después de la Fase 3 (backend).
 
 ## Status
-Diseño del motor de fechas cerrado en el chat de diseño. Semántica fijada: eje continuo de días laborales para fracciones + reglas de fin/espera (D-020), algoritmo de scheduling determinista con recomputo tras cada tarea y desempate por task.id (D-021). Validado con un motor de referencia contra los 47 tasks reales de Rock 3: paralelismo de dueños distintos, tareas "Both", tiempos de espera calendario, cross-dependencia M18-t1→M6-t3, y exclusión de M13 (deferred) — todo reproduce lo esperado. Hallazgo confirmado y aceptado: Rock 3 cierra 2026-09-14, un día pasado sprint.end → rojo desde el arranque, sin ajustar el motor (D-023). Harness permanente definido en /tests (D-022). Falta: que la sesión BUILD escriba dashboard/engine.js + tests/ y reproduzca el fixture.
+Motor de fechas en plan mode implementado, commiteado (8246e65) y verde: 60 checks, 0 fallos, las 46 tareas activas reproducen tests/expected-plan-mode.json EXACTO (fixture byte-idéntico, verificado con diff). M13-t1 correctamente excluida (deferred, D-017). Rollup §4.6: Rock R3 cierra 2026-09-14 → rojo (1 día pasado sprint.end), con M4/M7/M20/M23 en rojo — exactamente lo anticipado por D-023, no es bug. NOTA OPERATIVA: Node NO está instalado en la máquina de build; el test (script Node plano por D-022) se corrió sin modificar bajo JavaScriptCore con un shim CommonJS del scratchpad, y se verificó además en el navegador real (camino window) con idéntico resultado. Pendiente: correr `node tests/engine.test.js` una vez con Node real.
 
 ## Done
 - Full design approved and captured (decision-log D-006 … D-015): data model, date engine logic, metrics, views, identity/backend, This Week + pin + deliverable link, and what's deferred.
@@ -23,25 +23,27 @@ Diseño del motor de fechas cerrado en el chat de diseño. Semántica fijada: ej
 - `gh` CLI installed to `~/bin/gh`, `~/.zshrc` PATH updated, authenticated to the shared F4LA account via device flow.
 - Phase 1 built and committed — `sprint-plan.json` (root) + §7 validation in `dashboard/validate.js` — commit `3a43bb5` "Phase 1: sprint-plan.json load + §7 validation (D-016)". Validation semantics fixed via D-017 (milestone-level deferred propagation), D-018 (split cycle detection: task-scheduling graph vs. milestone dependsOn graph), D-019 (errors-vs-warnings taxonomy).
 - Fase 2 (diseño): semántica y algoritmo del motor de fechas congelados (D-020–D-023) y validados con motor de referencia contra Rock 3. Fixture de fechas esperadas (plan mode, 46 tareas activas) generado para commitear en tests/expected-plan-mode.json.
+- Fase 2 plan mode: dashboard/engine.js escrito, commiteado (8246e65) y verde contra el fixture (46/46, 0 desvíos). tests/engine.test.js + tests/expected-plan-mode.json commiteados (D-022). Semántica D-020/D-021 confirmada por las cadenas fraccionarias reales de Rock 3. Guardas de milestone deferred/vacío (§4.6) implementadas y probadas.
 
 ## Repo layout (as built)
 ```
 OperationsDashboard/
 ├── README.md · index.html (placeholder) · app.js (stub) · styles.css (stub)
 ├── sprint-plan.json   (real, root — production, per D-016)
-├── dashboard/  config.js engine.js events.js metrics.js board.js network.js thisweek.js  (stubs) · validate.js (real, §7 logic)
+├── dashboard/  events.js metrics.js board.js network.js thisweek.js  (stubs) · validate.js engine.js (real)
+├── tests/  engine.test.js · expected-plan-mode.json   (real, D-022)
 ├── data/rock3-seed.json   (real, test fixture, per D-016)
 └── docs/  spec.md (real, v1.1) · decision-log.md · project-brain.md
 ```
 Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root — matching CoachPulse.
 
 ## In progress
-- Sesión BUILD: implementar dashboard/engine.js (plan mode) + carpeta /tests, reproduciendo tests/expected-plan-mode.json. Live mode (§4.7) queda para después de que plan mode pase.
+- Nada activo. Fase 2 plan mode cerrada. Live mode (§4.7) o Fase 3 es lo siguiente, en chat nuevo.
 
 ## Next up (per spec §9)
-- **Cerrar Fase 2:** BUILD implementa el engine en plan mode; verde cuando reproduce el fixture. Luego live mode (§4.7, reproyección desde timestamps reales).
-- **Fase 3:** Google Sheet (tabs People/Events/Settings) + Apps Script doPost con todas las garantías del §3.
-- Las guardas de milestone deferred/vacío (§4.6, §5.1) — antes "carry into Phase 2" — ya están cubiertas en el diseño (D-017 + guard de max vacío) y probadas en la referencia; BUILD solo debe implementarlas.
+- **Decisión de secuencia (pendiente con Bernardo):** live mode §4.7 ahora (reproyección desde timestamps; testeable YA con un fixture de timestamps sintéticos, sin backend) vs. Fase 3 primero (Sheet + Apps Script §3) y live mode después con timestamps reales.
+- **Fase 3:** Google Sheet (tabs People/Events/Settings) + Apps Script doPost con todas las garantías del §3 (identidad, event id/timestamp server-side, LockService, header guard, write-then-verify).
+- Pendiente técnico menor: correr el test con `node` real cuando Node esté instalado.
 
 ## Blocked / waiting
 - Nothing.
@@ -52,7 +54,8 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 - Google Sheet + Apps Script backend, Sprint Board, metrics, This Week, pin, Gantt — all not started; they come in later phases per §9.
 
 ## Open decisions
-- None. D-020–D-023 (esta sesión) locked. No quedan decisiones abiertas de diseño para el motor.
+- D-025 provisional: semántica de executionOrder y de "Both" multi-persona, a confirmar antes del primer plan que las ejercite. No bloquea nada hoy (Rock 3 no las usa).
+- Secuencia live mode vs Fase 3 — a decidir al abrir el próximo chat.
 
 ## Key dates
 - No hard external deadline on the dashboard itself. Target: Views 1–3 usable in the first build week; Gantt (View 2) and This Week + pin + link layer follow. (Sprint being tracked, for reference: S3-2026, ends 2026-09-13.)
