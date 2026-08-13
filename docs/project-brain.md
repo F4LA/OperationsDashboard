@@ -1,6 +1,6 @@
 # Project Brain — Operations Dashboard
 The current state in one page. Updated at the close of every chat via the push Code session.
-_Last updated: 2026-08-13 — Bernardo (Fase 2 live mode diseñada y verde; D-027–D-031 registradas)_
+_Last updated: 2026-08-13 — Bernardo (Fase 2 completa: plan mode + live mode, ambas verdes; D-032 registrada)_
 
 > **Source of truth for WHAT to build** is the spec: `docs/spec.md` (v1.1).
 > **Source of truth for WHY** is `docs/decision-log.md`.
@@ -9,10 +9,12 @@ _Last updated: 2026-08-13 — Bernardo (Fase 2 live mode diseñada y verde; D-02
 > Live (placeholder): https://f4la.github.io/OperationsDashboard/
 
 ## Current phase
-Fase 2 (date engine) — live mode (§4.7) diseñada, con motor de referencia verde contra un fixture sintético. Falta que BUILD la escriba en dashboard/engine.js real.
+Fase 2 (date engine) — COMPLETA. Plan mode (commit 8246e65, 60/60 verde) y live mode (commit b55e2be, 17/17 verde) implementados, commiteados y sin regresión entre sí. Siguiente: Fase 3 (Sheet + Apps Script, §3).
 
 ## Status
 Motor de fechas en plan mode implementado, commiteado (8246e65) y verde: 60 checks, 0 fallos, las 46 tareas activas reproducen tests/expected-plan-mode.json EXACTO (fixture byte-idéntico, verificado con diff). M13-t1 correctamente excluida (deferred, D-017). Rollup §4.6: Rock R3 cierra 2026-09-14 → rojo (1 día pasado sprint.end), con M4/M7/M20/M23 en rojo — exactamente lo anticipado por D-023, no es bug. NOTA OPERATIVA: Node NO está instalado en la máquina de build; el test (script Node plano por D-022) se corrió sin modificar bajo JavaScriptCore con un shim CommonJS del scratchpad, y se verificó además en el navegador real (camino window) con idéntico resultado. Pendiente: correr `node tests/engine.test.js` una vez con Node real.
+
+Live mode (§4.7) implementado en dashboard/engine.js (OpsDashEngine.liveMode), commit b55e2be. 17/17 checks verdes contra tests/expected-live-mode.json (escenario sintético de 5 tareas / 4 milestones, today=2026-08-13): cero desvíos en tasks, milestones o rocks. Verificado dos veces (JavaScriptCore + navegador real, mismo resultado). planMode confirmado sin cambios (diff limpio, 60/60 sin regresión) — el único cambio al bloque viejo fue la línea de export para agregar liveMode.
 
 ## Done
 - Full design approved and captured (decision-log D-006 … D-015): data model, date engine logic, metrics, views, identity/backend, This Week + pin + deliverable link, and what's deferred.
@@ -25,6 +27,7 @@ Motor de fechas en plan mode implementado, commiteado (8246e65) y verde: 60 chec
 - Fase 2 (diseño): semántica y algoritmo del motor de fechas congelados (D-020–D-023) y validados con motor de referencia contra Rock 3. Fixture de fechas esperadas (plan mode, 46 tareas activas) generado para commitear en tests/expected-plan-mode.json.
 - Fase 2 plan mode: dashboard/engine.js escrito, commiteado (8246e65) y verde contra el fixture (46/46, 0 desvíos). tests/engine.test.js + tests/expected-plan-mode.json commiteados (D-022). Semántica D-020/D-021 confirmada por las cadenas fraccionarias reales de Rock 3. Guardas de milestone deferred/vacío (§4.6) implementadas y probadas.
 - Fase 2 live mode (diseño): algoritmo de 3 pasadas fijado (D-027–D-031). Motor de referencia construido reutilizando validate.js real + los helpers exactos de engine.js (mismo eje D-020, mismo comparador D-021). Fixture sintético generado y verde: tests/expected-live-mode.json (5 tareas, 4 milestones, escenario: done-temprano, done-tarde-con-wait, in_progress-con-clamp, open-Both, open-join-cruzado). today fijo = 2026-08-13.
+- Fase 2 live mode: dashboard/engine.js extendido con OpsDashEngine.liveMode (algoritmo de 3 pasadas, D-027–D-032), commit b55e2be. Test harness y fixtures commiteados: tests/live-engine.test.js, tests/expected-live-mode.json, tests/scenario-live-mode.json, tests/current-state-live-mode.json.
 
 ## Repo layout (as built)
 ```
@@ -33,16 +36,18 @@ OperationsDashboard/
 ├── sprint-plan.json   (real, root — production, per D-016)
 ├── dashboard/  events.js metrics.js board.js network.js thisweek.js  (stubs) · validate.js engine.js (real)
 ├── tests/  engine.test.js · expected-plan-mode.json   (real, D-022)
+│          live-engine.test.js · expected-live-mode.json
+│          scenario-live-mode.json · current-state-live-mode.json   (real, D-027–D-032)
 ├── data/rock3-seed.json   (real, test fixture, per D-016)
 └── docs/  spec.md (real, v1.1) · decision-log.md · project-brain.md
 ```
 Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root — matching CoachPulse.
 
 ## In progress
-- BUILD debe trasladar el algoritmo diseñado a dashboard/engine.js (OpsDashEngine.liveMode), y commitear tests/expected-live-mode.json + tests/live-engine.test.js.
+- Nada activo. Fase 2 (plan mode + live mode) cerrada. Fase 3 es lo siguiente, en chat nuevo.
 
 ## Next up (per spec §9)
-- Una vez BUILD confirme verde → Fase 3 (Sheet + Apps Script, §3), que es lo que finalmente alimenta currentState real en vez del sintético.
+- **Fase 3:** Google Sheet (tabs People/Events/Settings) + Apps Script `doPost` con todas las garantías del §3 (identidad, event id/timestamp server-side, LockService, header guard, write-then-verify). Es lo que en producción alimenta el `currentState` que `liveMode` ya sabe consumir.
 
 ## Blocked / waiting
 - Nothing.
