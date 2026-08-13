@@ -418,12 +418,14 @@ main#main {
   align-items: center;
   gap: 8px;
   padding: 10px 22px 10px 16px;
+  padding-top: 16px;
+  margin-top: 28px;
   border-top: 1px solid var(--border);
   border-left: 6px solid var(--navy-900);
   border-radius: 0;
   background: var(--surface-1);
 }
-.rock-body > .project-divider:first-child { border-top: none; }
+.rock-body > .project-divider:first-child { border-top: none; margin-top: 0; }
 .project-name {
   font-size: 12.5px;
   font-weight: 600;
@@ -433,8 +435,12 @@ main#main {
 }
 
 /* ---------- Milestone group ---------- */
-.milestone-group { border-top: 1px solid var(--border); }
-.milestone-group:first-child { border-top: none; }
+.milestone-group {
+  border-top: 1px solid var(--border);
+  margin-top: 18px;
+  padding-bottom: 8px;
+}
+.milestone-group:first-child { border-top: none; margin-top: 8px; }
 .milestone-header {
   display: flex;
   align-items: center;
