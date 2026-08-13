@@ -1,7 +1,6 @@
 # Project Brain — Operations Dashboard
 The current state in one page. Updated at the close of every chat via the push Code session.
-_Last updated: 2026-08-13 — Bernardo (Fase 4 completa y probada E2E, D-049; pase de
-rediseño visual intercalado antes de Fase 5, D-050)_
+_Last updated: 2026-08-13 — Bernardo (rediseño visual — spec de Option B locked, D-051; enviado a BUILD)_
 
 > **Source of truth for WHAT to build** is the spec: `docs/spec.md` (v1.1).
 > **Source of truth for WHY** is `docs/decision-log.md`.
@@ -10,11 +9,7 @@ rediseño visual intercalado antes de Fase 5, D-050)_
 > Live: https://f4la.github.io/OperationsDashboard/ (Sprint Board, since Fase 4 — commit 1acc181)
 
 ## Current phase
-Fase 4 (Sprint Board, Views 1+3, §6) — COMPLETA y probada E2E en navegador real
-(commit 1acc181, D-049). Antes de Fase 5 se intercala un pase de rediseño visual
-(D-050) en un chat de diseño dedicado: jerarquía visual (proyecto/milestone/tarea),
-control de status como dropdown, y alertas de overshoot auto-explicadas. Fase 5
-(métricas) queda detrás del pase visual.
+Pase de rediseño visual del Sprint Board (D-050/D-051): spec de la Option B (rail coloreado por nivel + dropdown de status + tooltip/leyenda de overshoot) aprobado y enviado a BUILD. Awaiting BUILD implementation antes de arrancar Fase 5.
 
 ## Status
 Fase 3 backend completo, desplegado y probado de punta a punta contra el servidor REAL. Componentes: (1) backend/Code.gs — Apps Script doPost con todas las garantías del §3 (People leído en vivo, Event ID server-side formato D-034, Timestamp server-side con offset real y celda forzada a texto D-041, LockService, header guard, validación de Actor/Action/Value); (2) dashboard/events.js — fold de Events (D-009) que produce el shape currentState de D-027, verificado por round-trip completo contra el fixture de Fase 2 (events→fold→currentState→liveMode da idéntico a expected-live-mode.json); (3) tests/appsscript-smoke.test.js — harness Node que pega al Web App real.
@@ -61,13 +56,10 @@ OperationsDashboard/
 Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root — matching CoachPulse.
 
 ## In progress
-- Nada activo en build. Siguiente: pase de rediseño visual (chat de diseño, D-050),
-  luego Fase 5.
+- Nada activo en build. Spec del rediseño visual (D-051) enviado a BUILD; falta que BUILD lo implemente en board.js + styles.css. Después, Fase 5.
 
 ## Next up (per spec §9)
-- **Pase de rediseño visual** (fuera de la secuencia §9, intercalado por D-050): chat
-  de diseño dedicado. No agrega funcionalidad; fija jerarquía visual y patrones que
-  Fases 5–7 reúsan.
+- Esperando reporte de BUILD sobre el rediseño visual (D-051) — revisar acá antes de considerarlo cerrado.
 - **Fase 5:** Métricas (§5) — barra de progreso ya existe (metrics.js); falta la
   gráfica burn-up planned-vs-actual y confirmar la reproyección live en cada marca.
 
