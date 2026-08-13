@@ -1,6 +1,6 @@
 # Project Brain — Operations Dashboard
 The current state in one page. Updated at the close of every chat via the push Code session.
-_Last updated: 2026-08-13 — Bernardo (rediseño visual — spec de Option B locked, D-051; enviado a BUILD)_
+_Last updated: 2026-08-13 — Bernardo (rediseño visual CERRADO y confirmado E2E, D-052)_
 
 > **Source of truth for WHAT to build** is the spec: `docs/spec.md` (v1.1).
 > **Source of truth for WHY** is `docs/decision-log.md`.
@@ -9,7 +9,7 @@ _Last updated: 2026-08-13 — Bernardo (rediseño visual — spec de Option B lo
 > Live: https://f4la.github.io/OperationsDashboard/ (Sprint Board, since Fase 4 — commit 1acc181)
 
 ## Current phase
-Pase de rediseño visual del Sprint Board (D-050/D-051): spec de la Option B (rail coloreado por nivel + dropdown de status + tooltip/leyenda de overshoot) aprobado y enviado a BUILD. Awaiting BUILD implementation antes de arrancar Fase 5.
+Fase 5 (Métricas, §5) — próxima. Rediseño visual del Sprint Board (D-050–D-052) cerrado y confirmado E2E.
 
 ## Status
 Fase 3 backend completo, desplegado y probado de punta a punta contra el servidor REAL. Componentes: (1) backend/Code.gs — Apps Script doPost con todas las garantías del §3 (People leído en vivo, Event ID server-side formato D-034, Timestamp server-side con offset real y celda forzada a texto D-041, LockService, header guard, validación de Actor/Action/Value); (2) dashboard/events.js — fold de Events (D-009) que produce el shape currentState de D-027, verificado por round-trip completo contra el fixture de Fase 2 (events→fold→currentState→liveMode da idéntico a expected-live-mode.json); (3) tests/appsscript-smoke.test.js — harness Node que pega al Web App real.
@@ -56,10 +56,9 @@ OperationsDashboard/
 Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root — matching CoachPulse.
 
 ## In progress
-- Nada activo en build. Spec del rediseño visual (D-051) enviado a BUILD; falta que BUILD lo implemente en board.js + styles.css. Después, Fase 5.
+- Nada activo. Próximo: Fase 5.
 
 ## Next up (per spec §9)
-- Esperando reporte de BUILD sobre el rediseño visual (D-051) — revisar acá antes de considerarlo cerrado.
 - **Fase 5:** Métricas (§5) — barra de progreso ya existe (metrics.js); falta la
   gráfica burn-up planned-vs-actual y confirmar la reproyección live en cada marca.
 
