@@ -1,0 +1,186 @@
+{
+  "M1-t1": {
+    "plannedFinish": "2026-08-04",
+    "plannedStart": "2026-08-03"
+  },
+  "M10-t1": {
+    "plannedFinish": "2026-08-06",
+    "plannedStart": "2026-08-05"
+  },
+  "M11-t1": {
+    "plannedFinish": "2026-08-12",
+    "plannedStart": "2026-08-06"
+  },
+  "M11-t2": {
+    "plannedFinish": "2026-08-13",
+    "plannedStart": "2026-08-12"
+  },
+  "M12-t1": {
+    "plannedFinish": "2026-08-06",
+    "plannedStart": "2026-08-06"
+  },
+  "M12-t2": {
+    "plannedFinish": "2026-08-24",
+    "plannedStart": "2026-08-24"
+  },
+  "M12-t3": {
+    "plannedFinish": "2026-08-24",
+    "plannedStart": "2026-08-24"
+  },
+  "M12-t4": {
+    "plannedFinish": "2026-08-25",
+    "plannedStart": "2026-08-25"
+  },
+  "M14-t1": {
+    "plannedFinish": "2026-08-27",
+    "plannedStart": "2026-08-25"
+  },
+  "M14-t2": {
+    "plannedFinish": "2026-09-02",
+    "plannedStart": "2026-09-01"
+  },
+  "M14-t3": {
+    "plannedFinish": "2026-09-11",
+    "plannedStart": "2026-09-09"
+  },
+  "M16-t1": {
+    "plannedFinish": "2026-08-03",
+    "plannedStart": "2026-07-31"
+  },
+  "M16-t2": {
+    "plannedFinish": "2026-08-05",
+    "plannedStart": "2026-08-05"
+  },
+  "M17-t1": {
+    "plannedFinish": "2026-08-17",
+    "plannedStart": "2026-08-12"
+  },
+  "M17-t2": {
+    "plannedFinish": "2026-08-20",
+    "plannedStart": "2026-08-20"
+  },
+  "M17-t3": {
+    "plannedFinish": "2026-08-25",
+    "plannedStart": "2026-08-25"
+  },
+  "M18-t1": {
+    "plannedFinish": "2026-08-19",
+    "plannedStart": "2026-08-13"
+  },
+  "M2-t1": {
+    "plannedFinish": "2026-08-27",
+    "plannedStart": "2026-08-26"
+  },
+  "M2-t2": {
+    "plannedFinish": "2026-08-20",
+    "plannedStart": "2026-08-20"
+  },
+  "M2-t3": {
+    "plannedFinish": "2026-08-28",
+    "plannedStart": "2026-08-27"
+  },
+  "M2-t4": {
+    "plannedFinish": "2026-08-28",
+    "plannedStart": "2026-08-27"
+  },
+  "M2-t5": {
+    "plannedFinish": "2026-09-01",
+    "plannedStart": "2026-08-31"
+  },
+  "M20-t1": {
+    "plannedFinish": "2026-09-07",
+    "plannedStart": "2026-08-26"
+  },
+  "M20-t2": {
+    "plannedFinish": "2026-09-07",
+    "plannedStart": "2026-09-07"
+  },
+  "M20-t3": {
+    "plannedFinish": "2026-09-14",
+    "plannedStart": "2026-09-09"
+  },
+  "M22-t1": {
+    "plannedFinish": "2026-08-21",
+    "plannedStart": "2026-08-21"
+  },
+  "M22-t2": {
+    "plannedFinish": "2026-08-31",
+    "plannedStart": "2026-08-28"
+  },
+  "M22-t3": {
+    "plannedFinish": "2026-09-08",
+    "plannedStart": "2026-09-08"
+  },
+  "M23-t1": {
+    "plannedFinish": "2026-09-14",
+    "plannedStart": "2026-09-11"
+  },
+  "M3-t1": {
+    "plannedFinish": "2026-09-07",
+    "plannedStart": "2026-09-01"
+  },
+  "M4-t1": {
+    "plannedFinish": "2026-09-14",
+    "plannedStart": "2026-09-14"
+  },
+  "M5-t1": {
+    "plannedFinish": "2026-07-27",
+    "plannedStart": "2026-07-27"
+  },
+  "M5-t2": {
+    "plannedFinish": "2026-07-29",
+    "plannedStart": "2026-07-29"
+  },
+  "M5-t3": {
+    "plannedFinish": "2026-07-29",
+    "plannedStart": "2026-07-29"
+  },
+  "M5-t4": {
+    "plannedFinish": "2026-07-30",
+    "plannedStart": "2026-07-29"
+  },
+  "M6-t1": {
+    "plannedFinish": "2026-08-03",
+    "plannedStart": "2026-08-03"
+  },
+  "M6-t2": {
+    "plannedFinish": "2026-08-25",
+    "plannedStart": "2026-08-25"
+  },
+  "M6-t3": {
+    "plannedFinish": "2026-08-05",
+    "plannedStart": "2026-08-05"
+  },
+  "M7-t1": {
+    "plannedFinish": "2026-09-14",
+    "plannedStart": "2026-09-09"
+  },
+  "M7-t2": {
+    "plannedFinish": "2026-09-08",
+    "plannedStart": "2026-09-08"
+  },
+  "M7-t3": {
+    "plannedFinish": "2026-09-14",
+    "plannedStart": "2026-09-14"
+  },
+  "M8-t1": {
+    "plannedFinish": "2026-07-28",
+    "plannedStart": "2026-07-28"
+  },
+  "M8-t2": {
+    "plannedFinish": "2026-07-30",
+    "plannedStart": "2026-07-30"
+  },
+  "M8-t3": {
+    "plannedFinish": "2026-07-31",
+    "plannedStart": "2026-07-30"
+  },
+  "M9-t1": {
+    "plannedFinish": "2026-08-03",
+    "plannedStart": "2026-08-03"
+  },
+  "M9-t2": {
+    "plannedFinish": "2026-08-05",
+    "plannedStart": "2026-08-03"
+  }
+}
