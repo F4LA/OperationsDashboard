@@ -1,0 +1,5 @@
+{
+  "T1": { "status": "done", "statusChangedAt": "2026-08-03T22:10:00Z" },
+  "T2": { "status": "in_progress", "statusChangedAt": "2026-08-05T09:00:00Z" },
+  "T4": { "status": "done", "statusChangedAt": "2026-08-10T18:45:00Z" }
+}

@@ -1,0 +1,68 @@
+{
+  "today": "2026-08-13",
+  "tasks": {
+    "T1": {
+      "status": "done",
+      "plannedStart": null,
+      "plannedFinish": "2026-08-03",
+      "clamped": false
+    },
+    "T2": {
+      "status": "in_progress",
+      "plannedStart": "2026-08-05",
+      "plannedFinish": "2026-08-12",
+      "clamped": true
+    },
+    "T3": {
+      "status": "open",
+      "plannedStart": "2026-08-13",
+      "plannedFinish": "2026-08-13",
+      "clamped": false
+    },
+    "T4": {
+      "status": "done",
+      "plannedStart": null,
+      "plannedFinish": "2026-08-10",
+      "clamped": false
+    },
+    "T5": {
+      "status": "open",
+      "plannedStart": "2026-08-14",
+      "plannedFinish": "2026-08-14",
+      "clamped": false
+    }
+  },
+  "milestones": {
+    "M1": {
+      "plannedFinish": "2026-08-03",
+      "red": false
+    },
+    "M2": {
+      "plannedFinish": "2026-08-13",
+      "red": false
+    },
+    "M3": {
+      "plannedFinish": "2026-08-10",
+      "red": false
+    },
+    "M4": {
+      "plannedFinish": "2026-08-14",
+      "red": false
+    }
+  },
+  "rocks": {
+    "R1": {
+      "plannedFinish": "2026-08-14",
+      "red": false
+    }
+  },
+  "order": [
+    "T3",
+    "T5"
+  ],
+  "fixedTaskIds": [
+    "T1",
+    "T2",
+    "T4"
+  ]
+}

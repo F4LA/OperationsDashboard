@@ -506,8 +506,382 @@
     };
   }
 
+  /* ------------------------------------------------------------------ *
+   * liveMode(plan, currentState, todayISO) — spec §4.7, semantics fixed by
+   * D-027–D-031. Does not modify planMode; shares its id index and priority
+   * comparator (buildIndex, collectActive, ownersOf, downstreamCounts,
+   * makeComparator, buildExecutionOrder) via the same module-level helpers.
+   * The dependency-fan-out and roll-up steps mirror planMode's inline logic
+   * in the two small helpers below, duplicated rather than extracted from
+   * planMode's body, which this change must leave untouched (D-031).
+   * ------------------------------------------------------------------ */
+
+  /** Truncates an ISO timestamp (with or without a time part) to its date (D-028). */
+  function truncateToDateMs(iso) {
+    var s = String(iso);
+    return parseISO(s.length >= 10 ? s.slice(0, 10) : s);
+  }
+
+  /** Same §4.2 fan-out planMode computes inline, narrowed to active ids. */
+  function buildPrereqsFor(V, index, activeIds, activeSet) {
+    var prereqs = {};
+    for (var i = 0; i < activeIds.length; i++) {
+      var id = activeIds[i];
+      var resolved = V.resolveDeps(index.tasks[id], index);
+      var list = [];
+      for (var j = 0; j < resolved.taskIds.length; j++) {
+        var dep = resolved.taskIds[j];
+        if (dep !== id && activeSet[dep]) list.push(dep);
+      }
+      prereqs[id] = list;
+    }
+    return prereqs;
+  }
+
+  /** Same §4.6 roll-up planMode computes inline, generalized over any tasks map. */
+  function computeRollup(plan, index, tasksMap, sprintEndMs) {
+    var milestones = {};
+    var i, j, k;
+
+    for (i = 0; i < index.milestoneOrder.length; i++) {
+      var mid = index.milestoneOrder[i];
+      var milestone = index.milestones[mid];
+      var memberIds = index.tasksOfMilestone[mid] || [];
+      var scheduledMembers = [];
+      var maxFinishMs = null;
+
+      for (j = 0; j < memberIds.length; j++) {
+        var member = tasksMap[memberIds[j]];
+        if (!member) continue; // deferred, or unscheduled (deadlock / missing timestamp)
+        scheduledMembers.push(memberIds[j]);
+        var ms = parseISO(member.plannedFinish);
+        if (maxFinishMs === null || ms > maxFinishMs) maxFinishMs = ms;
+      }
+
+      milestones[mid] = {
+        id: mid,
+        deferred: milestone.deferred === true,
+        taskIds: memberIds.slice(),
+        scheduledTaskIds: scheduledMembers,
+        plannedFinish: maxFinishMs === null ? null : formatISO(maxFinishMs),
+        red: maxFinishMs !== null && sprintEndMs !== null && maxFinishMs > sprintEndMs
+      };
+    }
+
+    var rocks = {};
+    for (i = 0; i < (plan.rocks || []).length; i++) {
+      var rock = plan.rocks[i];
+      var rockMax = null;
+      var projects = Array.isArray(rock.projects) ? rock.projects : [];
+
+      for (j = 0; j < projects.length; j++) {
+        var mlist = Array.isArray(projects[j].milestones) ? projects[j].milestones : [];
+        for (k = 0; k < mlist.length; k++) {
+          var entry = milestones[mlist[k].id];
+          if (!entry || !entry.plannedFinish) continue;
+          var mms = parseISO(entry.plannedFinish);
+          if (rockMax === null || mms > rockMax) rockMax = mms;
+        }
+      }
+
+      rocks[rock.id] = {
+        id: rock.id,
+        plannedFinish: rockMax === null ? null : formatISO(rockMax),
+        red: rockMax !== null && sprintEndMs !== null && rockMax > sprintEndMs
+      };
+    }
+
+    return { milestones: milestones, rocks: rocks };
+  }
+
+  function liveMode(plan, currentState, todayISO) {
+    var errors = [];
+    var V = getValidate(root);
+
+    if (!plan || !plan.sprint || !plan.sprint.start) {
+      return {
+        ok: false,
+        errors: [{ code: "SPRINT_START_MISSING", message: "sprint.start is required to run the engine." }],
+        mode: "live", tasks: {}, milestones: {}, rocks: {}, order: [], fixedTaskIds: [],
+        deferredTasks: [], stats: { scheduled: 0, fixed: 0, deferred: 0 }
+      };
+    }
+    if (!todayISO) {
+      return {
+        ok: false,
+        errors: [{ code: "TODAY_MISSING", message: "liveMode requires an explicit todayISO parameter (never Date.now(), per D-027)." }],
+        mode: "live", tasks: {}, milestones: {}, rocks: {}, order: [], fixedTaskIds: [],
+        deferredTasks: [], stats: { scheduled: 0, fixed: 0, deferred: 0 }
+      };
+    }
+
+    var index = V.buildIndex(plan);
+    var people = Array.isArray(plan.people) ? plan.people.slice() : [];
+    var i, j;
+
+    var sprintStartMs = parseISO(plan.sprint.start);
+    var sprintEndMs = plan.sprint.end ? parseISO(plan.sprint.end) : null;
+    var axis = new Axis(sprintStartMs);
+
+    /* ---- active vs deferred (D-017), same as plan mode ---- */
+    var split = collectActive(plan, index);
+    var activeIds = split.active;
+    var activeSet = {};
+    for (i = 0; i < activeIds.length; i++) activeSet[activeIds[i]] = true;
+
+    var prereqs = buildPrereqsFor(V, index, activeIds, activeSet);
+    var counts = downstreamCounts(activeIds, prereqs);
+    var comparator = makeComparator({
+      index: index,
+      counts: counts,
+      execRanks: buildExecutionOrder(plan),
+      people: people
+    });
+
+    var state = currentState || {};
+    var todayPos = axis.indexOnOrAfter(parseISO(todayISO));
+
+    var availableFrom = {};
+    for (i = 0; i < people.length; i++) availableFrom[people[i]] = 0;
+
+    var tasks = {};
+    var scheduled = {};
+    var doneIds = [];
+    var inProgressIds = [];
+    var openIds = [];
+    var fixedTaskIds = [];
+
+    for (i = 0; i < activeIds.length; i++) {
+      var tid = activeIds[i];
+      var entry = state[tid];
+      var status = entry && entry.status ? entry.status : "open";
+      if (status === "done") doneIds.push(tid);
+      else if (status === "in_progress") inProgressIds.push(tid);
+      else openIds.push(tid);
+      if (status === "done" || status === "in_progress") fixedTaskIds.push(tid);
+    }
+
+    /* ---- pass 1: done tasks fixed to their real completion date ---- */
+    for (i = 0; i < doneIds.length; i++) {
+      var did = doneIds[i];
+      var dtask = index.tasks[did];
+      var dentry = state[did] || {};
+      var downers = ownersOf(dtask, people);
+
+      if (!dentry.statusChangedAt) {
+        errors.push({
+          code: "MISSING_COMPLETED_AT", id: did,
+          message: "Task " + did + " is marked done but has no statusChangedAt; cannot fix its date."
+        });
+        continue; // report, don't crash — task stays unscheduled
+      }
+
+      var completedMs = truncateToDateMs(dentry.statusChangedAt);
+      var dFinishIndex = axis.indexOnOrAfter(completedMs);
+      var dWaitDays = dtask.waitDays || 0;
+      var dWorkEndIndex = axis.indexOnOrAfter(completedMs - dWaitDays * DAY_MS);
+
+      tasks[did] = {
+        id: did,
+        milestoneId: index.milestoneOfTask[did],
+        owner: dtask.owner,
+        owners: downers,
+        type: dtask.type,
+        workDays: dtask.workDays || 0,
+        waitDays: dWaitDays,
+        status: "done",
+        plannedStart: null,
+        plannedFinish: formatISO(axis.dateAt(dFinishIndex)),
+        startPos: null,
+        workEndPos: dWorkEndIndex,
+        finishPos: dFinishIndex,
+        clamped: false,
+        deferred: false
+      };
+
+      for (j = 0; j < downers.length; j++) {
+        availableFrom[downers[j]] = Math.max(availableFrom[downers[j]] || 0, dWorkEndIndex);
+      }
+      scheduled[did] = true;
+    }
+
+    /* ---- pass 2: in_progress tasks fixed to their real start, finish clamped to today ---- */
+    for (i = 0; i < inProgressIds.length; i++) {
+      var pid = inProgressIds[i];
+      var ptask = index.tasks[pid];
+      var pentry = state[pid] || {};
+      var powners = ownersOf(ptask, people);
+
+      if (!pentry.statusChangedAt) {
+        errors.push({
+          code: "MISSING_STATUS_CHANGED_AT", id: pid,
+          message: "Task " + pid + " is marked in_progress but has no statusChangedAt; cannot fix its start."
+        });
+        continue;
+      }
+
+      var startIndex = axis.indexOnOrAfter(truncateToDateMs(pentry.statusChangedAt));
+      var startPos = startIndex;
+      var pWorkDays = ptask.workDays || 0;
+      var pWaitDays = ptask.waitDays || 0;
+      var rawWorkEndPos = snap(startPos + pWorkDays);
+      var clamped = rawWorkEndPos < todayPos;
+      var workEndPos = clamped ? todayPos : rawWorkEndPos;
+      var workEndIndex = lastTouchedIndex(workEndPos, startIndex);
+
+      var pFinishPos, pFinishIndex;
+      if (pWaitDays > 0) {
+        var pTargetMs = axis.dateAt(workEndIndex) + pWaitDays * DAY_MS;
+        pFinishIndex = axis.indexOnOrAfter(pTargetMs);
+        pFinishPos = pFinishIndex;
+      } else {
+        pFinishPos = workEndPos;
+        pFinishIndex = workEndIndex;
+      }
+
+      tasks[pid] = {
+        id: pid,
+        milestoneId: index.milestoneOfTask[pid],
+        owner: ptask.owner,
+        owners: powners,
+        type: ptask.type,
+        workDays: pWorkDays,
+        waitDays: pWaitDays,
+        status: "in_progress",
+        plannedStart: formatISO(axis.dateAt(startIndex)),
+        plannedFinish: formatISO(axis.dateAt(pFinishIndex)),
+        startPos: startPos,
+        workEndPos: workEndPos,
+        finishPos: pFinishPos,
+        clamped: clamped,
+        deferred: false
+      };
+
+      for (j = 0; j < powners.length; j++) {
+        availableFrom[powners[j]] = Math.max(availableFrom[powners[j]] || 0, workEndPos);
+      }
+      scheduled[pid] = true;
+    }
+
+    /* ---- pass 3: schedule the open remainder — planMode's exact loop (§4.5/D-021),
+       with today added as a third floor under startPos ---- */
+    var order = [];
+    var remaining = openIds.slice();
+
+    while (remaining.length) {
+      var ready = [];
+      for (i = 0; i < remaining.length; i++) {
+        var candidate = remaining[i];
+        var deps = prereqs[candidate];
+        var allDone = true;
+        for (j = 0; j < deps.length; j++) {
+          if (!scheduled[deps[j]]) { allDone = false; break; }
+        }
+        if (allDone) ready.push(candidate);
+      }
+
+      if (!ready.length) {
+        errors.push({
+          code: "DEPENDENCY_DEADLOCK",
+          message: "Cannot schedule the remaining open task(s) — every one is waiting on another " +
+            "unscheduled task: " + remaining.slice().sort().join(", ") + ".",
+          ids: remaining.slice().sort()
+        });
+        break;
+      }
+
+      ready.sort(comparator);
+      var pick = ready[0];
+      var task = index.tasks[pick];
+      var owners = ownersOf(task, people);
+
+      var depFinishPos = 0;
+      var picked = prereqs[pick];
+      for (i = 0; i < picked.length; i++) {
+        var pf = tasks[picked[i]].finishPos;
+        if (pf > depFinishPos) depFinishPos = pf;
+      }
+
+      var resourceFreePos = 0;
+      for (i = 0; i < owners.length; i++) {
+        var af = availableFrom[owners[i]] || 0;
+        if (af > resourceFreePos) resourceFreePos = af;
+      }
+
+      // The only change from planMode's loop: today is a third floor (D-031).
+      var startPos2 = snap(Math.max(depFinishPos, resourceFreePos, todayPos));
+      var startIndex2 = dayIndexAt(startPos2);
+      var workDays2 = task.workDays || 0;
+      var waitDays2 = task.waitDays || 0;
+      var workEndPos2 = snap(startPos2 + workDays2);
+      var workEndIndex2 = lastTouchedIndex(workEndPos2, startIndex2);
+
+      var finishPos2, finishIndex2;
+      if (waitDays2 > 0) {
+        var targetMs2 = axis.dateAt(workEndIndex2) + waitDays2 * DAY_MS;
+        finishIndex2 = axis.indexOnOrAfter(targetMs2);
+        finishPos2 = finishIndex2;
+      } else {
+        finishPos2 = workEndPos2;
+        finishIndex2 = workEndIndex2;
+      }
+
+      for (i = 0; i < owners.length; i++) availableFrom[owners[i]] = workEndPos2;
+
+      tasks[pick] = {
+        id: pick,
+        milestoneId: index.milestoneOfTask[pick],
+        owner: task.owner,
+        owners: owners,
+        type: task.type,
+        workDays: workDays2,
+        waitDays: waitDays2,
+        status: "open",
+        plannedStart: formatISO(axis.dateAt(startIndex2)),
+        plannedFinish: formatISO(axis.dateAt(finishIndex2)),
+        startPos: startPos2,
+        workEndPos: workEndPos2,
+        finishPos: finishPos2,
+        clamped: false,
+        deferred: false
+      };
+
+      scheduled[pick] = true;
+      order.push(pick);
+      remaining.splice(remaining.indexOf(pick), 1);
+    }
+
+    var rollup = computeRollup(plan, index, tasks, sprintEndMs);
+
+    return {
+      ok: errors.length === 0,
+      errors: errors,
+      mode: "live",
+      today: todayISO,
+      sprint: {
+        start: plan.sprint.start,
+        end: plan.sprint.end || null,
+        goLive: plan.sprint.goLive || null,
+        firstWorkingDay: formatISO(axis.dateAt(0))
+      },
+      tasks: tasks,
+      milestones: rollup.milestones,
+      rocks: rollup.rocks,
+      order: order,
+      fixedTaskIds: fixedTaskIds,
+      deferredTasks: split.deferred,
+      stats: {
+        scheduled: order.length,
+        fixed: fixedTaskIds.length,
+        active: activeIds.length,
+        deferred: split.deferred.length
+      }
+    };
+  }
+
   root.OpsDashEngine = {
     planMode: planMode,
+    liveMode: liveMode,
     // exposed for tests and for the Gantt view later
     _internals: {
       Axis: Axis,
@@ -516,7 +890,8 @@
       isWorkingDayMs: isWorkingDayMs,
       dayIndexAt: dayIndexAt,
       lastTouchedIndex: lastTouchedIndex,
-      downstreamCounts: downstreamCounts
+      downstreamCounts: downstreamCounts,
+      truncateToDateMs: truncateToDateMs
     }
   };
 })(typeof window !== "undefined" ? window : this);

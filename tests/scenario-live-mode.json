@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "1.0",
+  "sprint": {
+    "id": "SYN-1",
+    "name": "Synthetic live-mode scenario",
+    "start": "2026-08-03",
+    "end": "2026-08-15",
+    "goLive": "2026-08-16"
+  },
+  "people": ["Brent", "Bernardo"],
+  "rocks": [
+    {
+      "id": "R1",
+      "name": "Synthetic Rock",
+      "owners": ["Brent", "Bernardo"],
+      "cuttable": false,
+      "projects": [
+        {
+          "id": "P1",
+          "name": "Synthetic Project",
+          "objective": "Exercise live-mode reprojection.",
+          "owner": "Both",
+          "milestones": [
+            {
+              "id": "M1",
+              "name": "Done early",
+              "dependsOn": [],
+              "tasks": [
+                { "id": "T1", "desc": "Done early, no wait", "owner": "Brent", "type": "work", "workDays": 2, "waitDays": 0, "dependsOn": [], "crossDependsOn": [] }
+              ]
+            },
+            {
+              "id": "M2",
+              "name": "In progress (overdue) + open follow-on",
+              "dependsOn": ["M1"],
+              "tasks": [
+                { "id": "T2", "desc": "In progress, will be overdue relative to today", "owner": "Bernardo", "type": "work", "workDays": 3, "waitDays": 0, "dependsOn": ["T1"], "crossDependsOn": [] },
+                { "id": "T3", "desc": "Open, Both, depends on T2", "owner": "Both", "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": ["T2"], "crossDependsOn": [] }
+              ]
+            },
+            {
+              "id": "M3",
+              "name": "Done late, with wait",
+              "dependsOn": ["M1"],
+              "tasks": [
+                { "id": "T4", "desc": "Done late, includes a 3-day wait", "owner": "Brent", "type": "work", "workDays": 1, "waitDays": 3, "dependsOn": ["T1"], "crossDependsOn": [] }
+              ]
+            },
+            {
+              "id": "M4",
+              "name": "Open, cross-milestone join",
+              "dependsOn": ["M2", "M3"],
+              "tasks": [
+                { "id": "T5", "desc": "Open, depends on T3 and T4", "owner": "Bernardo", "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": ["T3", "T4"], "crossDependsOn": [] }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
