@@ -27,6 +27,41 @@
  *   OpsDashEvents.toCurrentState(input) → the D-027 map, exactly two keys per task
  *   OpsDashEvents.deliverables(input)   → { taskId: url }
  *   OpsDashEvents.pins(input)           → { taskId: isoMonday }
+ *   OpsDashEvents.fetchEvents()         → Promise<events[]> (full Events tab, Sheets API v4)
+ *   OpsDashEvents.postEvent(action, taskId, value, actor, note) → Promise<{ok, ...}>
+ *   OpsDashEvents.verifyEvent({taskId, action, value, actor})  → Promise<{ok, ...}>
+ *
+ * postEvent / verifyEvent — Phase 4 write path (§3 "Write path", D-046, D-047)
+ *
+ *   Client emits ONLY the shortcut payload (D-046): {action, sprintId, taskId,
+ *   value, actor, note}, never the appendEvent envelope — the backend accepts
+ *   both (D-039) but this is the one real form the board sends.
+ *
+ *   postEvent POSTs as a CORS "simple request" (text/plain body, so no preflight
+ *   OPTIONS — Apps Script Web Apps don't answer one). `mode:"no-cors"` is used
+ *   ONLY inside the catch on a TypeError (network/CORS-level failure) — never as
+ *   the default, because an unconditional no-cors makes a server-side rejection
+ *   look identical to success (the scar this project's spec calls out by name).
+ *
+ *   postEvent ALWAYS ends by calling verifyEvent, on every path — including a
+ *   readable server response that already said ok:false. That specific,
+ *   already-known reason is what postEvent resolves with either way; verify
+ *   still runs (so the audit trail / caller-visible timing is consistent) but
+ *   its outcome does not overwrite a clearer answer we already have. When the
+ *   POST result is unreadable (no-cors) or looked like success, verify's
+ *   outcome IS the answer.
+ *
+ *   verifyEvent re-reads the Events tab (same Sheets API v4 path the fold uses)
+ *   and looks for a row matching (Task ID, Action, Value, Actor) in the last 40
+ *   rows, retrying with backoff 0/500/1000/2000ms (4 attempts total) before
+ *   giving up. Per D-044's lesson applied here: a read that FAILS is a
+ *   different outcome from a read that SUCCEEDS but finds nothing — the first
+ *   is "we couldn't check" (VERIFY_READ_FAILED), the second is "we looked and
+ *   it isn't there" (VERIFY_TIMEOUT). Collapsing them would repeat the exact
+ *   false-positive bug D-044 fixed in the smoke test.
+ *
+ *   Every caller branches on the `ok` field only, never on HTTP status (D-040) —
+ *   Apps Script's ContentService always answers 200, success or error alike.
  */
 (function (root) {
   "use strict";
@@ -374,6 +409,164 @@
     return -1;
   }
 
+  /* ------------------------------------------------------------------ *
+   * Config access
+   * ------------------------------------------------------------------ */
+
+  function getConfig() {
+    var cfg = root.OpsDashConfig;
+    if (!cfg) throw new Error("OpsDashEvents requires OpsDashConfig to be loaded first.");
+    return cfg;
+  }
+
+  function sleep(ms) {
+    return new Promise(function (resolve) { setTimeout(resolve, ms); });
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Read path (§3): full Events tab via Sheets API v4
+   * ------------------------------------------------------------------ */
+
+  /** Fetches the whole Events tab and returns parsed events[] (not folded). */
+  function fetchEvents() {
+    var cfg = getConfig();
+    var url = cfg.sheetUrl(cfg.TABS.EVENTS);
+
+    return fetch(url).then(function (response) {
+      return response.text().then(function (text) {
+        var body;
+        try {
+          body = JSON.parse(text);
+        } catch (err) {
+          throw new Error("Events read: response was not JSON: " + text.slice(0, 200));
+        }
+        if (!response.ok) {
+          var msg = (body && body.error && body.error.message) || ("HTTP " + response.status);
+          throw new Error("Events read failed: " + msg);
+        }
+        return parseRows(body.values || []).events;
+      });
+    });
+  }
+
+  /* ------------------------------------------------------------------ *
+   * verifyEvent (§3 "Write-then-verify", D-047)
+   * ------------------------------------------------------------------ */
+
+  var VERIFY_TAIL = 40;
+  var VERIFY_DELAYS_MS = [0, 500, 1000, 2000];
+
+  function matches(ev, want) {
+    return trimStr(ev.taskId) === trimStr(want.taskId) &&
+      trimStr(ev.action) === trimStr(want.action) &&
+      trimStr(ev.value) === trimStr(want.value === undefined ? "" : want.value) &&
+      trimStr(ev.actor) === trimStr(want.actor);
+  }
+
+  /**
+   * Confirms a (Task ID, Action, Value, Actor) row landed, re-reading the tail
+   * of Events with backoff. Resolves {ok:true, event} on a hit — `event` is the
+   * matched row, carrying the server's real Timestamp (a superset of the
+   * {ok:true} the spec calls for; callers that only check `.ok` are unaffected,
+   * and it saves the caller from approximating statusChangedAt with the
+   * client's own clock). Otherwise {ok:false, error:"VERIFY_TIMEOUT"} (read
+   * succeeded every time, row never appeared) or
+   * {ok:false, error:"VERIFY_READ_FAILED", detail} (the read itself kept
+   * failing — a different, less certain outcome; see D-044).
+   */
+  function verifyEvent(want) {
+    function attempt(i, lastReadError) {
+      return sleep(VERIFY_DELAYS_MS[i])
+        .then(fetchEvents)
+        .then(function (events) {
+          var tail = events.slice(Math.max(0, events.length - VERIFY_TAIL));
+          var hit = null;
+          for (var i2 = tail.length - 1; i2 >= 0; i2--) {
+            if (matches(tail[i2], want)) { hit = tail[i2]; break; }
+          }
+          if (hit) return { ok: true, event: hit };
+          if (i + 1 < VERIFY_DELAYS_MS.length) return attempt(i + 1, null);
+          return { ok: false, error: "VERIFY_TIMEOUT" };
+        })
+        .catch(function (err) {
+          if (i + 1 < VERIFY_DELAYS_MS.length) return attempt(i + 1, err);
+          return { ok: false, error: "VERIFY_READ_FAILED", detail: String(err.message || err) };
+        });
+    }
+    return attempt(0, null);
+  }
+
+  /* ------------------------------------------------------------------ *
+   * postEvent (§3 "Write path", D-046)
+   * ------------------------------------------------------------------ */
+
+  function doPostRequest(cfg, body, mode) {
+    var opts = {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: body
+    };
+    if (mode) opts.mode = mode; // "no-cors" only ever passed by the TypeError fallback below
+    return fetch(cfg.WEB_APP_URL, opts);
+  }
+
+  /**
+   * Posts one event and always resolves — never rejects — with either the
+   * server's own result or verifyEvent's. See the module header for the exact
+   * decision rule of which one wins.
+   */
+  function postEvent(action, taskId, value, actor, note) {
+    var cfg = getConfig();
+    var want = { taskId: taskId, action: action, value: value === undefined ? "" : value, actor: actor };
+    var payload = {
+      action: action,
+      sprintId: cfg.SPRINT_ID,
+      taskId: taskId,
+      value: want.value,
+      actor: actor,
+      note: note || ""
+    };
+    var body = JSON.stringify(payload);
+
+    function verify() {
+      return verifyEvent(want);
+    }
+
+    return doPostRequest(cfg, body)
+      .then(function (response) {
+        return response.text().then(function (text) {
+          var parsed = null;
+          try { parsed = JSON.parse(text); } catch (err) { /* fall through to verify */ }
+
+          if (parsed && parsed.ok === false) {
+            // Server gave a definitive, specific reason — verify still runs (an
+            // event this function "always ends in"), but that known reason is
+            // what the caller sees, not a possible VERIFY_TIMEOUT masking it.
+            return verify().then(function () { return parsed; });
+          }
+          // ok:true, or a response we couldn't parse: treat as "looked successful",
+          // verify decides the real answer per §3.
+          return verify();
+        });
+      })
+      .catch(function (err) {
+        if (err instanceof TypeError) {
+          // Network/CORS-level failure — the one case §3 allows a no-cors retry.
+          // The response is opaque either way, so verify is the only source of truth.
+          return doPostRequest(cfg, body, "no-cors")
+            .catch(function () { /* still fall through to verify below */ })
+            .then(verify);
+        }
+        // Anything else (e.g. a bad config throwing before fetch) must NOT
+        // silently retry as no-cors (§3: only on TypeError). We still don't know
+        // for certain the server never received it, so verify before giving up.
+        return verify().then(function (v) {
+          if (v.ok) return v;
+          return { ok: false, error: "POST_FAILED", detail: String(err.message || err) };
+        });
+      });
+  }
+
   root.OpsDashEvents = {
     HEADERS: HEADERS,
     parseRows: parseRows,
@@ -381,10 +574,14 @@
     toCurrentState: toCurrentState,
     deliverables: deliverables,
     pins: pins,
+    fetchEvents: fetchEvents,
+    postEvent: postEvent,
+    verifyEvent: verifyEvent,
     _internals: {
       parseTimestampMs: parseTimestampMs,
       canonicalIso: canonicalIso,
-      normalize: normalize
+      normalize: normalize,
+      matches: matches
     }
   };
 })(typeof window !== "undefined" ? window : this);

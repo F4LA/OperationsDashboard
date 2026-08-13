@@ -701,7 +701,7 @@
 
   function planUrl() {
     var cfg = root.OpsDashConfig;
-    return (cfg && cfg.PLAN && cfg.PLAN.RAW_URL) || null;
+    return (cfg && cfg.SPRINT_PLAN_URL) || null;
   }
 
   /**
@@ -713,7 +713,7 @@
     var target = url || planUrl();
     if (!target) {
       return Promise.reject(new Error(
-        "No sprint-plan URL: pass one to OpsDashValidate.load() or set OpsDashConfig.PLAN.RAW_URL."
+        "No sprint-plan URL: pass one to OpsDashValidate.load() or set OpsDashConfig.SPRINT_PLAN_URL."
       ));
     }
 

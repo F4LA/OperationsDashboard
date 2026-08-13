@@ -1,3 +1,556 @@
-/* Operations Dashboard — Styles
- * Stub. No styling yet.
- */
+/* =====================================================================
+   Operations Dashboard — styles.css
+   Design tokens and generic utility classes (reset, top bar, buttons,
+   toasts, loading/error states) are CoachPulse's own — a genuinely shared
+   house design system, reused as-is per D-048. Everything from the Sprint
+   Board section down (progress bars, on-track chips, Rock/milestone/task
+   rows, status control, deliverable box) is original: CoachPulse has no
+   equivalent, its domain is coach scorecards, not a sprint board.
+   ===================================================================== */
+
+:root {
+  /* Brand palette — kept as accents */
+  --navy-900: #080D1A;
+  --navy-800: #0D1526;
+  --navy-700: #111C30;
+
+  --steel-700: #1A5F8A;
+  --steel-600: #2278AC;
+  --steel-400: #3899CC;
+  --steel-100: #A8CDE0;
+  --steel-tint: #E8F1F7;
+
+  /* Light-surface neutrals (ops-friendly) */
+  --bg: #F5F7FA;
+  --surface: #FFFFFF;
+  --surface-2: #FAFBFC;
+  --border: #E4E8EE;
+  --border-strong: #D1D7E0;
+
+  /* Text */
+  --text: #0D1526;
+  --text-muted: #5A6B82;
+  --text-faint: #8A9BB0;
+
+  /* Semantic */
+  --green: #1F9D5F;
+  --green-bg: #E5F6EC;
+  --yellow: #C28A1A;
+  --yellow-bg: #FBF1DA;
+  --red: #C13B3B;
+  --red-bg: #FBE5E5;
+
+  /* Typography */
+  --font-display: "Bebas Neue", "Impact", sans-serif;
+  --font-body: "DM Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* Layout */
+  --container: 1280px;
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 16px;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(13, 21, 38, 0.04);
+  --shadow: 0 1px 3px rgba(13, 21, 38, 0.06), 0 1px 2px rgba(13, 21, 38, 0.04);
+  --shadow-lg: 0 12px 32px rgba(13, 21, 38, 0.12), 0 4px 8px rgba(13, 21, 38, 0.06);
+}
+
+/* ---------- Reset / base ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+button, input, select { font-family: inherit; font-size: inherit; }
+a { color: var(--steel-600); }
+.hidden { display: none !important; }
+
+/* ---------- Top bar ---------- */
+.top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--navy-900);
+  color: #fff;
+  padding: 14px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.brand { display: flex; align-items: baseline; gap: 14px; }
+.brand-mark {
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: 0.08em;
+  color: #fff;
+}
+.brand-sub {
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--steel-400);
+  font-weight: 600;
+}
+.top-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+/* ---------- Buttons ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 9999px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 120ms ease;
+  white-space: nowrap;
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-secondary {
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  border-color: rgba(255,255,255,0.2);
+}
+.btn-secondary:hover:not(:disabled) { background: rgba(255,255,255,0.16); }
+
+/* ---------- Loading / error states ---------- */
+.status {
+  padding: 10px 32px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.status.loading { background: var(--steel-tint); color: var(--steel-700); }
+.status.error   { background: var(--red-bg);     color: var(--red); white-space: pre-wrap; }
+.status.hidden  { display: none; }
+
+.error-state {
+  max-width: var(--container);
+  margin: 24px auto;
+  background: var(--surface);
+  border: 1px solid var(--red);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  padding: 24px 32px;
+  color: var(--text);
+}
+.error-state h2 { font-size: 16px; margin: 0 0 8px; color: var(--red); }
+.error-state p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  white-space: pre-wrap;
+}
+
+/* ---------- Toast ---------- */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toast {
+  background: var(--navy-800);
+  color: #fff;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  font-size: 13px;
+  box-shadow: var(--shadow-lg);
+  max-width: 340px;
+  animation: toast-in 200ms ease;
+}
+.toast.toast-error   { background: var(--red); }
+.toast.toast-success { background: var(--green); }
+@keyframes toast-in {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+
+/* =====================================================================
+   Sprint Board (§6) — original to this app
+   ===================================================================== */
+
+/* ---------- Person-selector + filter (topbar-right) ---------- */
+.actor-select-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--steel-100);
+}
+.actor-select-wrap label {
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.actor-select {
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.24);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.actor-select option { color: var(--text); }
+
+.only-mine-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--steel-100);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.only-mine-toggle input { cursor: pointer; }
+
+/* ---------- Summary bar (sprint-wide, sticky below topbar) ---------- */
+.summary-bar {
+  position: sticky;
+  top: 57px;
+  z-index: 40;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.summary-left { display: flex; align-items: baseline; gap: 14px; min-width: 0; }
+.sprint-name {
+  font-family: var(--font-display);
+  font-size: 20px;
+  letter-spacing: 0.03em;
+  color: var(--navy-900);
+}
+.sprint-dates { font-size: 12.5px; color: var(--text-muted); }
+.summary-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+/* ---------- Progress bar ---------- */
+.progress-bar-wrap {
+  width: 140px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--border);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.progress-bar-fill {
+  height: 100%;
+  background: var(--steel-600);
+  border-radius: 9999px;
+  transition: width 200ms ease;
+}
+.progress-pct {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  min-width: 3.5em;
+}
+
+/* ---------- On-track chip ---------- */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.chip-green  { background: var(--green-bg);  color: var(--green); }
+.chip-amber  { background: var(--yellow-bg); color: var(--yellow); }
+.chip-red    { background: var(--red-bg);    color: var(--red); }
+
+/* ---------- Main / Rock layout ---------- */
+main#main {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 24px 32px 64px;
+}
+
+.rock-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: 20px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.rock-header {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+}
+.rock-title { display: flex; align-items: center; gap: 10px; }
+.rock-title h2 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: 0.02em;
+  color: var(--navy-900);
+  margin: 0;
+}
+.cuttable-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--steel-tint);
+  color: var(--steel-700);
+}
+.rock-metrics {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.rock-finish { font-size: 12.5px; color: var(--text-muted); }
+.rock-finish strong { color: var(--text); }
+.rock-finish-overshoot { color: var(--red); font-weight: 600; }
+
+.rock-body { padding: 4px 0; }
+.board-empty {
+  padding: 24px 22px;
+  text-align: center;
+  color: var(--text-faint);
+  font-style: italic;
+  font-size: 13px;
+  margin: 0;
+}
+
+/* ---------- Project divider (§7 cuttable badge; not a collapsible section — §6
+   keeps milestones directly inside a Rock, no Project level in the view) ---------- */
+.project-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 22px 4px;
+  border-top: 1px solid var(--border);
+}
+.rock-body > .project-divider:first-child { border-top: none; }
+.project-name {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+/* ---------- Milestone group ---------- */
+.milestone-group { border-top: 1px solid var(--border); }
+.milestone-group:first-child { border-top: none; }
+.milestone-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 22px;
+  background: var(--surface);
+}
+.milestone-name {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--steel-700);
+}
+.milestone-finish { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.milestone-flag { color: var(--red); }
+.milestone-group.is-deferred { opacity: 0.55; }
+.milestone-group.is-deferred .milestone-header { background: var(--surface-2); }
+
+.milestone-tasks { padding: 0; }
+
+/* ---------- Task row ---------- */
+.task-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 22px;
+  border-top: 1px solid var(--border);
+}
+.milestone-group > .milestone-header + .milestone-tasks .task-row:first-child { border-top: none; }
+.task-row.is-deferred { opacity: 0.55; }
+
+.task-status-cell { flex-shrink: 0; }
+.task-main { min-width: 0; }
+.task-desc {
+  font-size: 13.5px;
+  color: var(--text);
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+.task-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.owner-pill {
+  font-weight: 600;
+  color: var(--steel-700);
+  background: var(--steel-tint);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+.type-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.type-badge.type-meeting  { background: var(--steel-tint); color: var(--steel-700); }
+.type-badge.type-approval { background: var(--yellow-bg);  color: var(--yellow); }
+.cross-badge {
+  cursor: help;
+  font-weight: 700;
+  color: var(--steel-600);
+  border: 1px solid var(--steel-100);
+  border-radius: 4px;
+  padding: 0 5px;
+  font-size: 12px;
+}
+.duration { white-space: nowrap; }
+.finish-date { white-space: nowrap; color: var(--text); font-weight: 500; }
+.finish-date-error { color: var(--red); font-weight: 600; }
+.clamped-flag {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--red);
+  border: 1px solid var(--red);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.deferred-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  border: 1px dashed var(--border-strong);
+  border-radius: 4px;
+  padding: 2px 8px;
+}
+
+/* ---------- Status control (cycles open → in_progress → done) ---------- */
+.status-ctrl {
+  appearance: none;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text-muted);
+  border-radius: 9999px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 120ms ease;
+  min-width: 96px;
+}
+.status-ctrl:hover:not(:disabled) { border-color: var(--steel-400); color: var(--steel-700); }
+.status-ctrl:disabled { cursor: not-allowed; }
+.status-ctrl.status-in_progress {
+  background: var(--steel-600);
+  border-color: var(--steel-600);
+  color: #fff;
+}
+.status-ctrl.status-done {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+.status-ctrl.status-saving { opacity: 0.55; pointer-events: none; }
+
+/* ---------- Deliverable link box ---------- */
+.task-deliverable {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.deliverable-input {
+  width: 180px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  background: var(--surface-2);
+  color: var(--text);
+}
+.deliverable-input:focus {
+  outline: none;
+  border-color: var(--steel-400);
+  background: var(--surface);
+}
+.deliverable-save-btn, .deliverable-edit-btn {
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+.deliverable-save-btn:hover, .deliverable-edit-btn:hover {
+  border-color: var(--steel-400);
+  color: var(--steel-700);
+  background: var(--steel-tint);
+}
+.deliverable-link {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--steel-600);
+  white-space: nowrap;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+  .top-bar { padding: 12px 16px; }
+  .summary-bar { padding: 10px 16px; }
+  main#main { padding: 16px; }
+  .task-row { grid-template-columns: 1fr; }
+  .task-deliverable { grid-column: 1 / -1; }
+  .deliverable-input { width: 100%; }
+}
