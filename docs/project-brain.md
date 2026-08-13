@@ -1,18 +1,20 @@
 # Project Brain — Operations Dashboard
 The current state in one page. Updated at the close of every chat via the push Code session.
-_Last updated: 2026-08-13 — Bernardo (Fase 4 iniciada; preguntas abiertas resueltas, D-045–D-048; código pendiente de la sesión BUILD)_
+_Last updated: 2026-08-13 — Bernardo (Fase 4 completa y probada E2E, D-049; pase de
+rediseño visual intercalado antes de Fase 5, D-050)_
 
 > **Source of truth for WHAT to build** is the spec: `docs/spec.md` (v1.1).
 > **Source of truth for WHY** is `docs/decision-log.md`.
 > This Brain tracks WHERE the build stands.
 > Repo: `F4LA/OperationsDashboard` (public). Local clone: `~/Desktop/StrongStandard/OperationsDashboard`.
-> Live (placeholder): https://f4la.github.io/OperationsDashboard/
+> Live: https://f4la.github.io/OperationsDashboard/ (Sprint Board, since Fase 4 — commit 1acc181)
 
 ## Current phase
-Fase 4 (Sprint Board, Views 1+3, §6) — EN PROGRESO. Preguntas abiertas resueltas al inicio
-(D-045–D-048): config.js confirmado seguro de commitear con valores reales; payload
-canónico = shortcut form; postEvent/verifyEvent viven en events.js; estética referencia
-CoachPulse. Diseño de layout aprobado en chat; código todavía no escrito.
+Fase 4 (Sprint Board, Views 1+3, §6) — COMPLETA y probada E2E en navegador real
+(commit 1acc181, D-049). Antes de Fase 5 se intercala un pase de rediseño visual
+(D-050) en un chat de diseño dedicado: jerarquía visual (proyecto/milestone/tarea),
+control de status como dropdown, y alertas de overshoot auto-explicadas. Fase 5
+(métricas) queda detrás del pase visual.
 
 ## Status
 Fase 3 backend completo, desplegado y probado de punta a punta contra el servidor REAL. Componentes: (1) backend/Code.gs — Apps Script doPost con todas las garantías del §3 (People leído en vivo, Event ID server-side formato D-034, Timestamp server-side con offset real y celda forzada a texto D-041, LockService, header guard, validación de Actor/Action/Value); (2) dashboard/events.js — fold de Events (D-009) que produce el shape currentState de D-027, verificado por round-trip completo contra el fixture de Fase 2 (events→fold→currentState→liveMode da idéntico a expected-live-mode.json); (3) tests/appsscript-smoke.test.js — harness Node que pega al Web App real.
@@ -35,14 +37,20 @@ Nota de seguridad (consistente con el "no auth" del §3, no es un defecto): la U
 - Fase 2 plan mode: dashboard/engine.js escrito, commiteado (8246e65) y verde contra el fixture (46/46, 0 desvíos). tests/engine.test.js + tests/expected-plan-mode.json commiteados (D-022). Semántica D-020/D-021 confirmada por las cadenas fraccionarias reales de Rock 3. Guardas de milestone deferred/vacío (§4.6) implementadas y probadas.
 - Fase 2 live mode (diseño): algoritmo de 3 pasadas fijado (D-027–D-031). Motor de referencia construido reutilizando validate.js real + los helpers exactos de engine.js (mismo eje D-020, mismo comparador D-021). Fixture sintético generado y verde: tests/expected-live-mode.json (5 tareas, 4 milestones, escenario: done-temprano, done-tarde-con-wait, in_progress-con-clamp, open-Both, open-join-cruzado). today fijo = 2026-08-13.
 - Fase 2 live mode: dashboard/engine.js extendido con OpsDashEngine.liveMode (algoritmo de 3 pasadas, D-027–D-032), commit b55e2be. Test harness y fixtures commiteados: tests/live-engine.test.js, tests/expected-live-mode.json, tests/scenario-live-mode.json, tests/current-state-live-mode.json.
+- Fase 4 (Sprint Board, Views 1+3, §6): dashboard/config.js (3 valores de producción
+  horneados), events.js extendido con postEvent/verifyEvent (write-then-verify,
+  backoff 0/500/1000/2000ms), board.js (Sprint Board completo), metrics.js (§5.1/§5.2
+  como módulo propio — adelanta parte de Fase 5), app.js bootstrap, styles.css base
+  CoachPulse, más divisor visual de Project para el badge cuttable de §7. Commit 1acc181.
+  Regresión 157/157. Probada E2E en navegador real (D-049).
 
 ## Repo layout (as built)
 ```
 OperationsDashboard/
-├── README.md · index.html (placeholder) · app.js (stub) · styles.css (stub)
+├── README.md · index.html · app.js · styles.css   (real, Fase 4, commit 1acc181)
 ├── sprint-plan.json   (real, root — production, per D-016)
 ├── backend/Code.gs   (real, Apps Script Web App, D-035)
-├── dashboard/  metrics.js board.js network.js thisweek.js  (stubs) · validate.js engine.js events.js (real)
+├── dashboard/  network.js thisweek.js  (stubs) · validate.js engine.js events.js board.js metrics.js (real)
 ├── tests/  engine.test.js · expected-plan-mode.json   (real, D-022)
 │          live-engine.test.js · expected-live-mode.json
 │          scenario-live-mode.json · current-state-live-mode.json   (real, D-027–D-032)
@@ -53,12 +61,15 @@ OperationsDashboard/
 Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root — matching CoachPulse.
 
 ## In progress
-- Fase 4: dashboard/config.js (valores reales), extensión de events.js (postEvent/
-  verifyEvent, write-then-verify con backoff 0/500/1000/2000ms), board.js (layout
-  aprobado), app.js + styles.css (base CoachPulse). Nada commiteado todavía.
+- Nada activo en build. Siguiente: pase de rediseño visual (chat de diseño, D-050),
+  luego Fase 5.
 
 ## Next up (per spec §9)
-- **Fase 4:** Sprint Board (Views 1+3, §6): person-selector, tareas agrupadas por milestone, marcado → evento → write-then-verify. Es la primera UI real; consume el backend de Fase 3 (write path) y el fold de events.js (read path), y hornea en dashboard/config.js los tres valores de producción — Web App URL, Sheet ID, API key restringida (D-035).
+- **Pase de rediseño visual** (fuera de la secuencia §9, intercalado por D-050): chat
+  de diseño dedicado. No agrega funcionalidad; fija jerarquía visual y patrones que
+  Fases 5–7 reúsan.
+- **Fase 5:** Métricas (§5) — barra de progreso ya existe (metrics.js); falta la
+  gráfica burn-up planned-vs-actual y confirmar la reproyección live en cada marca.
 
 ## Blocked / waiting
 - Nada bloqueado. Pendiente NO bloqueante: los dos procedimientos manuales de D-037 (header-guard y concurrencia) YA se corrieron y pasaron — ya no quedan pendientes.
@@ -66,7 +77,7 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 ## Deferred (not being actively worked)
 - Vista 4 (auto-update from Rock Projects) — D-014.
 - Retire Asana, Project Builder emitting the JSON, Operating System producing Rock-3-level planning detail — all downstream, after the dashboard is built and proven (D-014).
-- Sprint Board, metrics, This Week, pin, Gantt — all not started; they come in later phases per §9.
+- This Week, pin, Gantt — not started; they come in later phases per §9. Metrics (§5) partially started (progress bar in metrics.js per Fase 4); burn-up chart still pending Fase 5.
 
 ## Open decisions
 - D-025 provisional: semántica de executionOrder y de "Both" multi-persona, a confirmar antes del primer plan que las ejercite. No bloquea nada hoy (Rock 3 no las usa).
