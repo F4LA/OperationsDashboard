@@ -1,6 +1,6 @@
 # Project Brain — Operations Dashboard
 The current state in one page. Updated at the close of every chat via the push Code session.
-_Last updated: 2026-08-13 — Bernardo (Fase 2 completa: plan mode + live mode, ambas verdes; D-032 registrada)_
+_Last updated: 2026-08-13 — Bernardo (Fase 3 arrancada: decisiones de backend D-033–D-038 fijadas; diseño listo, build pendiente)_
 
 > **Source of truth for WHAT to build** is the spec: `docs/spec.md` (v1.1).
 > **Source of truth for WHY** is `docs/decision-log.md`.
@@ -9,7 +9,7 @@ _Last updated: 2026-08-13 — Bernardo (Fase 2 completa: plan mode + live mode, 
 > Live (placeholder): https://f4la.github.io/OperationsDashboard/
 
 ## Current phase
-Fase 2 (date engine) — COMPLETA. Plan mode (commit 8246e65, 60/60 verde) y live mode (commit b55e2be, 17/17 verde) implementados, commiteados y sin regresión entre sí. Siguiente: Fase 3 (Sheet + Apps Script, §3).
+Fase 3 (Sheet + Apps Script, §3) — DISEÑO LISTO, build pendiente. Decisiones de backend fijadas (D-033–D-038): esquema de tabs, Event ID server-side, ubicación del código, harness de prueba, y confirmación de que no hay endpoint de lectura (el fold vive en events.js, la lectura va directo a Sheets API v4). Fase 2 (motor) cerrada y verde, sin cambios.
 
 ## Status
 Motor de fechas en plan mode implementado, commiteado (8246e65) y verde: 60 checks, 0 fallos, las 46 tareas activas reproducen tests/expected-plan-mode.json EXACTO (fixture byte-idéntico, verificado con diff). M13-t1 correctamente excluida (deferred, D-017). Rollup §4.6: Rock R3 cierra 2026-09-14 → rojo (1 día pasado sprint.end), con M4/M7/M20/M23 en rojo — exactamente lo anticipado por D-023, no es bug. NOTA OPERATIVA: Node NO está instalado en la máquina de build; el test (script Node plano por D-022) se corrió sin modificar bajo JavaScriptCore con un shim CommonJS del scratchpad, y se verificó además en el navegador real (camino window) con idéntico resultado. Pendiente: correr `node tests/engine.test.js` una vez con Node real.
@@ -44,7 +44,7 @@ OperationsDashboard/
 Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root — matching CoachPulse.
 
 ## In progress
-- Nada activo. Fase 2 (plan mode + live mode) cerrada. Fase 3 es lo siguiente, en chat nuevo.
+- Fase 3: diseño cerrado (D-033–D-038). Falta el build: crear la Google Sheet (tabs People/Events/Settings), escribir backend/Code.gs (doPost con todas las garantías del §3) y dar lógica real a dashboard/events.js (fold → currentState de D-027).
 
 ## Next up (per spec §9)
 - **Fase 3:** Google Sheet (tabs People/Events/Settings) + Apps Script `doPost` con todas las garantías del §3 (identidad, event id/timestamp server-side, LockService, header guard, write-then-verify). Es lo que en producción alimenta el `currentState` que `liveMode` ya sabe consumir.
@@ -55,7 +55,7 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 ## Deferred (not being actively worked)
 - Vista 4 (auto-update from Rock Projects) — D-014.
 - Retire Asana, Project Builder emitting the JSON, Operating System producing Rock-3-level planning detail — all downstream, after the dashboard is built and proven (D-014).
-- Google Sheet + Apps Script backend, Sprint Board, metrics, This Week, pin, Gantt — all not started; they come in later phases per §9.
+- Sprint Board, metrics, This Week, pin, Gantt — all not started; they come in later phases per §9.
 
 ## Open decisions
 - D-025 provisional: semántica de executionOrder y de "Both" multi-persona, a confirmar antes del primer plan que las ejercite. No bloquea nada hoy (Rock 3 no las usa).
