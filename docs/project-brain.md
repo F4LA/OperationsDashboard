@@ -1,6 +1,6 @@
 # Project Brain — Operations Dashboard
 The current state in one page. Updated at the close of every chat via the push Code session.
-_Last updated: 2026-08-13 — Bernardo (Fase 3 COMPLETA: backend construido, desplegado y probado contra el servidor real; smoke test 74/74, header-guard y concurrencia verificados a mano; D-039–D-044 registradas)_
+_Last updated: 2026-08-13 — Bernardo (Fase 4 iniciada; preguntas abiertas resueltas, D-045–D-048; código pendiente de la sesión BUILD)_
 
 > **Source of truth for WHAT to build** is the spec: `docs/spec.md` (v1.1).
 > **Source of truth for WHY** is `docs/decision-log.md`.
@@ -9,7 +9,10 @@ _Last updated: 2026-08-13 — Bernardo (Fase 3 COMPLETA: backend construido, des
 > Live (placeholder): https://f4la.github.io/OperationsDashboard/
 
 ## Current phase
-Fase 3 (Sheet + Apps Script, §3) — COMPLETA y probada en producción. Google Sheet creada (tabs People/Events/Settings), backend/Code.gs desplegado como Web App, dashboard/events.js con el fold real (D-036). Smoke test contra el Web App real: 74/74 verde (commit del test 229da92; fix del harness 1d39928). Header-guard y concurrencia/LockService verificados a mano contra el servidor real. Fases 0–2 sin cambios. Siguiente: Fase 4 (Sprint Board, Views 1+3, §9).
+Fase 4 (Sprint Board, Views 1+3, §6) — EN PROGRESO. Preguntas abiertas resueltas al inicio
+(D-045–D-048): config.js confirmado seguro de commitear con valores reales; payload
+canónico = shortcut form; postEvent/verifyEvent viven en events.js; estética referencia
+CoachPulse. Diseño de layout aprobado en chat; código todavía no escrito.
 
 ## Status
 Fase 3 backend completo, desplegado y probado de punta a punta contra el servidor REAL. Componentes: (1) backend/Code.gs — Apps Script doPost con todas las garantías del §3 (People leído en vivo, Event ID server-side formato D-034, Timestamp server-side con offset real y celda forzada a texto D-041, LockService, header guard, validación de Actor/Action/Value); (2) dashboard/events.js — fold de Events (D-009) que produce el shape currentState de D-027, verificado por round-trip completo contra el fixture de Fase 2 (events→fold→currentState→liveMode da idéntico a expected-live-mode.json); (3) tests/appsscript-smoke.test.js — harness Node que pega al Web App real.
@@ -50,7 +53,9 @@ OperationsDashboard/
 Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root — matching CoachPulse.
 
 ## In progress
-- Nada activo. Fase 3 cerrada. Fase 4 (Sprint Board) es lo siguiente, en chat nuevo.
+- Fase 4: dashboard/config.js (valores reales), extensión de events.js (postEvent/
+  verifyEvent, write-then-verify con backoff 0/500/1000/2000ms), board.js (layout
+  aprobado), app.js + styles.css (base CoachPulse). Nada commiteado todavía.
 
 ## Next up (per spec §9)
 - **Fase 4:** Sprint Board (Views 1+3, §6): person-selector, tareas agrupadas por milestone, marcado → evento → write-then-verify. Es la primera UI real; consume el backend de Fase 3 (write path) y el fold de events.js (read path), y hornea en dashboard/config.js los tres valores de producción — Web App URL, Sheet ID, API key restringida (D-035).
