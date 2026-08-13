@@ -1,6 +1,6 @@
 # Project Brain — Operations Dashboard
 The current state in one page. Updated at the close of every chat via the push Code session.
-_Last updated: 2026-08-12 — Bernardo (initial seed, reconciled with Claude Code's Phase 0 state report)_
+_Last updated: 2026-08-13 — Bernardo (D-016: resolved D-005, plan-JSON location)_
 
 > **Source of truth for WHAT to build** is the spec: `docs/spec.md` (v1.1).
 > **Source of truth for WHY** is `docs/decision-log.md`.
@@ -36,8 +36,8 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 - Nothing actively being coded right now. Design and scaffold are done; build resumes at Phase 1.
 
 ## Next up (per spec §9)
-- **Resolve D-005 first:** decide where the plan JSON lives — spec §10 expects `/sprint-plan.json` at repo root for production; the seed currently sits at `data/rock3-seed.json`. Rename/move, or keep a root production file + the data/ test fixture.
-- **Phase 1:** write the cache-busted raw-URL fetch of the seed + the §7 validation logic in `dashboard/validate.js`.
+- **Phase 1, first step:** create `sprint-plan.json` at the repo root (production copy of the Rock 3 content, per D-016 / spec §10) — a BUILD session task, not yet done.
+- **Phase 1:** write the cache-busted raw-URL fetch of the seed + the §7 validation logic in `dashboard/validate.js`, pointed at the root `sprint-plan.json`.
 - **Phase 2 (the heavy one):** the date engine (§4), plan mode first, validated against the Rock 3 seed. Everything depends on it, so it goes before any UI.
 
 ## Blocked / waiting
@@ -49,7 +49,7 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 - Google Sheet + Apps Script backend, Sprint Board, metrics, This Week, pin, Gantt — all not started; they come in later phases per §9.
 
 ## Open decisions
-- **D-005 (open):** the plan-JSON location, above. Must be settled at the start of Phase 1.
+- None. D-005 resolved by D-016 (2026-08-13): Option B — keep both `sprint-plan.json` (root, production) and `data/rock3-seed.json` (test fixture).
 
 ## Key dates
 - No hard external deadline on the dashboard itself. Target: Views 1–3 usable in the first build week; Gantt (View 2) and This Week + pin + link layer follow. (Sprint being tracked, for reference: S3-2026, ends 2026-09-13.)
