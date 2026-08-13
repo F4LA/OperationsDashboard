@@ -25,6 +25,21 @@
  * OPSDASH_SPRINT_ID is optional (defaults to SMOKE).
  *
  * ---------------------------------------------------------------------------
+ * Why this sends a Referer header
+ * ---------------------------------------------------------------------------
+ * The read key is referrer-restricted to the GitHub Pages origin, which is what
+ * §3 requires for production. Node sends no Referer at all, and Google rejects a
+ * referrer-restricted key on a refererless request with
+ * API_KEY_HTTP_REFERRER_BLOCKED — so the read leg has to state the origin it is
+ * standing in for. OPSDASH_REFERER overrides it if the origin ever changes.
+ *
+ * This is not a way around the restriction: a Referer header is client-supplied
+ * on every platform, so the restriction was never an authentication boundary. It
+ * exists to stop a copied key from working on someone else's page, and it still
+ * does. Keeping the key restricted and naming the origin here is strictly safer
+ * than the alternative of unrestricting the key to make the test pass.
+ *
+ * ---------------------------------------------------------------------------
  * This test WRITES to the real Events log
  * ---------------------------------------------------------------------------
  * Every row it creates uses a Task ID of the form SMOKE-<epochMillis>-<n>, so the
@@ -76,6 +91,9 @@ var SHEET_ID = process.env.OPSDASH_SHEET_ID;
 var API_KEY = process.env.OPSDASH_API_KEY;
 var ACTOR = process.env.OPSDASH_ACTOR || "Bernardo";
 var SPRINT_ID = process.env.OPSDASH_SPRINT_ID || "SMOKE";
+
+/** Origin the read key is referrer-restricted to (§3, §10). See the header note. */
+var REFERER = process.env.OPSDASH_REFERER || "https://f4la.github.io/";
 
 var EVENTS_RANGE = "Events!A:H";
 var TAIL_ROWS = 40;
@@ -162,11 +180,25 @@ async function readEventsTail() {
     encodeURIComponent(SHEET_ID) + "/values/" + encodeURIComponent(EVENTS_RANGE) +
     "?key=" + encodeURIComponent(API_KEY);
 
-  var res = await fetch(url);
+  var res = await fetch(url, { headers: { "Referer": REFERER } });
   var text = await res.text();
 
   if (!res.ok) {
-    throw new Error("Sheets API read failed (HTTP " + res.status + "): " + text.slice(0, 300));
+    var hint = "";
+    if (text.indexOf("API_KEY_HTTP_REFERRER_BLOCKED") !== -1) {
+      hint = "\n    The key's referrer restriction did not accept Referer \"" + REFERER + "\". " +
+        "Check that the key's allowed referrer is exactly the ORIGIN with a wildcard " +
+        "(https://f4la.github.io/*) — an origin mismatch or a path-scoped restriction " +
+        "fails every request. Override with OPSDASH_REFERER if the origin has changed.";
+    } else if (text.indexOf("API_KEY_SERVICE_BLOCKED") !== -1) {
+      hint = "\n    The key is not allowed to call the Sheets API. In Cloud Console, " +
+        "edit the key → API restrictions → tick Google Sheets API.";
+    } else if (res.status === 403 || res.status === 404) {
+      hint = "\n    Also check the spreadsheet is shared as 'Anyone with the link' (Viewer) — " +
+        "an API key can only read link-readable sheets.";
+    }
+    throw new Error("Sheets API read failed (HTTP " + res.status + "): " +
+      text.slice(0, 300) + hint);
   }
 
   var json = JSON.parse(text);
@@ -224,7 +256,14 @@ async function verifyRow(expect) {
   return { found: false, reason: lastSeen };
 }
 
-/** Confirms a REJECTED write left no trace in the log. */
+/**
+ * Confirms a REJECTED write left no trace in the log.
+ *
+ * A read that fails is INCONCLUSIVE, never clean. Reporting an unreadable sheet
+ * as "nothing was written" would turn every one of these into a check that
+ * passes precisely when it can no longer see anything — the exact shape of a
+ * test that is green for the wrong reason.
+ */
 async function assertNoRow(taskId) {
   await sleep(1500);
   try {
@@ -232,13 +271,15 @@ async function assertNoRow(taskId) {
     var idx = {};
     tail.header.forEach(function (h, i) { idx[String(h).trim().toLowerCase()] = i; });
     var at = idx["task id"];
-    if (at === undefined) return { clean: true };
+    if (at === undefined) {
+      return { inconclusive: true, reason: 'the Events tab has no "Task ID" column' };
+    }
     var hit = tail.rows.some(function (row) {
       return row[at] !== undefined && String(row[at]).trim() === taskId;
     });
     return { clean: !hit };
   } catch (err) {
-    return { clean: true, note: "could not re-read: " + err.message };
+    return { inconclusive: true, reason: "could not re-read Events: " + err.message };
   }
 }
 
@@ -323,9 +364,13 @@ async function rejection(label, payload, expectedCode, opts) {
   }
 
   if (opts.taskId) {
-    var clean = await assertNoRow(opts.taskId);
-    check(label + " — nothing written to Events", clean.clean,
-      "a row with taskId " + opts.taskId + " appeared despite the rejection");
+    var verdict = await assertNoRow(opts.taskId);
+    if (verdict.inconclusive) {
+      fail(label + " — could not confirm nothing was written", verdict.reason);
+    } else {
+      check(label + " — nothing written to Events", verdict.clean,
+        "a row with taskId " + opts.taskId + " appeared despite the rejection");
+    }
   }
 }
 
@@ -340,7 +385,30 @@ async function main() {
   console.log("  Web App : " + WEBAPP_URL.replace(/\/s\/[^/]+\//, "/s/***/"));
   console.log("  Sheet   : " + SHEET_ID.slice(0, 6) + "…");
   console.log("  Actor   : " + ACTOR);
+  console.log("  Referer : " + REFERER);
   console.log("  Run tag : " + RUN);
+
+  /* ---------------- preflight ----------------
+     Prove the read leg works BEFORE writing anything. Without this the run
+     spends minutes appending rows and only then discovers it can never verify
+     them, which is exactly how the first run of this test failed. */
+  console.log("\n--- preflight: can we read the Events tab? ---\n");
+  try {
+    var probe = await readEventsTail();
+    pass("Sheets API read works (" + probe.rows.length + " row(s) in the tail)");
+
+    var expectedHeader = ["Event ID","Sprint ID","Task ID","Action","Value","Actor","Timestamp","Note"];
+    var headerOk = expectedHeader.every(function (h, i) {
+      return String(probe.header[i] || "").trim().toLowerCase() === h.toLowerCase();
+    });
+    check("Events header matches the D-033 schema", headerOk,
+      "found [" + probe.header.join(" | ") + "]");
+  } catch (err) {
+    console.log("  FAIL  Sheets API read failed — stopping before writing anything\n");
+    console.log("        " + err.message + "\n");
+    console.log("  Nothing was written to the sheet. Fix the read access and re-run.\n");
+    process.exit(1);
+  }
 
   /* ---------------- happy paths ---------------- */
   console.log("\n--- happy paths (POST + real write-then-verify) ---\n");
