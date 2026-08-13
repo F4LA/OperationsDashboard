@@ -41,7 +41,7 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 - Nada activo. Fase 2 plan mode cerrada. Live mode (§4.7) o Fase 3 es lo siguiente, en chat nuevo.
 
 ## Next up (per spec §9)
-- **Decisión de secuencia (pendiente con Bernardo):** live mode §4.7 ahora (reproyección desde timestamps; testeable YA con un fixture de timestamps sintéticos, sin backend) vs. Fase 3 primero (Sheet + Apps Script §3) y live mode después con timestamps reales.
+- **Fase 2 live mode (§4.7) — DECIDIDA, es lo próximo:** reproyección desde timestamps de finalización reales. Se diseña y testea YA con un fixture de timestamps sintéticos (sin backend); live mode real contra el Sheet viene con la Fase 3. Preguntas abiertas de diseño en el próximo chat.
 - **Fase 3:** Google Sheet (tabs People/Events/Settings) + Apps Script doPost con todas las garantías del §3 (identidad, event id/timestamp server-side, LockService, header guard, write-then-verify).
 - Pendiente técnico menor: correr el test con `node` real cuando Node esté instalado.
 
@@ -55,7 +55,6 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 
 ## Open decisions
 - D-025 provisional: semántica de executionOrder y de "Both" multi-persona, a confirmar antes del primer plan que las ejercite. No bloquea nada hoy (Rock 3 no las usa).
-- Secuencia live mode vs Fase 3 — a decidir al abrir el próximo chat.
 
 ## Key dates
 - No hard external deadline on the dashboard itself. Target: Views 1–3 usable in the first build week; Gantt (View 2) and This Week + pin + link layer follow. (Sprint being tracked, for reference: S3-2026, ends 2026-09-13.)
