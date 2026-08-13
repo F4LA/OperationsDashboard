@@ -1,6 +1,6 @@
 # Project Brain — Operations Dashboard
 The current state in one page. Updated at the close of every chat via the push Code session.
-_Last updated: 2026-08-13 — Bernardo (Fase 3 arrancada: decisiones de backend D-033–D-038 fijadas; diseño listo, build pendiente)_
+_Last updated: 2026-08-13 — Bernardo (Fase 3 COMPLETA: backend construido, desplegado y probado contra el servidor real; smoke test 74/74, header-guard y concurrencia verificados a mano; D-039–D-044 registradas)_
 
 > **Source of truth for WHAT to build** is the spec: `docs/spec.md` (v1.1).
 > **Source of truth for WHY** is `docs/decision-log.md`.
@@ -9,12 +9,16 @@ _Last updated: 2026-08-13 — Bernardo (Fase 3 arrancada: decisiones de backend 
 > Live (placeholder): https://f4la.github.io/OperationsDashboard/
 
 ## Current phase
-Fase 3 (Sheet + Apps Script, §3) — DISEÑO LISTO, build pendiente. Decisiones de backend fijadas (D-033–D-038): esquema de tabs, Event ID server-side, ubicación del código, harness de prueba, y confirmación de que no hay endpoint de lectura (el fold vive en events.js, la lectura va directo a Sheets API v4). Fase 2 (motor) cerrada y verde, sin cambios.
+Fase 3 (Sheet + Apps Script, §3) — COMPLETA y probada en producción. Google Sheet creada (tabs People/Events/Settings), backend/Code.gs desplegado como Web App, dashboard/events.js con el fold real (D-036). Smoke test contra el Web App real: 74/74 verde (commit del test 229da92; fix del harness 1d39928). Header-guard y concurrencia/LockService verificados a mano contra el servidor real. Fases 0–2 sin cambios. Siguiente: Fase 4 (Sprint Board, Views 1+3, §9).
 
 ## Status
-Motor de fechas en plan mode implementado, commiteado (8246e65) y verde: 60 checks, 0 fallos, las 46 tareas activas reproducen tests/expected-plan-mode.json EXACTO (fixture byte-idéntico, verificado con diff). M13-t1 correctamente excluida (deferred, D-017). Rollup §4.6: Rock R3 cierra 2026-09-14 → rojo (1 día pasado sprint.end), con M4/M7/M20/M23 en rojo — exactamente lo anticipado por D-023, no es bug. NOTA OPERATIVA: Node NO está instalado en la máquina de build; el test (script Node plano por D-022) se corrió sin modificar bajo JavaScriptCore con un shim CommonJS del scratchpad, y se verificó además en el navegador real (camino window) con idéntico resultado. Pendiente: correr `node tests/engine.test.js` una vez con Node real.
+Fase 3 backend completo, desplegado y probado de punta a punta contra el servidor REAL. Componentes: (1) backend/Code.gs — Apps Script doPost con todas las garantías del §3 (People leído en vivo, Event ID server-side formato D-034, Timestamp server-side con offset real y celda forzada a texto D-041, LockService, header guard, validación de Actor/Action/Value); (2) dashboard/events.js — fold de Events (D-009) que produce el shape currentState de D-027, verificado por round-trip completo contra el fixture de Fase 2 (events→fold→currentState→liveMode da idéntico a expected-live-mode.json); (3) tests/appsscript-smoke.test.js — harness Node que pega al Web App real.
 
-Live mode (§4.7) implementado en dashboard/engine.js (OpsDashEngine.liveMode), commit b55e2be. 17/17 checks verdes contra tests/expected-live-mode.json (escenario sintético de 5 tareas / 4 milestones, today=2026-08-13): cero desvíos en tasks, milestones o rocks. Verificado dos veces (JavaScriptCore + navegador real, mismo resultado). planMode confirmado sin cambios (diff limpio, 60/60 sin regresión) — el único cambio al bloque viejo fue la línea de export para agregar liveMode.
+Resultado del smoke test contra el Web App desplegado por Bernardo: 74/74 verde — 7 escrituras aceptadas con write-then-verify real vía Sheets API v4, 16+ rechazos server-side (actor desconocido/inactivo, action inválida, cada Value mal formado, javascript: URL bloqueada, pin no-lunes). Header-guard verificado a mano: renombrar Events!D1 de "Action" a "Actions" hizo que TODA escritura fallara con HEADER_DRIFT nombrando la columna, sin escribir nada; restaurado, 74/74 de nuevo. Concurrencia verificada a mano: 20 escrituras casi simultáneas (mismo taskId, disparadas en paralelo) → 20 filas completas, 20 Event ID distintos, cero colisiones, cero filas a medio escribir.
+
+Motor de Fase 2 sin cambios (plan 60/60, live 17/17). Node sigue sin estar instalado en la máquina de build para las suites de Fase 2 (D-022): el smoke test de Fase 3 SÍ corrió con Node real en la máquina de Bernardo.
+
+Nota de seguridad (consistente con el "no auth" del §3, no es un defecto): la URL del Web App no tiene restricción de origen — cualquiera que la tenga puede escribir en el log. La API key de lectura sí está restringida por referrer a https://f4la.github.io/*.
 
 ## Done
 - Full design approved and captured (decision-log D-006 … D-015): data model, date engine logic, metrics, views, identity/backend, This Week + pin + deliverable link, and what's deferred.
@@ -34,23 +38,25 @@ Live mode (§4.7) implementado en dashboard/engine.js (OpsDashEngine.liveMode), 
 OperationsDashboard/
 ├── README.md · index.html (placeholder) · app.js (stub) · styles.css (stub)
 ├── sprint-plan.json   (real, root — production, per D-016)
-├── dashboard/  events.js metrics.js board.js network.js thisweek.js  (stubs) · validate.js engine.js (real)
+├── backend/Code.gs   (real, Apps Script Web App, D-035)
+├── dashboard/  metrics.js board.js network.js thisweek.js  (stubs) · validate.js engine.js events.js (real)
 ├── tests/  engine.test.js · expected-plan-mode.json   (real, D-022)
 │          live-engine.test.js · expected-live-mode.json
 │          scenario-live-mode.json · current-state-live-mode.json   (real, D-027–D-032)
+│          appsscript-smoke.test.js   (real, D-037)
 ├── data/rock3-seed.json   (real, test fixture, per D-016)
 └── docs/  spec.md (real, v1.1) · decision-log.md · project-brain.md
 ```
 Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root — matching CoachPulse.
 
 ## In progress
-- Fase 3: diseño cerrado (D-033–D-038). Falta el build: crear la Google Sheet (tabs People/Events/Settings), escribir backend/Code.gs (doPost con todas las garantías del §3) y dar lógica real a dashboard/events.js (fold → currentState de D-027).
+- Nada activo. Fase 3 cerrada. Fase 4 (Sprint Board) es lo siguiente, en chat nuevo.
 
 ## Next up (per spec §9)
-- **Fase 3:** Google Sheet (tabs People/Events/Settings) + Apps Script `doPost` con todas las garantías del §3 (identidad, event id/timestamp server-side, LockService, header guard, write-then-verify). Es lo que en producción alimenta el `currentState` que `liveMode` ya sabe consumir.
+- **Fase 4:** Sprint Board (Views 1+3, §6): person-selector, tareas agrupadas por milestone, marcado → evento → write-then-verify. Es la primera UI real; consume el backend de Fase 3 (write path) y el fold de events.js (read path), y hornea en dashboard/config.js los tres valores de producción — Web App URL, Sheet ID, API key restringida (D-035).
 
 ## Blocked / waiting
-- Nothing.
+- Nada bloqueado. Pendiente NO bloqueante: los dos procedimientos manuales de D-037 (header-guard y concurrencia) YA se corrieron y pasaron — ya no quedan pendientes.
 
 ## Deferred (not being actively worked)
 - Vista 4 (auto-update from Rock Projects) — D-014.
