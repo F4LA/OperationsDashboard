@@ -2,6 +2,8 @@
 
 > **v2.0 (2026-08-14)** — El producto se reencuadra: deja de ser un dashboard de Rocks y pasa a ser el dashboard de operaciones del leadership team, la herramienta con la que se corre el L10. El motor de Rocks (§2, §4, §5) queda intacto y pasa a ser un módulo. Se agregan: tareas ad-hoc y la vista de to-dos (§11), cierre semanal (§12) e issues (§13, por especificar). Las secciones §2, §4 y §5 NO cambiaron respecto de v1.1 — están construidas, probadas y referenciadas por el decision log. La numeración existente se conserva entera a propósito: el decision log referencia secciones por número 78 veces.
 
+> **v2.0.1 (2026-08-14)** — Enmiendas del diseño de la Fase 8, antes de construir: cancelación de tareas de Rock (§11.4, D-068), contrato de createTask (§3, D-066), eventos discard/cancel/confirmWeek y sus reversas (§3, D-067/D-068/D-069/D-070), y tratamiento de lo cancelado en métricas (§5.1, §5.2, §12). La numeración de secciones no cambia.
+
 **Company:** Strong Standard
 **Author of spec:** design chat (Operating System project)
 **Status:** For approval. Nothing gets built until this is approved.
@@ -260,11 +262,14 @@ Structure comes from the repo (versioned, like the Rock Projects' `.md` files). 
 | **Events** | Event ID \| Sprint ID \| Task ID \| Action \| Value \| Actor \| Timestamp \| Note | Append-only log of every action. |
 | **Settings** | Key \| Value \| Notes | Runtime thresholds (on-track amber/red bands, the operations-week start day). Never hardcoded. |
 
-One generalized append-only log holds three kinds of action, distinguished by the Action column with the payload in Value:
+One generalized append-only log holds every kind of action, distinguished by the Action column with the payload in Value:
 
 - `setStatus` → Value ∈ {`open`, `in_progress`, `done`} — a task's live status.
 - `setDeliverable` → Value = a URL (Drive/GHL/PDF) — the task's deliverable link.
 - `pin` / `unpin` → Value = the ISO Monday of the week the task is pinned into (blank for unpin) — a manual override of the projection (§6.3).
+- `discard` / `undiscard` → Value blank, Note mandatory on discard (the reason). Only valid for ad-hoc ids (`T-NNNN`); the server rejects any other id (D-067).
+- `cancel` / `uncancel` → Value blank, Note mandatory on cancel (the reason). Only valid for ids NOT in the `T-NNNN` namespace, i.e. plan tasks (D-068).
+- `confirmWeek` → Task ID = `WEEK-<ISO Monday>`, Value = the ISO Monday, Note = the JSON array of frozen task ids. Freezes §12's denominator for that week (D-070).
 
 Current state is derived, not stored: fold Events by (Task ID, Action), take the latest by Timestamp → current status, current deliverable link, and current pin per task. Append-only gives a full audit trail (who did what, when) and the completion timestamps the burn-up needs.
 
@@ -273,7 +278,7 @@ Two more tabs, added in v2:
 - **Tasks** — one row per ad-hoc task (§11). Columns: `id | desc | owner | workDays | deadline | sourceIssueId | createdBy | createdAt`. Row ids are server-assigned in the `T-NNNN` namespace and never reused.
 - **Issues** — one row per issue (§13). Columns: `id | title | desc | raisedBy | raisedAt | status | resolution | resolvedBy | resolvedAt`.
 
-The Events log is NOT extended structurally. Marking an ad-hoc task uses the same `setStatus` event as a plan task, and assigning it to a week uses the same `pin` event — one status mechanism for both origins of work. The single new action is `discard`, whose note field is mandatory (the reason) rather than optional.
+The Events log is NOT extended structurally. Marking an ad-hoc task uses the same `setStatus` event as a plan task, and assigning it to a week uses the same `pin` event — one status mechanism for both origins of work. The new actions are discard/undiscard, cancel/uncancel and confirmWeek. discard and cancel carry a mandatory note (the reason); their reversals mirror pin/unpin and fold onto the same slot (D-069).
 
 Every §3 guarantee already in force applies to these tabs verbatim: server-generated timestamps and identity, write-then-verify, People read from one source, stable row ids.
 
@@ -285,7 +290,7 @@ Every §3 guarantee already in force applies to these tabs verbatim: server-gene
 
 ### Apps Script `doPost` — server-side guarantees
 
-Action `appendEvent`. On every write, the server:
+Two RPC actions: `appendEvent` (the event log) and `createTask` (a row in the Tasks tab, D-066). On every write, the server:
 
 - Reads the People tab live and rejects an Actor not in it. (This — not the dropdown — is the real enforcement.)
 - Rejects an Action not in {`setStatus`, `setDeliverable`, `pin`, `unpin`}, and validates Value for that action (status enum for `setStatus`; a well-formed URL for `setDeliverable`; an ISO Monday for `pin`).
@@ -294,6 +299,7 @@ Action `appendEvent`. On every write, the server:
 - Generates the Timestamp server-side from the spreadsheet's own timezone. Client clock is irrelevant.
 - Serializes concurrent writes with `LockService`.
 - Runs a header guard: refuses to write if the tab's headers have drifted.
+- For `createTask`: assigns the row id server-side in the `T-NNNN` namespace under the same lock, rejects an owner that is not exactly one active person ("Both" gets its own named error), requires `workDays > 0` and a mandatory `week`, and appends that week's `pin` event inside the same locked section — so an ad-hoc task can never exist without a week.
 
 ### Read path
 
@@ -404,6 +410,8 @@ progress(scope) = Σ workDays of DONE tasks in scope
 
 A 21-day task marked done counts far more than a 1-day task — which is the point. `in_progress` earns no partial credit in v1 (binary crediting; partial credit deferred).
 
+Cancelled work-days (D-068) leave the denominator and are displayed beside the bar as a separate total. They are never hidden and never left inside: leaving them in would keep the Rock from ever reaching 100% and hold the light red for work nobody is going to do.
+
 ### 5.2 On-track vs. behind (burn-up)
 
 Two cumulative-work curves over the sprint calendar:
@@ -421,6 +429,8 @@ gap ≤ −band                → BEHIND (red)
 ```
 
 This compares real progress against what the plan expected for today, not against flat calendar time. That is the leading indicator — the thing Asana cannot give.
+
+The planned curve is never recalculated when something is cancelled — it stays frozen per D-053. The numeric footer names the cancelled days separately.
 
 ### 5.3 What Bernardo sees per Rock
 
@@ -567,10 +577,10 @@ At the top: the completion summary (§12).
 
 Unfinished tasks show actions, and the actions differ by origin — this asymmetry is deliberate:
 
-- **Ad-hoc**: move to next week, or discard with a mandatory reason.
-- **Rock task**: move to next week only. **No discard.** A Rock task is in the sprint plan; removing it is a plan change, and plan structure is never edited in-app (§0).
+- **Ad-hoc**: move to next week, or discard with a mandatory reason. A discard affects nothing else — the task was born this week, is in no plan, and blocks nobody.
+- **Rock task**: move to next week, or cancel with a mandatory reason (D-068). Cancelling is a different action with a different name because it is a different act: it changes the sprint plan and may unblock somebody else's work. Before confirming, the view shows the dependency cascade (the same cascadeOf used by postpone, D-063d) — informative, never blocking. A cancelled task leaves the schedule through the same code path as a deferred task (§4.6), so its dependents become unblocked; its work-days leave the progress denominator and are shown separately as cancelled (§5.1). Cancelling a whole milestone or project in-app is deliberately NOT built: that is a plan change, and plan structure is regenerated in `sprint-plan.json`, never edited in-app (§0).
 
-Moving is a `pin` to the next week's Monday key. Discarding is a `discard` event with the reason in the note.
+Moving is a `pin` to the next week's Monday key. Discarding is a `discard` event and cancelling a `cancel` event, both with the reason in the note.
 
 **Drag marker.** A task moved twice or more shows a visible marker with the count. This is the case the current process loses: a task postponed five weeks running looks like a first postponement every single time, because nobody is holding the history. The event log already holds it; the view just has to say it.
 
@@ -606,6 +616,7 @@ Read from the event log for the closing week, per person and for the team:
 - **Completed** — reached `done` within the window.
 - **Moved** — pinned forward to a later week.
 - **Discarded** — closed with a reason.
+- **Cancelled** — a Rock task closed with a reason (D-068). Counted and displayed separately from discards: a discard is noise in the meeting, a cancellation is a plan that no longer matches reality.
 - **Completion rate** — completed ÷ the frozen denominator from §11.5.
 
 **Rock tasks count.** In this company Rock tasks ARE the week's to-dos, not a separate class of work; a rate that excluded them would measure half the week.
