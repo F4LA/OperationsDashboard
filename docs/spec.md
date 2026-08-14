@@ -1,4 +1,6 @@
-# Operations Dashboard — Engineering Specification v1.1
+# Operations Dashboard — Engineering Specification v2.0
+
+> **v2.0 (2026-08-14)** — El producto se reencuadra: deja de ser un dashboard de Rocks y pasa a ser el dashboard de operaciones del leadership team, la herramienta con la que se corre el L10. El motor de Rocks (§2, §4, §5) queda intacto y pasa a ser un módulo. Se agregan: tareas ad-hoc y la vista de to-dos (§11), cierre semanal (§12) e issues (§13, por especificar). Las secciones §2, §4 y §5 NO cambiaron respecto de v1.1 — están construidas, probadas y referenciadas por el decision log. La numeración existente se conserva entera a propósito: el decision log referencia secciones por número 78 veces.
 
 **Company:** Strong Standard
 **Author of spec:** design chat (Operating System project)
@@ -26,10 +28,22 @@ It replaces Asana for Rock/sprint execution. Everyone on the team opens it, mark
 - A **network/timeline (Gantt) view** driven by the engine's computed dates (evolution of the existing `Rock3_Network_Graph.html` prototype).
 - **Multi-user** with a person-selector (identity, not login), reusing the proven testimonial-dashboard pattern.
 
+### What v2 adds (the reframe)
+
+v1 assumed all work comes from the sprint plan. It doesn't. The L10 also produces to-dos that belong to no Rock, and issues that generate more to-dos. A dashboard that only shows Rock work shows a fraction of what a person actually committed to that week, which makes it useless as an accountability surface — the exact job it exists to do.
+
+So v2 recognises **two origins of work**:
+
+- **Planned work** — born in Sprint Planning, lives in `sprint-plan.json`, projected by the engine (§4).
+- **Emergent work** — born during the week (an ad-hoc to-do, or a to-do that came out of an issue), lives in the Sheet, never touched by the engine.
+
+Both are tasks. Both are marked the same way. Both appear in the to-do view (§11). What differs is where they come from and whether the engine computes them.
+
 ### What v1 is NOT (explicitly out of scope — see §8)
 
 - No auto-update from the Rock Projects (the "Vista 4" idea). Confirmed not viable today: Rock Projects do not store per-task status in any machine-readable field. Deferred.
 - No in-app editing of the plan structure. To change the plan, regenerate the JSON (§2).
+- Note the boundary this draws: v2 lets people CREATE emergent work in-app (§11, §13), but still never lets them edit the sprint plan's structure in-app. The plan stays immutable per sprint; only emergent work is authored live.
 - No login/password/auth. Identity is honor-based name-selection.
 - Does not itself modify the Project Builder, the Rock 3 project, or the sprint-planning process. Those are downstream changes made after this spec is approved and the dashboard is proven (see §8).
 
@@ -79,6 +93,57 @@ Key separation: structure and state live in different places, mirroring how a Ro
 - **State** = the Google Sheet event log, mutable, written live as people mark tasks.
 
 The two are joined by `id`: a status event in the Sheet references the id of a task in the JSON.
+
+### Emergent work — the second origin (v2)
+
+Ad-hoc tasks (§11) and issues (§13) are created live, so they are structure and state at the same time. Rather than bend them into the JSON (immutable per sprint) or into the event log (which records changes, not objects), they get their own Sheet tabs — and then reuse the existing state machinery unchanged.
+
+**Ad-hoc task properties**
+
+| Field | Meaning | Source |
+|---|---|---|
+| `id` | Server-assigned, `T-0001` — a namespace that cannot collide with plan task ids (`M9-t2`) | SERVER |
+| `desc` | What has to be done | Typed |
+| `owner` | Exactly one person from the People tab. `"Both"` is NOT valid — emergent work has one owner | Typed |
+| `workDays` | Estimated working days, fractions allowed (0.5, 1, 2). MANDATORY on creation | Typed |
+| `deadline` | Optional ISO date. Only flags overdue in the view; never feeds the engine | Typed (optional) |
+| `sourceIssueId` | The issue this came out of, if any (§13) | Set by the convert-to-todo flow |
+| `createdBy`, `createdAt` | Server-generated identity and timestamp, per §3 | SERVER |
+| `status` | `open` / `in_progress` / `done` / `discarded` — the SAME status set and the SAME event as a plan task | STATE (event log) |
+| `week` | Which ops week it sits in — carried by the `pin` event, see below | STATE (event log) |
+
+An ad-hoc task has **no dependencies**. That is deliberate: work with dependencies belongs in a Rock plan. It does carry an estimated `workDays`, but that estimate feeds exactly one thing — the capacity warning in §11.5 — and never the engine. An ad-hoc task never moves a projected date, never creates a dependency, and never changes a Rock's on-track chip.
+
+The estimate is mandatory rather than optional on purpose. Ad-hoc tasks are normally created together during the L10, where the person is asked how long it will take, so the estimate costs nothing there. Making it optional outside the meeting would reintroduce partial data through the back door, and a capacity total where some tasks are estimated and some are not is worse than no total at all: it looks trustworthy and isn't.
+
+**The consequence, stated plainly so nobody misreads the chip:** the on-track indicator means "on track against the Rock's plan", not "on track against this person's real week". Someone can carry three days of ad-hoc work and still show green. The dashboard tells you whether the Rock is advancing as planned; it does not tell you whether the person is overloaded. The capacity warning in §11.5 is what covers that, and it is a separate signal.
+
+**Week assignment reuses `pin`.** The `pin` event (§3) already assigns a task to an ops week via that week's ISO Monday (D-061). For plan tasks it overrides the engine's projection. For ad-hoc tasks it is the ONLY source of week. Three states fall out with no new machinery:
+
+- **No week** = an ad-hoc task with no pin. Representable, but not built in v2 (§11.6).
+- **In a week** = pinned to that week's Monday key.
+- **Moved** = a later pin to a different Monday key. Every move stays in the append-only log, so "moved three weeks running" is visible without tracking it separately.
+
+There is deliberately no pipeline and no stage field. A stage would be a second, redundant way to express what status + pin already express.
+
+**Discarding, not deleting.** A task that will not be done is closed with a `discard` event carrying a mandatory reason. It leaves the view and stays in the log. Nothing is ever deleted — the discard rate is itself a signal (§12).
+
+**Issue properties**
+
+| Field | Meaning | Source |
+|---|---|---|
+| `id` | Server-assigned, `I-0001` | SERVER |
+| `title` | Short name, what shows in the list | Typed |
+| `desc` | The context needed to discuss it later | Typed |
+| `raisedBy`, `raisedAt` | Server-generated | SERVER |
+| `status` | `open` / `resolved` | STATE (event log) |
+| `resolution` | `discussed_no_action` or `todo_created` — mandatory on resolve | STATE |
+
+Issues are raised **during the week**, not only in the meeting, so the Issues view has to be usable on its own and not only inside the L10 flow.
+
+An issue cannot be closed without stating how it closed. That single constraint is what makes the IDS measurable: at sprint end you can see how many issues closed with no action versus how many produced work. One issue may produce more than one to-do.
+
+**A resolved issue is not finished work.** Closing the issue and doing what came out of it are different things. That is why a generated to-do keeps `sourceIssueId`: not to reopen the issue, but so the dashboard can surface "this issue was closed in week 3 and its to-do is still open three weeks later" — the case that silently disappears today.
 
 ---
 
@@ -202,6 +267,15 @@ One generalized append-only log holds three kinds of action, distinguished by th
 - `pin` / `unpin` → Value = the ISO Monday of the week the task is pinned into (blank for unpin) — a manual override of the projection (§6.3).
 
 Current state is derived, not stored: fold Events by (Task ID, Action), take the latest by Timestamp → current status, current deliverable link, and current pin per task. Append-only gives a full audit trail (who did what, when) and the completion timestamps the burn-up needs.
+
+Two more tabs, added in v2:
+
+- **Tasks** — one row per ad-hoc task (§11). Columns: `id | desc | owner | workDays | deadline | sourceIssueId | createdBy | createdAt`. Row ids are server-assigned in the `T-NNNN` namespace and never reused.
+- **Issues** — one row per issue (§13). Columns: `id | title | desc | raisedBy | raisedAt | status | resolution | resolvedBy | resolvedAt`.
+
+The Events log is NOT extended structurally. Marking an ad-hoc task uses the same `setStatus` event as a plan task, and assigning it to a week uses the same `pin` event — one status mechanism for both origins of work. The single new action is `discard`, whose note field is mandatory (the reason) rather than optional.
+
+Every §3 guarantee already in force applies to these tabs verbatim: server-generated timestamps and identity, write-then-verify, People read from one source, stable row ids.
 
 ### Write path (ported from testimonial — these are scars, not preferences)
 
