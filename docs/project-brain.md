@@ -1,17 +1,19 @@
 # Project Brain — Operations Dashboard
 The current state in one page. Updated at the close of every chat via the push Code session.
-_Last updated: 2026-08-13 — Bernardo (Fase 5 especificada: burn-up D-053 + fix de repintado D-054; prompt entregado a BUILD)_
+_Last updated: 2026-08-14 — Bernardo (Fase 5 CERRADA y probada E2E, D-055; arranque de tracking por backfill, D-058)_
 
 > **Source of truth for WHAT to build** is the spec: `docs/spec.md` (v1.1).
 > **Source of truth for WHY** is `docs/decision-log.md`.
 > This Brain tracks WHERE the build stands.
 > Repo: `F4LA/OperationsDashboard` (public). Local clone: `~/Desktop/StrongStandard/OperationsDashboard`.
-> Live: https://f4la.github.io/OperationsDashboard/ (Sprint Board, since Fase 4 — commit 1acc181)
+> Live: https://f4la.github.io/OperationsDashboard/ (Sprint Board + métricas, desde Fase 5 — commit 06b568d)
 
 ## Current phase
-Fase 5 (Métricas, §5) — EN CURSO. Diseño cerrado (D-053, D-054); prompt entregado a la sesión BUILD, sin construir todavía.
+Fase 6 (Network / Timeline, View 2 del §6) — próxima. Fase 5 cerrada y confirmada E2E en el sitio desplegado (D-055).
 
 ## Status
+Fase 5 completa: la burn-up planned-vs-actual existe en dos scopes y la reproyección viva de §4.7 ahora se ve en pantalla en cada marca (antes se recalculaba en memoria pero solo se repintaba la fila marcada). Regresión 181/181. El tracking real arrancó el 2026-08-14 por backfill (D-058): las tareas completadas desde el 27 de julio se cargan con fecha de hoy, así que la curva "actual" tiene un salto vertical ese día por diseño, no por defecto.
+
 Fase 3 backend completo, desplegado y probado de punta a punta contra el servidor REAL. Componentes: (1) backend/Code.gs — Apps Script doPost con todas las garantías del §3 (People leído en vivo, Event ID server-side formato D-034, Timestamp server-side con offset real y celda forzada a texto D-041, LockService, header guard, validación de Actor/Action/Value); (2) dashboard/events.js — fold de Events (D-009) que produce el shape currentState de D-027, verificado por round-trip completo contra el fixture de Fase 2 (events→fold→currentState→liveMode da idéntico a expected-live-mode.json); (3) tests/appsscript-smoke.test.js — harness Node que pega al Web App real.
 
 Resultado del smoke test contra el Web App desplegado por Bernardo: 74/74 verde — 7 escrituras aceptadas con write-then-verify real vía Sheets API v4, 16+ rechazos server-side (actor desconocido/inactivo, action inválida, cada Value mal formado, javascript: URL bloqueada, pin no-lunes). Header-guard verificado a mano: renombrar Events!D1 de "Action" a "Actions" hizo que TODA escritura fallara con HEADER_DRIFT nombrando la columna, sin escribir nada; restaurado, 74/74 de nuevo. Concurrencia verificada a mano: 20 escrituras casi simultáneas (mismo taskId, disparadas en paralelo) → 20 filas completas, 20 Event ID distintos, cero colisiones, cero filas a medio escribir.
@@ -38,6 +40,7 @@ Nota de seguridad (consistente con el "no auth" del §3, no es un defecto): la U
   como módulo propio — adelanta parte de Fase 5), app.js bootstrap, styles.css base
   CoachPulse, más divisor visual de Project para el badge cuttable de §7. Commit 1acc181.
   Regresión 157/157. Probada E2E en navegador real (D-049).
+- Fase 5 (Métricas, §5): metrics.js con burnupSeries (D-053), gráfica SVG inline sprint-wide + por Rock, y diffAndRepaint (D-054). Commits 45f8afd y 06b568d. Probada E2E en f4la.github.io con la reproyección cross-dependencia visible en pantalla. tests/burnup.test.js (24 checks) commiteado; regresión total 181/181.
 
 ## Repo layout (as built)
 ```
@@ -56,10 +59,11 @@ OperationsDashboard/
 Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root — matching CoachPulse.
 
 ## In progress
-- Fase 5, en manos de BUILD: (A) burnupSeries en metrics.js, (B) gráfica SVG inline en board.js/styles.css en scope sprint y por Rock, (C) repintado por diff tras cada marca. Especificado en D-053 y D-054.
+- Nada activo. Próximo: Fase 6 (Network / Timeline, View 2).
 
 ## Next up (per spec §9)
-- **Fase 6:** Network / Timeline (View 2, §6) alimentada por las fechas del motor.
+- **Fase 6:** Network / Timeline (View 2, §6) — evolución de Rock3_Network_Graph.html alimentada por las fechas del motor.
+- **Fase 7:** "This Week" (§6.3) + pin manual + caja de deliverable. Última a propósito: es la línea de corte natural si aprieta el tiempo.
 
 ## Blocked / waiting
 - Nada bloqueado. Pendiente NO bloqueante: los dos procedimientos manuales de D-037 (header-guard y concurrencia) YA se corrieron y pasaron — ya no quedan pendientes.
@@ -67,7 +71,7 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 ## Deferred (not being actively worked)
 - Vista 4 (auto-update from Rock Projects) — D-014.
 - Retire Asana, Project Builder emitting the JSON, Operating System producing Rock-3-level planning detail — all downstream, after the dashboard is built and proven (D-014).
-- This Week, pin, Gantt — not started; they come in later phases per §9. Metrics (§5) partially started (progress bar in metrics.js per Fase 4); burn-up chart especificado en D-053, en construcción en Fase 5.
+- This Week, pin y Gantt — no arrancados; vienen en las Fases 6 y 7 per §9. Métricas (§5) COMPLETAS desde Fase 5.
 
 ## Open decisions
 - D-025 provisional: semántica de executionOrder y de "Both" multi-persona, a confirmar antes del primer plan que las ejercite. No bloquea nada hoy (Rock 3 no las usa).
