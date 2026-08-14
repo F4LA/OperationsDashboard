@@ -1,6 +1,6 @@
 # Project Brain — Operations Dashboard
 The current state in one page. Updated at the close of every chat via the push Code session.
-_Last updated: 2026-08-13 — Bernardo (rediseño visual CERRADO y confirmado E2E, D-052)_
+_Last updated: 2026-08-13 — Bernardo (Fase 5 especificada: burn-up D-053 + fix de repintado D-054; prompt entregado a BUILD)_
 
 > **Source of truth for WHAT to build** is the spec: `docs/spec.md` (v1.1).
 > **Source of truth for WHY** is `docs/decision-log.md`.
@@ -9,7 +9,7 @@ _Last updated: 2026-08-13 — Bernardo (rediseño visual CERRADO y confirmado E2
 > Live: https://f4la.github.io/OperationsDashboard/ (Sprint Board, since Fase 4 — commit 1acc181)
 
 ## Current phase
-Fase 5 (Métricas, §5) — próxima. Rediseño visual del Sprint Board (D-050–D-052) cerrado y confirmado E2E.
+Fase 5 (Métricas, §5) — EN CURSO. Diseño cerrado (D-053, D-054); prompt entregado a la sesión BUILD, sin construir todavía.
 
 ## Status
 Fase 3 backend completo, desplegado y probado de punta a punta contra el servidor REAL. Componentes: (1) backend/Code.gs — Apps Script doPost con todas las garantías del §3 (People leído en vivo, Event ID server-side formato D-034, Timestamp server-side con offset real y celda forzada a texto D-041, LockService, header guard, validación de Actor/Action/Value); (2) dashboard/events.js — fold de Events (D-009) que produce el shape currentState de D-027, verificado por round-trip completo contra el fixture de Fase 2 (events→fold→currentState→liveMode da idéntico a expected-live-mode.json); (3) tests/appsscript-smoke.test.js — harness Node que pega al Web App real.
@@ -56,11 +56,10 @@ OperationsDashboard/
 Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root — matching CoachPulse.
 
 ## In progress
-- Nada activo. Próximo: Fase 5.
+- Fase 5, en manos de BUILD: (A) burnupSeries en metrics.js, (B) gráfica SVG inline en board.js/styles.css en scope sprint y por Rock, (C) repintado por diff tras cada marca. Especificado en D-053 y D-054.
 
 ## Next up (per spec §9)
-- **Fase 5:** Métricas (§5) — barra de progreso ya existe (metrics.js); falta la
-  gráfica burn-up planned-vs-actual y confirmar la reproyección live en cada marca.
+- **Fase 6:** Network / Timeline (View 2, §6) alimentada por las fechas del motor.
 
 ## Blocked / waiting
 - Nada bloqueado. Pendiente NO bloqueante: los dos procedimientos manuales de D-037 (header-guard y concurrencia) YA se corrieron y pasaron — ya no quedan pendientes.
@@ -68,10 +67,11 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 ## Deferred (not being actively worked)
 - Vista 4 (auto-update from Rock Projects) — D-014.
 - Retire Asana, Project Builder emitting the JSON, Operating System producing Rock-3-level planning detail — all downstream, after the dashboard is built and proven (D-014).
-- This Week, pin, Gantt — not started; they come in later phases per §9. Metrics (§5) partially started (progress bar in metrics.js per Fase 4); burn-up chart still pending Fase 5.
+- This Week, pin, Gantt — not started; they come in later phases per §9. Metrics (§5) partially started (progress bar in metrics.js per Fase 4); burn-up chart especificado en D-053, en construcción en Fase 5.
 
 ## Open decisions
 - D-025 provisional: semántica de executionOrder y de "Both" multi-persona, a confirmar antes del primer plan que las ejercite. No bloquea nada hoy (Rock 3 no las usa).
+  Confirmado contra el sprint-plan.json en vivo (2026-08-13): cero apariciones de executionOrder en los 47 tasks, y people == ["Brent","Bernardo"] == el conjunto exacto de owners del Rock, así que los 18 tasks "Both" ejercitan la semántica de recurso pero no la ambigüedad. Sigue sin bloquear.
 - D-030 es una aproximación práctica (seeding de availableFrom desde done); revisar si un sprint real la contradice. (Mismo tono que D-025.)
 
 ## Key dates
