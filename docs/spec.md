@@ -372,6 +372,8 @@ The Rock is the primary unit for both metrics — this is what he checks mid-wee
 
 ### 6.3 View — "This Week" (per-person weekly focus + manual pin)
 
+> **Superseded by §11 (v2.0).** What follows stays accurate for what was built in Phase 7 and is still referenced by D-061, D-062, D-063 and D-064. §11 widens it: same window, same buckets, same pin — plus ad-hoc tasks, the week selector, and the confirmation step. Where the two differ, §11 wins.
+
 The mid-week accountability screen and the backbone of the restructured L10. For each person, three buckets scoped to the operations week (Friday after the L10 → Thursday; the start day is configurable in Settings, and is deliberately distinct from CoachPulse's Thursday→Wednesday coaching week — two dashboards, two calendars):
 
 - **Done this week** — tasks marked done with a completion timestamp inside the current week, each showing its deliverable link.
@@ -433,6 +435,8 @@ These are consequences of v1, made after the dashboard is built and proven, and 
 - Metrics (§5): duration-weighted progress + burn-up on-track; live reprojection (§4.7) on each mark.
 - Network/Timeline (View 2) fed by engine dates.
 - "This Week" view (§6.3) + manual pin (drop-down, engine-validated) + deliverable link box. Built last on purpose: if the week tightens, this is the natural cut line without breaking anything earlier.
+- **Fase 8 — La vista de to-dos (§11) + cierre semanal (§12).** Reemplaza el §6.3. Requiere que la pestaña People tenga a las cinco personas de leadership antes de construir.
+- **Fase 9 — Issues (§13).** Se especifica después de correr al menos un L10 con la Fase 8 en uso.
 
 Build order rationale: the engine is the heaviest and highest-risk piece and everything depends on it, so it goes first and gets validated against real Rock 3 data before any UI investment.
 
@@ -450,3 +454,88 @@ Build order rationale: the engine is the heaviest and highest-risk piece and eve
 ## Decisions locked by this spec (recap)
 
 Model Sprint→Rock→Project→Milestone→Task; atomic task with owner/type/workDays/waitDays/deps (broad, cross-Rock); Both occupies both queues; fractions allowed · Dates computed, never typed; ready tasks auto-ordered by priority for projection only, executionOrder optional override, reality reprojects · Duration-weighted progress + on-track = actual vs. frozen planned curve · Board = tasks-by-milestone, no imposed order · Identity = person-selector (no auth) on GitHub Pages + Sheet + Apps Script, testimonial pattern + single People source + stable row id + write-then-verify · This Week view (Fri→Thu, three buckets per person, driven by live projection) · manual pin via engine-validated drop-down (pull forward / postpone; allowed / refused-with-reason / cascade) · deliverable link box per task · Structure in `sprint-plan.json` (repo), state in a single append-only Events log in the Sheet · v1 does not edit structure in-app, does not touch Builder/Rock 3/Asana.
+
+---
+
+## 11 · The to-do view (v2) — supersedes §6.3
+
+§6.3 specified "This Week" for Rock tasks only. That was too narrow: a person's real week contains Rock work AND to-dos that belong to no Rock, and a view that shows only the first shows a fraction of what someone committed to — which makes it useless as the accountability surface it exists to be. This section replaces §6.3. What §6.3 specified (the three buckets, the ops-week window, the pin) stays true and stays built; §11 widens it.
+
+### 11.1 · Why the week selector exists
+
+The ops week runs Friday → Thursday and the L10 is on Friday. So at the moment of the meeting one week is closing and another is opening. The L10's step 6 reviews the closing week; step 8 builds the opening one. Those are not two views — they are one movement: saying "I didn't finish this, it moves" in step 6 IS what fills step 8.
+
+The view therefore has a **week selector** with three positions: **closing**, **current**, **opening**. Default: on the ops week's start day it opens on *closing*; on any other day it opens on *current*.
+
+### 11.2 · Controls
+
+Three selectors, nothing else:
+
+- **Week** — closing / current / opening.
+- **Person** — "Everyone" first, then each person from the People tab. This REPLACES the "Only my tasks" checkbox, which is removed.
+- **Origin** — all / Rock only / other only. Default: all.
+
+**Person filter and "Acting as" are separate controls and must stay separate.** "Acting as" answers *who you are* (whose identity gets written on an event); the person filter answers *who you are looking at*. In the L10, one person shares their screen and moves through everyone, so they will mark tasks while filtered to someone else. Those events are recorded under the identity of whoever actually clicked — never under the filtered person. Fusing the two controls would corrupt the one record that says who marked what.
+
+### 11.3 · Layout
+
+People stack vertically — one block per person, read top to bottom, which is how step 6 is walked. Not side-by-side columns: with five leadership members those get too narrow, and the list is scanned rather than compared.
+
+Within a person, **one single list**, Rock tasks and ad-hoc tasks together. Not two sections. The point of the view is that the person committed to ONE week of work; splitting the list into two makes it read as two separate commitments. Each row carries an origin marker (Rock and task id for plan tasks, nothing for ad-hoc), so telling them apart stays trivial while the commitment stays whole.
+
+Every row has the status dropdown from §6.2, unchanged. Ad-hoc tasks reuse it exactly — same statuses, same event, same write-then-verify.
+
+### 11.4 · The closing week (L10 step 6)
+
+People mark their own tasks during the week, so the list arrives already marked. Step 6 is a READ, not a marking session — the view must not be designed as one.
+
+At the top: the completion summary (§12).
+
+Unfinished tasks show actions, and the actions differ by origin — this asymmetry is deliberate:
+
+- **Ad-hoc**: move to next week, or discard with a mandatory reason.
+- **Rock task**: move to next week only. **No discard.** A Rock task is in the sprint plan; removing it is a plan change, and plan structure is never edited in-app (§0).
+
+Moving is a `pin` to the next week's Monday key. Discarding is a `discard` event with the reason in the note.
+
+**Drag marker.** A task moved twice or more shows a visible marker with the count. This is the case the current process loses: a task postponed five weeks running looks like a first postponement every single time, because nobody is holding the history. The event log already holds it; the view just has to say it.
+
+A Rock task that keeps being moved while the engine still projects it for this week is a signal that the Rock's plan no longer matches reality. The dashboard surfaces it and stops there — that is material for an issue, not for a button.
+
+### 11.5 · The opening week (L10 step 8)
+
+This is where the week gets built. The system proposes, the people confirm.
+
+**Proposed automatically:** Rock tasks the live projection (§4.7) places in that window. This already works.
+
+**Confirm or remove:** each proposed Rock task can be kept or taken out of the week. Taking it out is a `pin` to a later week — the projection does not change (D-063c), only the commitment does.
+
+**Pull others in:** the existing "add to this week" dropdown, with one change from §6.3. Today it hides blocked tasks. It must now SHOW them, flagged, naming what blocks them and who owns the blocker. That flag is the whole point: it produces the conversation "this depends on something of Emery's — Emery, can you get it done this week?" and, when the answer is yes, both commitments land in the same week where they can be seen. Hiding blocked tasks hides the coordination.
+
+**Add ad-hoc tasks:** description, owner (exactly one person — "Both" is not valid), estimated workDays, optional deadline.
+
+**Capacity warning:** sum the workDays of everything in that person's week, Rock and ad-hoc alike, and warn when it exceeds the working days available. The warning is an input to the conversation, not a verdict — the person decides whether to drop something or absorb it.
+
+**Confirming the week freezes the denominator.** When step 8 closes, the list as it stands is that week's commitment, and that is what §12 measures against. Anything added mid-week counts toward the numerator when completed but never inflates the denominator, so taking on extra work can never lower someone's completion rate.
+
+### 11.6 · Not built, deliberately
+
+- **No backlog.** Nothing in the L10 flow looks at one, so it would be where tasks go to be forgotten. Every to-do is born with a week. "No week assigned" remains a representable state in the model, so a backlog can be added later without reworking anything.
+- **No kanban and no stage field.** A kanban orders by stage; this operation has no stages, it has status. What orders the work is time — which week it sits in — and a kanban does not show time. Status plus week already expresses everything a board would.
+
+---
+
+## 12 · Weekly completion (L10 step 6, measured)
+
+Read from the event log for the closing week, per person and for the team:
+
+- **Completed** — reached `done` within the window.
+- **Moved** — pinned forward to a later week.
+- **Discarded** — closed with a reason.
+- **Completion rate** — completed ÷ the frozen denominator from §11.5.
+
+**Rock tasks count.** In this company Rock tasks ARE the week's to-dos, not a separate class of work; a rate that excluded them would measure half the week.
+
+Both numbers are shown: the team's rate at the top, each person's beside their name. No ranking, no ordering by performance.
+
+The discard rate is worth watching on its own over a sprint. A high one means the L10 is generating noise rather than work, and that is a fact about the meeting, not about the people in it.
