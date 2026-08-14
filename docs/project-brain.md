@@ -1,6 +1,6 @@
 # Project Brain — Operations Dashboard
 The current state in one page. Updated at the close of every chat via the push Code session.
-_Last updated: 2026-08-14 — Bernardo (Fase 7 especificada: semana de operaciones y clave lunes D-061, navegación segmentada D-062, contrato de This Week D-063)_
+_Last updated: 2026-08-14 — Bernardo (Fase 7 cerrada: This Week + pin en producción, commit 9c0ee25)_
 
 > **Source of truth for WHAT to build** is the spec: `docs/spec.md` (v1.1).
 > **Source of truth for WHY** is `docs/decision-log.md`.
@@ -9,7 +9,7 @@ _Last updated: 2026-08-14 — Bernardo (Fase 7 especificada: semana de operacion
 > Live: https://f4la.github.io/OperationsDashboard/ (Sprint Board + métricas, desde Fase 5 — commit 06b568d)
 
 ## Current phase
-Fase 7 ("This Week" §6.3 + pin manual) — diseño CERRADO (D-061, D-062, D-063). Pendiente: construcción por la sesión BUILD. Fase 6 (Network/Timeline) sigue diferida hasta cargar los 4 Rocks (D-059).
+Fase 7 CERRADA. This Week (§6.3) + pin manual en producción y probada en f4la.github.io: control segmentado, buckets por persona, pull/postpone/release con cascada. Regresión 248/248. El próximo trabajo NO es código: cargar los 3 Rocks faltantes del sprint (hoy el plan solo tiene R3), que es lo que destraba la Fase 6 per D-059.
 
 ## Status
 Fase 5 completa: la burn-up planned-vs-actual existe en dos scopes y la reproyección viva de §4.7 ahora se ve en pantalla en cada marca (antes se recalculaba en memoria pero solo se repintaba la fila marcada). Regresión 181/181. El tracking real arrancó el 2026-08-14 por backfill (D-058): las tareas completadas desde el 27 de julio se cargan con fecha de hoy, así que la curva "actual" tiene un salto vertical ese día por diseño, no por defecto.
@@ -41,6 +41,7 @@ Nota de seguridad (consistente con el "no auth" del §3, no es un defecto): la U
   CoachPulse, más divisor visual de Project para el badge cuttable de §7. Commit 1acc181.
   Regresión 157/157. Probada E2E en navegador real (D-049).
 - Fase 5 (Métricas, §5): metrics.js con burnupSeries (D-053), gráfica SVG inline sprint-wide + por Rock, y diffAndRepaint (D-054). Commits 45f8afd y 06b568d. Probada E2E en f4la.github.io con la reproyección cross-dependencia visible en pantalla. tests/burnup.test.js (24 checks) commiteado; regresión total 181/181.
+- Fase 7 (This Week §6.3 + pin manual): dashboard/thisweek.js con opsWeek/buckets/availableToPull/cascadeOf, todas puras; vista con control segmentado y persistencia en opsdash.view; pull, postpone-con-cascada y release por el postEvent/verifyEvent existente; opsWeekStartDay por fin consumido en app.js. Commit 9c0ee25. tests/thisweek.test.js: 67 checks; regresión total 248/248. Decisiones: D-061, D-062, D-063, D-064.
 
 ## Repo layout (as built)
 ```
@@ -48,34 +49,35 @@ OperationsDashboard/
 ├── README.md · index.html · app.js · styles.css   (real, Fase 4, commit 1acc181)
 ├── sprint-plan.json   (real, root — production, per D-016)
 ├── backend/Code.gs   (real, Apps Script Web App, D-035)
-├── dashboard/  network.js thisweek.js  (stubs) · validate.js engine.js events.js board.js metrics.js (real)
+├── dashboard/  network.js  (stub) · validate.js engine.js events.js board.js metrics.js thisweek.js (real)
 ├── tests/  engine.test.js · expected-plan-mode.json   (real, D-022)
 │          live-engine.test.js · expected-live-mode.json
 │          scenario-live-mode.json · current-state-live-mode.json   (real, D-027–D-032)
 │          appsscript-smoke.test.js   (real, D-037)
+│          thisweek.test.js   (real, D-061–D-064)
 ├── data/rock3-seed.json   (real, test fixture, per D-016)
 └── docs/  spec.md (real, v1.1) · decision-log.md · project-brain.md
 ```
 Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root — matching CoachPulse.
 
 ## In progress
-- Fase 7 (This Week + pin manual): especificada, en construcción. Alcance de DOS entregables, no tres — la deliverable box del §9 ya está en producción desde la Fase 4.
+- Nada activo en código.
 
 ## Next up (per spec §9)
-- **Fase 7 (ahora, por D-059):** "This Week" (§6.3) + pin manual. Diseño cerrado (D-061 semana/clave, D-062 navegación segmentada, D-063 contrato de buckets/pin). La caja de deliverable ya está en producción desde la Fase 4, así que no forma parte de esta fase.
-- **Carga de los 4 Rocks del sprint:** hoy el dashboard tiene 1 de 4. Es la precondición de la Fase 6 (D-059) y el cuello de botella real del proyecto — cargar tres Rocks a mano en el formato de Rock 3 es trabajo serio.
-- **Fase 6 (diferida):** Network/Timeline (View 2, §6), una vez cargados los 4 Rocks. Los conectores cross-Rock quedan en suspenso por D-060.
+- **Carga de los 3 Rocks faltantes del sprint:** hoy el plan solo tiene R3. Es la precondición de la Fase 6 (D-059) y el cuello de botella real del proyecto — cargar tres Rocks a mano en el formato de Rock 3 es trabajo serio, y no es código de este repo.
+- **Fase 6 (diferida):** Network/Timeline (View 2, §6), una vez cargados los Rocks faltantes. Los conectores cross-Rock quedan en suspenso por D-060.
 
 ## Blocked / waiting
 - Nada bloqueado. Pendiente NO bloqueante: los dos procedimientos manuales de D-037 (header-guard y concurrencia) YA se corrieron y pasaron — ya no quedan pendientes.
-- Verificar si el commit 06b568d bumpeó el ?v= de index.html. Hoy index.html sirve todos los assets en ?v=20260813b y los commits de Fase 5 son del 14 — si no se bumpeó, cualquier navegador con caché del 13 corre board.js/metrics.js/styles.css de Fase 4 (panel de burn-up vacío). Lo verifica BUILD al arrancar la Fase 7.
+- Los 3 Rocks faltantes del sprint no están cargados en el plan JSON. Hasta que estén, la Fase 6 sigue diferida per D-059 y el dashboard solo refleja R3.
 
 ## Deferred (not being actively worked)
 - Vista 4 (auto-update from Rock Projects) — D-014.
 - Retire Asana, Project Builder emitting the JSON, Operating System producing Rock-3-level planning detail — all downstream, after the dashboard is built and proven (D-014).
-- Gantt/Network (Fase 6): diferido por D-059 hasta cargar los 4 Rocks. This Week + pin: ya no diferido — es la Fase 7 en curso.
-- Network/Timeline (Fase 6): diferida por D-059 hasta que estén cargados los 4 Rocks. Prototipos de referencia localizados el 2026-08-14 en el disco de Bernardo (fuera de este repo): Rock3_Network_Graph.html y Rock3_Interactive_Timeline.html. Hallazgos para cuando toque: las filas son por MILESTONE agrupadas por Project (no carriles por persona — lo "por persona" se resolvió con botones de filtro); el Interactive Timeline es la mejor base pero perdió las barras punteadas de espera que sí tiene el Network Graph; ninguno de los dos dibuja conectores de dependencia (los muestra como texto), aunque el CSS del Interactive dejó un `.deps` preparado y vacío.
-- Carga automática del documento de Rock al dashboard: hoy el §8 lo lista como "Project Builder emite el JSON", conveniencia downstream. Con 4 Rocks pasa a ser el trabajo que destraba la Fase 6. Pedido explícito de Bernardo (2026-08-14) de dejarlo registrado.
+- Gantt/Network (Fase 6): diferido por D-059 hasta cargar los Rocks faltantes.
+- Network/Timeline (Fase 6): diferida por D-059 hasta que estén cargados los Rocks faltantes. Prototipos de referencia localizados el 2026-08-14 en el disco de Bernardo (fuera de este repo): Rock3_Network_Graph.html y Rock3_Interactive_Timeline.html. Hallazgos para cuando toque: las filas son por MILESTONE agrupadas por Project (no carriles por persona — lo "por persona" se resolvió con botones de filtro); el Interactive Timeline es la mejor base pero perdió las barras punteadas de espera que sí tiene el Network Graph; ninguno de los dos dibuja conectores de dependencia (los muestra como texto), aunque el CSS del Interactive dejó un `.deps` preparado y vacío.
+- Carga automática del documento de Rock al dashboard: hoy el §8 lo lista como "Project Builder emite el JSON", conveniencia downstream. Con los Rocks faltantes cargados pasa a ser el trabajo que destraba la Fase 6. Pedido explícito de Bernardo (2026-08-14) de dejarlo registrado.
+- Pulido menor de This Week: el dropdown "+ add to this week" lista también tareas que ya se muestran en la columna de esa persona, así que aparecen duplicadas. Inofensivo. Revisar después de una semana de uso real.
 
 ## Open decisions
 - D-025 provisional: semántica de executionOrder y de "Both" multi-persona, a confirmar antes del primer plan que las ejercite. No bloquea nada hoy (Rock 3 no las usa).
@@ -85,4 +87,4 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 - D-063(c) fija que el pin NO reproyecta (el motor no recibe pins; es un override de bucket, no de fechas). Revisable si un sprint real pide que el pin mueva la proyección.
 
 ## Key dates
-- No hard external deadline on the dashboard itself. Target: Views 1–3 usable in the first build week; This Week + pin + link layer (Fase 7) now precede Gantt/Timeline (Fase 6, diferida por D-059). (Sprint being tracked, for reference: S3-2026, ends 2026-09-13.)
+- No hard external deadline on the dashboard itself. Target: Views 1–3 usable in the first build week; This Week + pin + link layer (Fase 7) shipped before Gantt/Timeline (Fase 6, diferida por D-059). (Sprint being tracked, for reference: S3-2026, ends 2026-09-13.)
