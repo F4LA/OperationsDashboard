@@ -271,7 +271,7 @@ One generalized append-only log holds every kind of action, distinguished by the
 - `cancel` / `uncancel` → Value blank, Note mandatory on cancel (the reason). Only valid for ids NOT in the `T-NNNN` namespace, i.e. plan tasks (D-068).
 - `confirmWeek` → Task ID = `WEEK-<ISO Monday>`, Value = the ISO Monday, Note = the JSON array of frozen task ids. Freezes §12's denominator for that week (D-070).
 
-Current state is derived, not stored: fold Events by (Task ID, Action), take the latest by Timestamp → current status, current deliverable link, and current pin per task. Append-only gives a full audit trail (who did what, when) and the completion timestamps the burn-up needs.
+Current state is derived, not stored: fold Events by (Task ID, Action), take the latest by Timestamp → current status, current deliverable link, current pin, current discard/cancel state per task, and the frozen week commitments. Append-only gives a full audit trail (who did what, when) and the completion timestamps the burn-up needs.
 
 Two more tabs, added in v2:
 
@@ -293,7 +293,7 @@ Every §3 guarantee already in force applies to these tabs verbatim: server-gene
 Two RPC actions: `appendEvent` (the event log) and `createTask` (a row in the Tasks tab, D-066). On every write, the server:
 
 - Reads the People tab live and rejects an Actor not in it. (This — not the dropdown — is the real enforcement.)
-- Rejects an Action not in {`setStatus`, `setDeliverable`, `pin`, `unpin`}, and validates Value for that action (status enum for `setStatus`; a well-formed URL for `setDeliverable`; an ISO Monday for `pin`).
+- Rejects an Action not in {`setStatus`, `setDeliverable`, `pin`, `unpin`, `discard`, `undiscard`, `cancel`, `uncancel`, `confirmWeek`}, and validates Value for that action: the status enum for `setStatus`; a well-formed URL for `setDeliverable`; an ISO Monday for `pin` and for `confirmWeek`; blank for `unpin`, `discard`, `undiscard`, `cancel` and `uncancel`. It also enforces the namespace rules (D-067, D-068) and the mandatory note on `discard` and `cancel`.
 - Rejects an empty Task ID.
 - Generates the Event ID server-side — a real stable id (e.g. a monotonic counter or `Date.now()+"-"+rand`), never row position. (Improvement #4 — position-based identity breaks on any insert/sort/restore.)
 - Generates the Timestamp server-side from the spreadsheet's own timezone. Client clock is irrelevant.
