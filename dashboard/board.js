@@ -8,14 +8,22 @@
  * Mark-a-task flow (the hot path):
  *   pick a status in the dropdown → postEvent("setStatus", …) → on success,
  *   patch currentState for JUST that task (no refetch) → re-run liveMode +
- *   metrics → repaint that one task row + its Rock's progress bar/chip + the
- *   sprint-wide summary. Every other row keeps its last-rendered dates until
- *   the next mark or Refresh — a deliberate scope limit (not a full
- *   re-render), see the Phase 4 report.
+ *   metrics → diffAndRepaint() (Part C, Phase 5). liveMode's reprojection is
+ *   global — a cross-Rock dependency can move a task in a DIFFERENT Rock than
+ *   the one just marked — so this compares every task/milestone/Rock's
+ *   signature before vs. after and patches only what actually changed,
+ *   instead of the Phase 4 version's "just this task's own Rock" shortcut
+ *   (which left every downstream row showing a stale plannedFinish until the
+ *   next Refresh — that was the Phase 5 bug report). A row whose deliverable
+ *   box is open for editing is skipped so a patch can never clobber an
+ *   in-progress paste; both burn-up charts always repaint (the sprint-wide
+ *   one always, per-Rock ones only when that Rock's own signature moved).
  *
- * Refresh flow: full Events refetch → refold → liveMode + metrics → re-render
- * everything. People is NOT re-fetched on Refresh (only at initial mount) —
- * per the literal Phase 4 instructions; flagged in the report.
+ * Refresh flow: full Events refetch → refold → liveMode + metrics → full
+ * render() — deliberately NOT the diff path. Refresh is an explicit user
+ * action re-syncing everything (not just liveResult but deliverables/People
+ * too), and unlike a background mark there's no in-progress edit to protect
+ * against — the person just clicked a button that says "Refresh".
  *
  * The frozen plan-mode baseline (for §5.2's planned curve) is computed exactly
  * once by app.js and never touched here — see metrics.js's header.
@@ -118,6 +126,77 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * Diff-based repaint after a mark (Part C) — recompute() updates every
+   * date in memory, but liveMode's reprojection is global (a cross-Rock
+   * dependency can shift a task in a DIFFERENT Rock than the one just
+   * marked), so "patch just the marked task's own Rock" understates what
+   * actually changed. This walks every task/milestone/Rock, compares its
+   * signature before vs. after, and patches only the ones that moved —
+   * cheap because building a signature string is cheap, and it's still far
+   * less work than a full innerHTML rebuild of the whole board.
+   * ------------------------------------------------------------------ */
+
+  function taskSig(t) {
+    return t ? t.plannedFinish + "|" + !!t.clamped + "|" + t.status : null;
+  }
+
+  function milestoneSig(m) {
+    return m ? m.plannedFinish + "|" + !!m.red : null;
+  }
+
+  function rockSig(rockMetrics, liveRock) {
+    if (!rockMetrics) return null;
+    var o = rockMetrics.onTrack;
+    var p = rockMetrics.progress;
+    return [
+      p.done, p.total, o.planned, o.actual, o.gap, o.color,
+      liveRock ? liveRock.plannedFinish : null, liveRock ? !!liveRock.red : null
+    ].join("|");
+  }
+
+  function unionKeys(a, b) {
+    var seen = {};
+    var out = [];
+    for (var k in a) if (Object.prototype.hasOwnProperty.call(a, k) && !seen[k]) { seen[k] = true; out.push(k); }
+    for (var k2 in b) if (Object.prototype.hasOwnProperty.call(b, k2) && !seen[k2]) { seen[k2] = true; out.push(k2); }
+    return out;
+  }
+
+  /**
+   * @param prevLiveResult  state.liveResult as it was BEFORE this mark's recompute()
+   * @param prevMetrics     state.metrics as it was BEFORE this mark's recompute()
+   */
+  function diffAndRepaint(prevLiveResult, prevMetrics) {
+    var taskIds = unionKeys(prevLiveResult.tasks, state.liveResult.tasks);
+    for (var i = 0; i < taskIds.length; i++) {
+      var id = taskIds[i];
+      if (taskSig(prevLiveResult.tasks[id]) !== taskSig(state.liveResult.tasks[id])) {
+        patchTaskRowSafely(id);
+      }
+    }
+
+    var msIds = unionKeys(prevLiveResult.milestones, state.liveResult.milestones);
+    for (var j = 0; j < msIds.length; j++) {
+      var mid = msIds[j];
+      if (milestoneSig(prevLiveResult.milestones[mid]) !== milestoneSig(state.liveResult.milestones[mid])) {
+        patchMilestoneHeader(mid);
+      }
+    }
+
+    var rockIds = getRockIndex().rockOrder;
+    for (var k = 0; k < rockIds.length; k++) {
+      var rid = rockIds[k];
+      var before = rockSig(prevMetrics.rocks[rid], prevLiveResult.rocks[rid]);
+      var after = rockSig(state.metrics.rocks[rid], state.liveResult.rocks[rid]);
+      if (before !== after) patchRockMetrics(rid); // regenerates that Rock's burn-up chart too
+    }
+
+    // Sprint-wide always — the marked task always affects the sprint aggregate.
+    renderSummaryBar();
+    renderSprintBurnup();
+  }
+
+  /* ------------------------------------------------------------------ *
    * Rendering — topbar (actor / refresh) and summary bar (sprint progress)
    * ------------------------------------------------------------------ */
 
@@ -183,6 +262,96 @@
     return "Behind";
   }
 
+  /* ------------------------------------------------------------------ *
+   * Burn-up chart (§5.2, Phase 5) — one pure render function, used for
+   * both the sprint-wide panel and every per-Rock block.
+   *
+   * Text (axis start/end/total/zero/today labels, the legend, the footer)
+   * is plain HTML laid out with flexbox — NOT SVG <text> — deliberately.
+   * The SVG stretches non-uniformly (preserveAspectRatio="none") to fill
+   * whatever width its container has, which is exactly what a responsive
+   * inline chart needs for the LINES (their relative crossing point is the
+   * signal, not a "true" fixed aspect ratio) but would visibly distort any
+   * <text> caught inside that same scaled coordinate system. Splitting text
+   * out to HTML sidesteps that without needing to measure the rendered
+   * SVG's actual pixel size (which would mean a DOM read during render).
+   *
+   * `onTrack` is the exact object metrics.onTrack() already returns for this
+   * scope (the same one driving the chip) — the footer reads its numbers
+   * directly rather than re-deriving them from `series`, so the footer can
+   * never disagree with the chip, and it stays correct even in the (very
+   * overdue-sprint) edge case where "today" falls outside the plotted axis
+   * entirely and `series` has no point for it.
+   */
+  function burnupFooterText(onTrack) {
+    var gap = onTrack.gap;
+    var gapAbs = Math.abs(gap).toFixed(1);
+    var status = gap === 0 ? "on track" : (gap > 0 ? gapAbs + " ahead" : gapAbs + " behind");
+    return "Actual " + onTrack.actual.toFixed(1) + " of " + onTrack.planned.toFixed(1) +
+      " planned work-days — " + status;
+  }
+
+  function renderBurnupChart(series, onTrack) {
+    var n = series.points.length;
+    var total = series.total > 0 ? series.total : 1;
+
+    function xPct(i) { return n <= 1 ? 0 : (i / (n - 1)) * 100; }
+    function yUnit(v) { return 40 - (v / total) * 40; } // SVG coordinate space is 0–100 (x) by 0–40 (y)
+
+    function buildPath(key) {
+      var d = "";
+      for (var i = 0; i < n; i++) {
+        var v = series.points[i][key];
+        if (v === null || v === undefined) continue;
+        d += (d === "" ? "M " : " L ") + xPct(i).toFixed(2) + "," + yUnit(v).toFixed(2);
+      }
+      return d;
+    }
+
+    var plannedPath = buildPath("planned");
+    var actualPath = buildPath("actual");
+
+    var todayIdx = -1;
+    for (var i = 0; i < n; i++) {
+      if (series.points[i].date === series.today) { todayIdx = i; break; }
+    }
+    var todayPct = todayIdx >= 0 ? xPct(todayIdx) : null;
+
+    var footerText = burnupFooterText(onTrack);
+    var totalLabel = (Math.round(total * 10) / 10).toString();
+
+    var todaySvg = todayPct !== null
+      ? '<line x1="' + todayPct.toFixed(2) + '" y1="0" x2="' + todayPct.toFixed(2) +
+        '" y2="40" class="burnup-today-line" vector-effect="non-scaling-stroke" />'
+      : "";
+    var todayHtmlLabel = todayPct !== null
+      ? '<span class="burnup-today-label" style="left:' + todayPct.toFixed(2) + '%">Today</span>'
+      : "";
+
+    return (
+      '<div class="burnup-chart">' +
+        '<div class="burnup-row">' +
+          '<div class="burnup-yaxis"><span>' + escapeHtml(totalLabel) + "</span><span>0</span></div>" +
+          '<div class="burnup-plot">' +
+            '<svg viewBox="0 0 100 40" preserveAspectRatio="none" class="burnup-svg" ' +
+              'role="img" aria-label="' + escapeAttr(footerText) + '">' +
+              todaySvg +
+              (plannedPath ? '<path d="' + plannedPath + '" class="burnup-line-planned" fill="none" vector-effect="non-scaling-stroke" />' : "") +
+              (actualPath ? '<path d="' + actualPath + '" class="burnup-line-actual" fill="none" vector-effect="non-scaling-stroke" />' : "") +
+            "</svg>" +
+            todayHtmlLabel +
+          "</div>" +
+        "</div>" +
+        '<div class="burnup-xaxis">' +
+          "<span>" + escapeHtml(series.axisStart) + "</span>" +
+          '<span class="burnup-legend" aria-hidden="true">- - Planned&nbsp;&nbsp;— Actual</span>' +
+          "<span>" + escapeHtml(series.axisEnd) + "</span>" +
+        "</div>" +
+        '<p class="burnup-footer">' + escapeHtml(footerText) + "</p>" +
+      "</div>"
+    );
+  }
+
   function renderSummaryBar() {
     var sprint = state.plan.sprint;
     var m = state.metrics.sprint;
@@ -224,6 +393,9 @@
       ? '<span class="cuttable-badge" title="Informational only — cutting means regenerating the JSON without this Rock/Project (§7)">CUTTABLE</span>'
       : "";
 
+    var rockIds = getRockIndex().rockTaskIds[rockId] || [];
+    var series = computeBurnup(rockIds);
+
     return (
       '<div class="rock-title">' +
         "<h2>" + escapeHtml(rock.id) + " · " + escapeHtml(rock.name) + "</h2>" +
@@ -236,7 +408,8 @@
         '<span class="progress-pct">' + pct(m.progress.pct) + "%</span>" +
         chipHtml(m.onTrack.color, onTrackLabel(m.onTrack.color)) +
         finishHtml +
-      "</div>"
+      "</div>" +
+      renderBurnupChart(series, m.onTrack)
     );
   }
 
@@ -356,6 +529,30 @@
     old.replaceWith(wrap.firstElementChild);
   }
 
+  /**
+   * True if this row's deliverable input holds something worth protecting:
+   * it currently has focus, or it has typed (unsaved) text in it. Every task
+   * without a saved deliverable shows an EMPTY input by default — patching
+   * that away loses nothing, so an untouched empty box is deliberately NOT
+   * treated as "open" here, or the diff-patch would skip almost every row on
+   * a plan where most tasks have no deliverable yet. It's specifically an
+   * in-progress edit (focused, or holding unsaved text) that a patch must
+   * not clobber (§7 in spirit: don't silently destroy what the person is in
+   * the middle of). Reused by the diff-patch below to skip exactly that row.
+   */
+  function taskRowHasOpenDeliverableInput(taskId) {
+    var wrap = dom.mainEl.querySelector('.task-deliverable[data-task-id="' + cssEscape(taskId) + '"]');
+    if (!wrap) return false;
+    var input = wrap.querySelector(".deliverable-input");
+    if (!input) return false;
+    return document.activeElement === input || input.value.trim() !== "";
+  }
+
+  function patchTaskRowSafely(taskId) {
+    if (taskRowHasOpenDeliverableInput(taskId)) return;
+    patchTaskRow(taskId);
+  }
+
   /* ------------------------------------------------------------------ *
    * Rendering — milestone group + Rock section
    * ------------------------------------------------------------------ */
@@ -365,8 +562,31 @@
     return !!(m && m.deferred === true);
   }
 
-  function renderMilestone(milestoneId) {
+  /** The milestone-header's inner markup only — shared by the full render and
+   *  the targeted patch below, same split as renderRockMetrics/patchRockMetrics. */
+  function renderMilestoneHeaderInner(milestoneId) {
     var milestone = state.index.milestones[milestoneId];
+    var deferred = milestoneIsDeferred(milestoneId);
+    var live = state.liveResult.milestones[milestoneId];
+    var finishHtml = "";
+    if (!deferred && live && live.plannedFinish) {
+      finishHtml = '<span class="milestone-finish">→ ' + escapeHtml(live.plannedFinish) + "</span>";
+      if (live.red) finishHtml += " " + overshootFlagHtml(live.plannedFinish, state.plan.sprint.end);
+    }
+    return (
+      '<span class="milestone-name">' + escapeHtml(milestoneId) + " · " + escapeHtml(milestone.name) + "</span>" +
+      (deferred ? '<span class="deferred-badge">DEFERRED</span>' : finishHtml)
+    );
+  }
+
+  function patchMilestoneHeader(milestoneId) {
+    var header = dom.mainEl.querySelector(
+      '.milestone-group[data-milestone-id="' + cssEscape(milestoneId) + '"] .milestone-header'
+    );
+    if (header) header.innerHTML = renderMilestoneHeaderInner(milestoneId);
+  }
+
+  function renderMilestone(milestoneId) {
     var taskIds = state.index.tasksOfMilestone[milestoneId] || [];
     var visibleIds = taskIds.filter(taskPassesFilter);
 
@@ -377,20 +597,10 @@
       return renderTaskRow(taskId, state.index.tasks[taskId], milestoneId);
     }).join("");
 
-    var live = state.liveResult.milestones[milestoneId];
-    var finishHtml = "";
-    if (!deferred && live && live.plannedFinish) {
-      finishHtml = '<span class="milestone-finish">→ ' + escapeHtml(live.plannedFinish) + "</span>";
-      if (live.red) finishHtml += " " + overshootFlagHtml(live.plannedFinish, state.plan.sprint.end);
-    }
-
     return (
       '<div class="milestone-group' + (deferred ? " is-deferred" : "") + '" data-milestone-id="' +
         escapeAttr(milestoneId) + '">' +
-        '<div class="milestone-header">' +
-          '<span class="milestone-name">' + escapeHtml(milestoneId) + " · " + escapeHtml(milestone.name) + "</span>" +
-          (deferred ? '<span class="deferred-badge">DEFERRED</span>' : finishHtml) +
-        "</div>" +
+        '<div class="milestone-header">' + renderMilestoneHeaderInner(milestoneId) + "</div>" +
         '<div class="milestone-tasks">' + rowsHtml + "</div>" +
       "</div>"
     );
@@ -465,6 +675,7 @@
   function render() {
     renderTopbarRight();
     renderSummaryBar();
+    renderSprintBurnup();
 
     if (!state.liveResult.ok) {
       dom.mainEl.innerHTML =
@@ -563,13 +774,11 @@
         }
 
         var when = (result.event && result.event.timestamp) || new Date().toISOString();
+        var prevLiveResult = state.liveResult;
+        var prevMetrics = state.metrics;
         state.currentState[taskId] = { status: next, statusChangedAt: when };
         recompute();
-
-        var rockId = findRockOfTask(taskId);
-        patchTaskRow(taskId);
-        if (rockId) patchRockMetrics(rockId);
-        renderSummaryBar();
+        diffAndRepaint(prevLiveResult, prevMetrics);
       })
       .catch(function (err) {
         toast("Could not mark that task: " + err.message, "error");
@@ -579,11 +788,41 @@
       });
   }
 
-  function findRockOfTask(taskId) {
-    if (!state._rockOfTask) {
-      state._rockOfTask = root.OpsDashMetrics.buildRockIndex(state.plan).taskRock;
+  function getRockIndex() {
+    if (!state._rockIndex) {
+      state._rockIndex = root.OpsDashMetrics.buildRockIndex(state.plan);
     }
-    return state._rockOfTask[taskId];
+    return state._rockIndex;
+  }
+
+  /**
+   * axisEnd per the burn-up spec: max(sprint.end, latest frozen plannedFinish
+   * IN SCOPE) — computed per-scope (a Rock's own tasks), not globally, so one
+   * Rock's overshoot never stretches a different Rock's chart. Plain string
+   * comparison is safe and correct for ISO YYYY-MM-DD dates.
+   */
+  function computeAxisEnd(taskIds) {
+    var frozenTasks = state.frozenPlan.tasks;
+    var latest = state.plan.sprint.end;
+    for (var i = 0; i < taskIds.length; i++) {
+      var t = frozenTasks[taskIds[i]];
+      if (t && t.plannedFinish && t.plannedFinish > latest) latest = t.plannedFinish;
+    }
+    return latest;
+  }
+
+  function computeBurnup(taskIds) {
+    return root.OpsDashMetrics.burnupSeries(
+      state.frozenPlan.tasks, state.currentState, taskIds,
+      state.plan.sprint.start, computeAxisEnd(taskIds), CFG().todayISO()
+    );
+  }
+
+  function renderSprintBurnup() {
+    if (!dom.burnupPanel) return;
+    var allIds = Object.keys(state.frozenPlan.tasks);
+    var series = computeBurnup(allIds);
+    dom.burnupPanel.innerHTML = renderBurnupChart(series, state.metrics.sprint.onTrack);
   }
 
   function onEditDeliverable(taskId) {
@@ -692,6 +931,7 @@
 
     dom.topbarRight = document.getElementById("board-topbar-right");
     dom.summaryBar = document.getElementById("board-summary-bar");
+    dom.burnupPanel = document.getElementById("board-burnup-panel");
     dom.mainEl = document.getElementById("main");
     dom.toastContainer = document.getElementById("toast-container");
 

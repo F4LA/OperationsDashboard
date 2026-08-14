@@ -342,6 +342,91 @@ a { color: var(--steel-600); }
   visibility: visible;
 }
 
+/* ---------- Burn-up chart (§5.2, Phase 5) ----------
+   Text is plain HTML (flex layout), never SVG <text> — the SVG itself uses
+   preserveAspectRatio="none" so its lines stretch freely to fill whatever
+   width the container has (sprint-wide panel vs. a narrower per-Rock block);
+   text caught inside that same scaled coordinate space would visibly distort
+   non-uniformly. Contrast: --steel-600 (planned) 4.8:1, --navy-900 (actual)
+   19:1, --steel-700 (today marker) 6.9:1, --text-muted (axis labels) 5.4:1 —
+   all ≥ the 4.5:1 D-052 already required for this app's colored elements. */
+.burnup-panel {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 12px 32px 0;
+}
+.burnup-panel .burnup-chart {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 16px 8px;
+  box-shadow: var(--shadow-sm);
+}
+.rock-header .burnup-chart {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.burnup-row { display: flex; align-items: stretch; gap: 8px; height: 34px; }
+.burnup-yaxis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex-shrink: 0;
+  min-width: 2.6em;
+  text-align: right;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.burnup-plot { position: relative; flex: 1; min-width: 0; }
+.burnup-svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.burnup-line-planned {
+  stroke: var(--steel-600);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+.burnup-line-actual {
+  stroke: var(--navy-900);
+  stroke-width: 1.75;
+}
+.burnup-today-line {
+  stroke: var(--steel-700);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+}
+.burnup-today-label {
+  position: absolute;
+  top: 1px;
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--steel-700);
+  background: var(--surface);
+  padding: 0 3px;
+  white-space: nowrap;
+  line-height: 1.3;
+}
+.burnup-xaxis {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--text-muted); /* NOT --text-faint: 2.8:1 on white, fails the 4.5:1 this chart requires */
+  font-variant-numeric: tabular-nums;
+}
+.burnup-legend { white-space: nowrap; color: var(--text-muted); }
+.burnup-footer {
+  margin: 5px 0 0;
+  font-size: 12px;
+  color: var(--text);
+  font-weight: 500;
+}
+
 /* ---------- Main / Rock layout ---------- */
 main#main {
   max-width: var(--container);
