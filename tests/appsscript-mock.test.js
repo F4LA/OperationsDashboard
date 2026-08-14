@@ -144,6 +144,8 @@ function freshSheets(opts) {
   var peopleHeader = opts.peopleHeader || ["Name", "Slack/Email", "Active"];
   var eventsHeader = opts.eventsHeader ||
     ["Event ID", "Sprint ID", "Task ID", "Action", "Value", "Actor", "Timestamp", "Note"];
+  var tasksHeader = opts.tasksHeader ||
+    ["id", "desc", "owner", "workDays", "deadline", "sourceIssueId", "createdBy", "createdAt"];
   return {
     People: new FakeSheet("People", [
       peopleHeader,
@@ -152,7 +154,8 @@ function freshSheets(opts) {
       ["Ghost", "ghost@example.com", false],
       ["NoFlag", "noflag@example.com", ""]
     ]),
-    Events: new FakeSheet("Events", [eventsHeader])
+    Events: new FakeSheet("Events", [eventsHeader]),
+    Tasks: new FakeSheet("Tasks", [tasksHeader].concat(opts.taskRows || []))
   };
 }
 
@@ -378,6 +381,375 @@ check("500 ids at the same millisecond stay mostly distinct", collisions < 10,
   collisions + " collisions (birthday-expected over 36^4)");
 check("every id matches the D-034 format",
   Object.keys(ids).every(function (k) { return /^E-\d{13}-[0-9a-z]{4}$/.test(k); }));
+
+/* ================= v2: createTask (D-066) ================= */
+console.log("\n=== createTask — happy path ===\n");
+
+var ctSheets = freshSheets();
+r = post({ action: "createTask", sprintId: "S3-2026", desc: "Call the supplier",
+           owner: "Brent", workDays: 0.5, week: "2026-08-17", actor: "Bernardo" }, ctSheets);
+check("createTask accepted", r.ok === true, JSON.stringify(r));
+check("first id is T-0001", r.id === "T-0001", r.id);
+check("Tasks row appended", ctSheets.Tasks.rows.length === 2, ctSheets.Tasks.rows.length);
+
+var taskRow = ctSheets.Tasks.rows[1];
+check("Tasks row matches the D-066 column order",
+  taskRow[0] === "T-0001" && taskRow[1] === "Call the supplier" && taskRow[2] === "Brent" &&
+  taskRow[3] === 0.5 && taskRow[4] === "" && taskRow[5] === "" &&
+  taskRow[6] === "Bernardo" && taskRow[7] === r.createdAt, JSON.stringify(taskRow));
+check("createdAt cell forced to text format", ctSheets.Tasks.formats["2,8"] === "@",
+  JSON.stringify(ctSheets.Tasks.formats));
+
+check("a pin event was also appended", ctSheets.Events.rows.length === 2,
+  ctSheets.Events.rows.length);
+var pinRow = ctSheets.Events.rows[1];
+check("the pin event carries the new task id and the week",
+  pinRow[2] === "T-0001" && pinRow[3] === "pin" && pinRow[4] === "2026-08-17",
+  JSON.stringify(pinRow));
+check("the pin event's actor is the creator", pinRow[5] === "Bernardo", pinRow[5]);
+check("response reports the pin's eventId", /^E-\d{13}-[0-9a-z]{4}$/.test(r.eventId), r.eventId);
+check("server-side write-then-verify found the row", r.verified === true, JSON.stringify(r));
+
+// The write ORDER is the load-bearing part of D-066: pin first, task second.
+check("pin is written BEFORE the Tasks row (orphan-safety order)",
+  ctSheets.Events.rows.length === 2 && ctSheets.Tasks.rows.length === 2,
+  "both appends landed; order asserted structurally in the failure case below");
+
+r = post({ action: "createTask", desc: "With everything", owner: "Bernardo", workDays: 2,
+           week: "2026-08-17", deadline: "2026-08-20", sourceIssueId: "I-0007",
+           actor: "Brent", note: "from the L10" }, ctSheets);
+check("second createTask gets T-0002", r.id === "T-0002", r.id);
+check("optional deadline stored", ctSheets.Tasks.rows[2][4] === "2026-08-20",
+  JSON.stringify(ctSheets.Tasks.rows[2]));
+check("optional sourceIssueId stored unvalidated", ctSheets.Tasks.rows[2][5] === "I-0007",
+  JSON.stringify(ctSheets.Tasks.rows[2]));
+check("fractional workDays preserved as a number", ctSheets.Tasks.rows[1][3] === 0.5,
+  JSON.stringify(ctSheets.Tasks.rows[1]));
+
+/* ---- id assignment is MAX+1, not last-row+1 (D-066a) ---- */
+console.log("\n--- id assignment ---\n");
+
+var gappy = freshSheets({ taskRows: [
+  ["T-0001", "a", "Brent", 1, "", "", "Bernardo", "x"],
+  ["T-0009", "b", "Brent", 1, "", "", "Bernardo", "x"],
+  ["T-0004", "c", "Brent", 1, "", "", "Bernardo", "x"]   // out of order on purpose
+] });
+r = post({ action: "createTask", desc: "next", owner: "Brent", workDays: 1,
+           week: "2026-08-17", actor: "Bernardo" }, gappy);
+check("id is MAX+1, not lastRow+1 — a reordered sheet cannot reassign a live id",
+  r.id === "T-0010", r.id);
+
+var deleted = freshSheets({ taskRows: [
+  ["T-0001", "a", "Brent", 1, "", "", "Bernardo", "x"],
+  ["T-0003", "c", "Brent", 1, "", "", "Bernardo", "x"]   // T-0002 was deleted by hand
+] });
+r = post({ action: "createTask", desc: "next", owner: "Brent", workDays: 1,
+           week: "2026-08-17", actor: "Bernardo" }, deleted);
+check("a hand-deleted row does not free its id for reuse", r.id === "T-0004", r.id);
+
+var noisy = freshSheets({ taskRows: [
+  ["not-an-id", "junk", "Brent", 1, "", "", "Bernardo", "x"],
+  ["T-0002", "b", "Brent", 1, "", "", "Bernardo", "x"]
+] });
+r = post({ action: "createTask", desc: "next", owner: "Brent", workDays: 1,
+           week: "2026-08-17", actor: "Bernardo" }, noisy);
+check("non-conforming ids in column A are ignored by the max scan", r.id === "T-0003", r.id);
+
+var padded = freshSheets({ taskRows: [
+  ["T-0999", "a", "Brent", 1, "", "", "Bernardo", "x"]
+] });
+r = post({ action: "createTask", desc: "next", owner: "Brent", workDays: 1,
+           week: "2026-08-17", actor: "Bernardo" }, padded);
+check("padding is correct rolling past 999", r.id === "T-1000", r.id);
+
+/* ---- createTask rejections, one per named code ---- */
+console.log("\n--- createTask rejections ---\n");
+
+r = post({ action: "createTask", desc: "x", owner: "Both", workDays: 1,
+           week: "2026-08-17", actor: "Bernardo" });
+check('owner "Both" rejected with its OWN code, not OWNER_UNKNOWN',
+  r.ok === false && r.code === "OWNER_BOTH_NOT_ALLOWED", JSON.stringify(r));
+
+r = post({ action: "createTask", desc: "x", owner: "both", workDays: 1,
+           week: "2026-08-17", actor: "Bernardo" });
+check('owner "both" (lowercase) also rejected as OWNER_BOTH_NOT_ALLOWED',
+  r.ok === false && r.code === "OWNER_BOTH_NOT_ALLOWED", JSON.stringify(r));
+
+r = post({ action: "createTask", desc: "x", owner: "Miguel", workDays: 1,
+           week: "2026-08-17", actor: "Bernardo" });
+check("unknown owner rejected as OWNER_UNKNOWN (distinct from ACTOR_UNKNOWN)",
+  r.ok === false && r.code === "OWNER_UNKNOWN", JSON.stringify(r));
+
+r = post({ action: "createTask", desc: "x", owner: "Ghost", workDays: 1,
+           week: "2026-08-17", actor: "Bernardo" });
+check("inactive owner rejected as OWNER_INACTIVE",
+  r.ok === false && r.code === "OWNER_INACTIVE", JSON.stringify(r));
+
+r = post({ action: "createTask", desc: "x", owner: "Brent", workDays: 1,
+           week: "2026-08-17", actor: "Miguel" });
+check("unknown ACTOR still rejected as ACTOR_UNKNOWN, not OWNER_UNKNOWN",
+  r.ok === false && r.code === "ACTOR_UNKNOWN", JSON.stringify(r));
+
+r = post({ action: "createTask", desc: "", owner: "Brent", workDays: 1,
+           week: "2026-08-17", actor: "Bernardo" });
+check("empty desc rejected", r.ok === false && r.code === "MISSING_DESC", JSON.stringify(r));
+
+r = post({ action: "createTask", owner: "Brent", workDays: 1,
+           week: "2026-08-17", actor: "Bernardo" });
+check("missing desc rejected", r.ok === false && r.code === "MISSING_DESC", JSON.stringify(r));
+
+r = post({ action: "createTask", desc: "x", owner: "Brent", workDays: 0,
+           week: "2026-08-17", actor: "Bernardo" });
+check("workDays 0 rejected", r.ok === false && r.code === "BAD_VALUE_WORKDAYS", JSON.stringify(r));
+
+r = post({ action: "createTask", desc: "x", owner: "Brent", workDays: -1,
+           week: "2026-08-17", actor: "Bernardo" });
+check("negative workDays rejected", r.ok === false && r.code === "BAD_VALUE_WORKDAYS", JSON.stringify(r));
+
+r = post({ action: "createTask", desc: "x", owner: "Brent", workDays: "abc",
+           week: "2026-08-17", actor: "Bernardo" });
+check("non-numeric workDays rejected", r.ok === false && r.code === "BAD_VALUE_WORKDAYS", JSON.stringify(r));
+
+r = post({ action: "createTask", desc: "x", owner: "Brent",
+           week: "2026-08-17", actor: "Bernardo" });
+check("missing workDays rejected (mandatory per §1 v2)",
+  r.ok === false && r.code === "BAD_VALUE_WORKDAYS", JSON.stringify(r));
+
+r = post({ action: "createTask", desc: "x", owner: "Brent", workDays: "0.25",
+           week: "2026-08-17", actor: "Bernardo" });
+check("numeric STRING workDays accepted and coerced", r.ok === true && r.workDays === 0.25,
+  JSON.stringify(r));
+
+r = post({ action: "createTask", desc: "x", owner: "Brent", workDays: 1, actor: "Bernardo" });
+check("missing week rejected — no task is born without one (§11.6)",
+  r.ok === false && r.code === "MISSING_WEEK", JSON.stringify(r));
+
+r = post({ action: "createTask", desc: "x", owner: "Brent", workDays: 1,
+           week: "2026-08-18", actor: "Bernardo" });
+check("week on a Tuesday rejected as BAD_VALUE_WEEK, not MISSING_WEEK — a week WAS sent",
+  r.ok === false && r.code === "BAD_VALUE_WEEK", JSON.stringify(r));
+
+r = post({ action: "createTask", desc: "x", owner: "Brent", workDays: 1,
+           week: "2026-08-17", deadline: "not-a-date", actor: "Bernardo" });
+check("malformed deadline rejected", r.ok === false && r.code === "BAD_VALUE_DEADLINE", JSON.stringify(r));
+
+r = post({ action: "createTask", desc: "x", owner: "Brent", workDays: 1,
+           week: "2026-08-17", deadline: "2026-02-30", actor: "Bernardo" });
+check("impossible deadline date rejected", r.ok === false && r.code === "BAD_VALUE_DEADLINE", JSON.stringify(r));
+
+/* ---- nothing is written when createTask is rejected ---- */
+var rejectSheets = freshSheets();
+post({ action: "createTask", desc: "x", owner: "Both", workDays: 1,
+       week: "2026-08-17", actor: "Bernardo" }, rejectSheets);
+check("a rejected createTask writes NEITHER a Tasks row NOR a pin event",
+  rejectSheets.Tasks.rows.length === 1 && rejectSheets.Events.rows.length === 1,
+  "tasks=" + rejectSheets.Tasks.rows.length + " events=" + rejectSheets.Events.rows.length);
+
+/* ---- Tasks tab guards ---- */
+console.log("\n--- createTask tab + header guards ---\n");
+
+var noTasks = freshSheets(); delete noTasks.Tasks;
+r = post({ action: "createTask", desc: "x", owner: "Brent", workDays: 1,
+           week: "2026-08-17", actor: "Bernardo" }, noTasks);
+check("missing Tasks tab rejected", r.ok === false && r.code === "MISSING_TAB", JSON.stringify(r));
+check("no pin event written when the Tasks tab is missing", noTasks.Events.rows.length === 1,
+  noTasks.Events.rows.length);
+
+var tasksDrift = freshSheets({ tasksHeader:
+  ["id", "description", "owner", "workDays", "deadline", "sourceIssueId", "createdBy", "createdAt"] });
+r = post({ action: "createTask", desc: "x", owner: "Brent", workDays: 1,
+           week: "2026-08-17", actor: "Bernardo" }, tasksDrift);
+check("Tasks header drift rejected", r.ok === false && r.code === "HEADER_DRIFT", JSON.stringify(r));
+check("no pin event written on Tasks header drift", tasksDrift.Events.rows.length === 1,
+  tasksDrift.Events.rows.length);
+
+/* ---- the orphan-safety ordering, proven by making the Tasks append fail ---- */
+console.log("\n--- orphan safety: Tasks append fails AFTER the pin landed ---\n");
+
+var brokenTasks = freshSheets();
+brokenTasks.Tasks.appendRow = function () { throw new Error("quota exceeded"); };
+r = post({ action: "createTask", desc: "x", owner: "Brent", workDays: 1,
+           week: "2026-08-17", actor: "Bernardo" }, brokenTasks);
+check("a failed Tasks append reports ok:false, never a false success",
+  r.ok === false && r.code === "TASK_ROW_APPEND_FAILED", JSON.stringify(r));
+check("the response names the orphaned event so it can be found",
+  /^E-\d{13}-[0-9a-z]{4}$/.test(r.orphanedEventId || ""), r.orphanedEventId);
+check("the pin DID land (it is written first, so the orphan is the harmless one)",
+  brokenTasks.Events.rows.length === 2, brokenTasks.Events.rows.length);
+check("no Tasks row exists — the task never half-existed",
+  brokenTasks.Tasks.rows.length === 1, brokenTasks.Tasks.rows.length);
+
+lockState.acquired = 0; lockState.released = 0;
+post({ action: "createTask", desc: "x", owner: "Brent", workDays: 1,
+       week: "2026-08-17", actor: "Bernardo" });
+check("createTask takes and releases the lock exactly once",
+  lockState.acquired === 1 && lockState.released === 1, JSON.stringify(lockState));
+
+lockState.acquired = 0; lockState.released = 0;
+post({ action: "createTask", desc: "x", owner: "Both", workDays: 1,
+       week: "2026-08-17", actor: "Bernardo" });
+check("createTask does not take the lock for a payload rejected before it",
+  lockState.acquired === 0, JSON.stringify(lockState));
+
+/* ================= v2: discard / undiscard (D-067, D-069) ================= */
+console.log("\n=== discard / undiscard — ad-hoc namespace only ===\n");
+
+r = post({ action: "discard", taskId: "T-0001", actor: "Bernardo", note: "client cancelled" });
+check("discard on a T-NNNN id with a reason accepted", r.ok === true, JSON.stringify(r));
+
+r = post({ action: "undiscard", taskId: "T-0001", actor: "Bernardo" });
+check("undiscard needs no note (the reversal, D-069)", r.ok === true, JSON.stringify(r));
+
+r = post({ action: "discard", taskId: "T-0001", actor: "Bernardo" });
+check("discard with NO note rejected",
+  r.ok === false && r.code === "MISSING_DISCARD_REASON", JSON.stringify(r));
+
+r = post({ action: "discard", taskId: "T-0001", actor: "Bernardo", note: "   " });
+check("discard with a whitespace-only note rejected",
+  r.ok === false && r.code === "MISSING_DISCARD_REASON", JSON.stringify(r));
+
+r = post({ action: "discard", taskId: "M2-t1", actor: "Bernardo", note: "nope" });
+check("discard on a PLAN task id rejected by namespace (D-067)",
+  r.ok === false && r.code === "DISCARD_NOT_ADHOC", JSON.stringify(r));
+
+r = post({ action: "undiscard", taskId: "M2-t1", actor: "Bernardo" });
+check("undiscard on a plan task id rejected too",
+  r.ok === false && r.code === "DISCARD_NOT_ADHOC", JSON.stringify(r));
+
+r = post({ action: "discard", taskId: "T-1", actor: "Bernardo", note: "x" });
+check("a T- id with the wrong digit count is not the ad-hoc namespace",
+  r.ok === false && r.code === "DISCARD_NOT_ADHOC", JSON.stringify(r));
+
+r = post({ action: "discard", taskId: "T-0001", value: "something",
+           actor: "Bernardo", note: "x" });
+check("discard carrying a value rejected",
+  r.ok === false && r.code === "BAD_VALUE_DISCARD", JSON.stringify(r));
+
+/* ================= v2: cancel / uncancel (D-068, D-069) ================= */
+console.log("\n=== cancel / uncancel — the mirror rule, plan tasks only ===\n");
+
+r = post({ action: "cancel", taskId: "M2-t1", actor: "Bernardo", note: "scope dropped" });
+check("cancel on a plan task id with a reason accepted", r.ok === true, JSON.stringify(r));
+
+r = post({ action: "uncancel", taskId: "M2-t1", actor: "Bernardo" });
+check("uncancel needs no note", r.ok === true, JSON.stringify(r));
+
+r = post({ action: "cancel", taskId: "M2-t1", actor: "Bernardo" });
+check("cancel with NO note rejected",
+  r.ok === false && r.code === "MISSING_CANCEL_REASON", JSON.stringify(r));
+
+r = post({ action: "cancel", taskId: "T-0001", actor: "Bernardo", note: "wrong action" });
+check("cancel on an AD-HOC id rejected by namespace (D-068, mirror of D-067)",
+  r.ok === false && r.code === "CANCEL_NOT_PLAN_TASK", JSON.stringify(r));
+
+r = post({ action: "uncancel", taskId: "T-0001", actor: "Bernardo" });
+check("uncancel on an ad-hoc id rejected too",
+  r.ok === false && r.code === "CANCEL_NOT_PLAN_TASK", JSON.stringify(r));
+
+r = post({ action: "cancel", taskId: "M2-t1", value: "x", actor: "Bernardo", note: "y" });
+check("cancel carrying a value rejected",
+  r.ok === false && r.code === "BAD_VALUE_CANCEL", JSON.stringify(r));
+
+// "discarded"/"cancelled" are DERIVED from these events, never setStatus values (D-067).
+r = post({ action: "setStatus", taskId: "T-0001", value: "discarded", actor: "Bernardo" });
+check('setStatus "discarded" still rejected — it is a derived state, not a status (D-067)',
+  r.ok === false && r.code === "BAD_VALUE_STATUS", JSON.stringify(r));
+
+r = post({ action: "setStatus", taskId: "M2-t1", value: "cancelled", actor: "Bernardo" });
+check('setStatus "cancelled" likewise rejected',
+  r.ok === false && r.code === "BAD_VALUE_STATUS", JSON.stringify(r));
+
+/* ================= v2: confirmWeek (D-070) ================= */
+console.log("\n=== confirmWeek ===\n");
+
+var cwSheets = freshSheets();
+r = post({ action: "confirmWeek", taskId: "WEEK-2026-08-17", value: "2026-08-17",
+           actor: "Bernardo", note: '["M2-t1","T-0001","M5-t3"]' }, cwSheets);
+check("confirmWeek with a matching WEEK- id, Monday value and JSON array accepted",
+  r.ok === true, JSON.stringify(r));
+check("the frozen id list is stored verbatim in Note",
+  cwSheets.Events.rows[1][7] === '["M2-t1","T-0001","M5-t3"]',
+  JSON.stringify(cwSheets.Events.rows[1]));
+
+r = post({ action: "confirmWeek", taskId: "WEEK-2026-08-17", value: "2026-08-17",
+           actor: "Bernardo", note: "[]" });
+check("an EXPLICIT empty frozen list is legal (a week where nothing was committed)",
+  r.ok === true, JSON.stringify(r));
+
+r = post({ action: "confirmWeek", taskId: "WEEK-2026-08-17", value: "2026-08-17",
+           actor: "Bernardo" });
+check("an ABSENT Note is rejected, not silently read as an empty denominator",
+  r.ok === false && r.code === "BAD_VALUE_CONFIRM_WEEK", JSON.stringify(r));
+
+r = post({ action: "confirmWeek", taskId: "WEEK-2026-08-17", value: "2026-08-24",
+           actor: "Bernardo", note: "[]" });
+check("Task ID date not matching Value rejected",
+  r.ok === false && r.code === "BAD_VALUE_CONFIRM_WEEK", JSON.stringify(r));
+
+r = post({ action: "confirmWeek", taskId: "WEEK-2026-08-18", value: "2026-08-18",
+           actor: "Bernardo", note: "[]" });
+check("a matching pair that is not a Monday rejected",
+  r.ok === false && r.code === "BAD_VALUE_CONFIRM_WEEK", JSON.stringify(r));
+
+r = post({ action: "confirmWeek", taskId: "2026-08-17", value: "2026-08-17",
+           actor: "Bernardo", note: "[]" });
+check("a Task ID without the WEEK- prefix rejected",
+  r.ok === false && r.code === "BAD_VALUE_CONFIRM_WEEK", JSON.stringify(r));
+
+r = post({ action: "confirmWeek", taskId: "WEEK-2026-08-17", value: "2026-08-17",
+           actor: "Bernardo", note: "not json" });
+check("a Note that is not JSON rejected",
+  r.ok === false && r.code === "BAD_VALUE_CONFIRM_WEEK", JSON.stringify(r));
+
+r = post({ action: "confirmWeek", taskId: "WEEK-2026-08-17", value: "2026-08-17",
+           actor: "Bernardo", note: '{"a":1}' });
+check("a JSON object (not an array) rejected",
+  r.ok === false && r.code === "BAD_VALUE_CONFIRM_WEEK", JSON.stringify(r));
+
+r = post({ action: "confirmWeek", taskId: "WEEK-2026-08-17", value: "2026-08-17",
+           actor: "Bernardo", note: '["ok", 42]' });
+check("a JSON array containing a non-string rejected",
+  r.ok === false && r.code === "BAD_VALUE_CONFIRM_WEEK", JSON.stringify(r));
+
+var hugeNote = JSON.stringify(new Array(900).join("x").split("x").map(function (_, i) {
+  return "M" + i + "-t1";
+}));
+var overLen = freshSheets();
+r = post({ action: "confirmWeek", taskId: "WEEK-2026-08-17", value: "2026-08-17",
+           actor: "Bernardo", note: hugeNote }, overLen);
+check("an over-long Note is REJECTED, never truncated (D-070)",
+  r.ok === false && r.code === "NOTE_TOO_LONG",
+  "note length " + hugeNote.length + " -> " + JSON.stringify(r));
+check("nothing written when the Note is over-length", overLen.Events.rows.length === 1,
+  overLen.Events.rows.length);
+
+// Boundary, so the cap above isn't passing simply because everything is rejected:
+// a realistically large week (300 ids, ~2.9k chars) must still go through.
+var bigButValid = JSON.stringify(new Array(300).join("x").split("x").map(function (_, i) {
+  return "M" + i + "-t1";
+}));
+var underLen = freshSheets();
+r = post({ action: "confirmWeek", taskId: "WEEK-2026-08-17", value: "2026-08-17",
+           actor: "Bernardo", note: bigButValid }, underLen);
+check("a large but under-cap Note is accepted (the cap is a cap, not a wall)",
+  r.ok === true, "note length " + bigButValid.length + " -> " + JSON.stringify(r));
+check("the full id list is stored uncut", underLen.Events.rows[1][7].length === bigButValid.length,
+  "stored " + String(underLen.Events.rows[1][7]).length + " of " + bigButValid.length);
+
+/* ---- the new actions do not disturb the old ones ---- */
+console.log("\n--- v1 actions unaffected by the v2 additions ---\n");
+
+r = post({ action: "appendEvent", eventAction: "discard", taskId: "T-0001",
+           actor: "Bernardo", note: "via the envelope form" });
+check("the appendEvent envelope works for the new actions too", r.ok === true, JSON.stringify(r));
+
+r = post({ action: "pin", taskId: "T-0001", value: "2026-08-17", actor: "Bernardo" });
+check("pin on an ad-hoc id is accepted (that IS how a task gets its week)",
+  r.ok === true, JSON.stringify(r));
+
+r = post({ action: "setStatus", taskId: "T-0001", value: "done", actor: "Bernardo" });
+check("setStatus on an ad-hoc id accepted — one status mechanism for both origins (§3)",
+  r.ok === true, JSON.stringify(r));
 
 console.log("\n=== summary ===");
 console.log("  passed: " + passes);

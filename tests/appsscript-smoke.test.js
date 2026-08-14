@@ -79,6 +79,38 @@
  *       - no row is half-written (every column populated),
  *       - the rows are contiguous, with no blank row wedged between them.
  *    4. Delete the CONC-1 rows.
+ *
+ * C) CONCURRENT createTask — TWO IDS, TWO COMPLETE ROWS (D-066a)
+ *    The id is assigned by reading the Tasks tab and taking max+1, so two
+ *    creations racing inside the same lock window are exactly the case that
+ *    would hand out a duplicate id if LockService were not doing its job.
+ *    The automated part of this file cannot prove that: it posts serially.
+ *
+ *    1. Note the current last id in the Tasks tab (or that it is empty).
+ *    2. Open two terminals side by side. In each, run the same block at the
+ *       same time, changing only the -A / -B tag so the rows are tellable
+ *       apart:
+ *
+ *         for i in $(seq 1 10); do \
+ *           curl -s -X POST "$OPSDASH_WEBAPP_URL" \
+ *             -H 'Content-Type: text/plain;charset=utf-8' \
+ *             -d '{"action":"createTask","desc":"CONC-A '"$i"'","owner":"'"$OPSDASH_ACTOR"'",
+ *                  "workDays":0.5,"week":"2026-08-17","actor":"'"$OPSDASH_ACTOR"'"}' \
+ *             -o /dev/null -w '%{http_code} '; \
+ *         done; echo
+ *
+ *    3. Open the Tasks tab and check, over those 20 new rows:
+ *       - exactly 20 rows were added,
+ *       - every id in column A is DISTINCT (this is the assertion that matters),
+ *       - the ids are contiguous with no gap and no repeat,
+ *       - every row is COMPLETE: id, desc, owner, workDays and createdBy/createdAt
+ *         all populated — no half-written row,
+ *       - column A's max equals the last id assigned (nothing overwrote anything).
+ *    4. Open the Events tab and check there are exactly 20 matching `pin` rows,
+ *       one per new task id, each with Value = 2026-08-17. A task with no pin
+ *       row is the failure D-066(b) exists to prevent — report it rather than
+ *       fixing it by hand, because it means the write order regressed.
+ *    5. Delete the CONC-A / CONC-B rows from BOTH tabs.
  */
 "use strict";
 
@@ -96,6 +128,7 @@ var SPRINT_ID = process.env.OPSDASH_SPRINT_ID || "SMOKE";
 var REFERER = process.env.OPSDASH_REFERER || "https://f4la.github.io/";
 
 var EVENTS_RANGE = "Events!A:H";
+var TASKS_RANGE = "Tasks!A:H";
 var TAIL_ROWS = 40;
 var VERIFY_DELAYS_MS = [400, 800, 1600, 2500, 4000, 6000];
 
@@ -176,8 +209,17 @@ async function postEvent(payload) {
 
 /** Reads the tail of the Events tab through Sheets API v4 (D-038: no read endpoint). */
 async function readEventsTail() {
+  return readTabTail(EVENTS_RANGE);
+}
+
+/** Same, for the Tasks tab (v2, D-066e). */
+async function readTasksTail() {
+  return readTabTail(TASKS_RANGE);
+}
+
+async function readTabTail(range) {
   var url = "https://sheets.googleapis.com/v4/spreadsheets/" +
-    encodeURIComponent(SHEET_ID) + "/values/" + encodeURIComponent(EVENTS_RANGE) +
+    encodeURIComponent(SHEET_ID) + "/values/" + encodeURIComponent(range) +
     "?key=" + encodeURIComponent(API_KEY);
 
   var res = await fetch(url, { headers: { "Referer": REFERER } });
@@ -197,7 +239,7 @@ async function readEventsTail() {
       hint = "\n    Also check the spreadsheet is shared as 'Anyone with the link' (Viewer) — " +
         "an API key can only read link-readable sheets.";
     }
-    throw new Error("Sheets API read failed (HTTP " + res.status + "): " +
+    throw new Error("Sheets API read of " + range + " failed (HTTP " + res.status + "): " +
       text.slice(0, 300) + hint);
   }
 
@@ -339,6 +381,139 @@ async function happyPath(label, payloadPartial) {
   }
 }
 
+/**
+ * Same as happyPath, but for actions whose Task ID is NOT free-form and so
+ * cannot be a generated SMOKE-* id: discard/undiscard need a real T-NNNN
+ * (D-067), cancel/uncancel need an id outside that namespace (D-068), and
+ * confirmWeek needs WEEK-<ISO Monday> (D-070).
+ */
+async function happyPathFixedId(label, taskId, payloadPartial) {
+  var payload = Object.assign(
+    { sprintId: SPRINT_ID, taskId: taskId, actor: ACTOR },
+    payloadPartial
+  );
+
+  var res = await postEvent(payload);
+
+  if (res.parseError) { fail(label + " — response not JSON", res.parseError); return; }
+  if (!res.body || res.body.ok !== true) {
+    fail(label + " — server rejected an expected-valid write", JSON.stringify(res.body));
+    return;
+  }
+
+  pass(label + " accepted  (eventId=" + res.body.eventId + ")");
+
+  var verified = await verifyRow({
+    taskId: taskId,
+    action: payloadPartial.eventAction || payloadPartial.action,
+    value: payload.value === undefined ? "" : String(payload.value),
+    actor: ACTOR
+  });
+
+  check(label + " — write-then-verify: row present in Events", verified.found,
+    verified.found ? "" : "never appeared: " + verified.reason);
+}
+
+/* ------------------------------------------------------------------ *
+ * createTask (v2, D-066) — POST, then verify BOTH writes: the Tasks row
+ * and the pin event that must accompany it.
+ * ------------------------------------------------------------------ */
+
+/**
+ * Confirms a task id appeared in the Tasks tab, with the same backoff the
+ * Events verify uses. Returns the whole row so the caller can assert the
+ * column contents, not just presence.
+ */
+async function verifyTaskRow(taskId) {
+  var lastSeen = null;
+
+  for (var attempt = 0; attempt < VERIFY_DELAYS_MS.length; attempt++) {
+    await sleep(VERIFY_DELAYS_MS[attempt]);
+
+    var tail;
+    try {
+      tail = await readTasksTail();
+    } catch (err) {
+      lastSeen = err.message;
+      continue;
+    }
+
+    var idx = {};
+    tail.header.forEach(function (h, i) { idx[String(h).trim().toLowerCase()] = i; });
+    var at = idx["id"];
+    if (at === undefined) {
+      lastSeen = 'the Tasks tab has no "id" column';
+      continue;
+    }
+
+    for (var i = tail.rows.length - 1; i >= 0; i--) {
+      if (String(tail.rows[i][at] || "").trim() === taskId) {
+        return { found: true, attempts: attempt + 1, row: tail.rows[i], idx: idx };
+      }
+    }
+    lastSeen = "not in the last " + TAIL_ROWS + " Tasks rows yet (attempt " + (attempt + 1) + ")";
+  }
+
+  return { found: false, reason: lastSeen };
+}
+
+async function createTaskHappyPath(label, partial) {
+  var payload = Object.assign(
+    { action: "createTask", sprintId: SPRINT_ID, actor: ACTOR },
+    partial
+  );
+
+  var res = await postEvent(payload);
+
+  if (res.parseError) { fail(label + " — response not JSON", res.parseError); return null; }
+  if (!res.body || res.body.ok !== true) {
+    fail(label + " — server rejected an expected-valid createTask", JSON.stringify(res.body));
+    return null;
+  }
+
+  pass(label + " accepted  (id=" + res.body.id + ")");
+
+  check(label + " — id is in the T-NNNN namespace",
+    /^T-\d{4}$/.test(res.body.id || ""), "got " + res.body.id);
+  check(label + " — response carries the pin's eventId",
+    /^E-\d{13}-[0-9a-z]{4}$/.test(res.body.eventId || ""), "got " + res.body.eventId);
+  check(label + " — createdAt is a full ISO datetime",
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(res.body.createdAt || ""),
+    "got " + res.body.createdAt);
+  check(label + " — server-side verify reported the row present",
+    res.body.verified === true, JSON.stringify(res.body));
+
+  /* The Tasks row really landed, read back through the API. */
+  var v = await verifyTaskRow(res.body.id);
+  check(label + " — write-then-verify: row present in Tasks", v.found,
+    v.found ? "" : "never appeared: " + v.reason);
+
+  if (v.found) {
+    function cell(name) {
+      var at = v.idx[name.toLowerCase()];
+      return at === undefined || v.row[at] === undefined ? "" : String(v.row[at]).trim();
+    }
+    check(label + " — Tasks row carries the desc, owner and workDays we sent",
+      cell("desc") === String(payload.desc) &&
+      cell("owner") === String(payload.owner) &&
+      Number(cell("workDays")) === Number(payload.workDays),
+      JSON.stringify(v.row));
+    check(label + " — createdBy is the acting person",
+      cell("createdBy") === ACTOR, "got " + cell("createdBy"));
+  }
+
+  /* And so did its pin — this is the D-066(b) guarantee, not a nice-to-have:
+     a task with no week is invisible in every view and has no backlog to be
+     found in, so the pin's presence is the thing worth asserting hardest. */
+  var pinned = await verifyRow({
+    taskId: res.body.id, action: "pin", value: payload.week, actor: ACTOR
+  });
+  check(label + " — the accompanying pin event is in Events (§11.6 guarantee)",
+    pinned.found, pinned.found ? "" : "no pin row for " + res.body.id + ": " + pinned.reason);
+
+  return res.body;
+}
+
 /* ------------------------------------------------------------------ *
  * Rejections
  * ------------------------------------------------------------------ */
@@ -372,6 +547,49 @@ async function rejection(label, payload, expectedCode, opts) {
         "a row with taskId " + opts.taskId + " appeared despite the rejection");
     }
   }
+}
+
+/**
+ * createTask rejections can't be checked by task id — the server assigns it,
+ * and on a rejection it never gets that far. So this compares the Tasks tab's
+ * row count across the call instead.
+ *
+ * A read that FAILS is inconclusive and reported as a failure, never as a
+ * clean pass — same D-044 discipline as assertNoRow: a check that goes green
+ * exactly when it can no longer see the sheet is worse than no check.
+ */
+async function createTaskRejection(label, payloadPartial, expectedCode) {
+  var before;
+  try {
+    before = (await readTasksTail()).rows.length;
+  } catch (err) {
+    fail(label + " — could not read Tasks before the call (inconclusive)", err.message);
+    return;
+  }
+
+  var payload = Object.assign({ action: "createTask", actor: ACTOR }, payloadPartial);
+  var res = await postEvent(payload);
+
+  if (res.parseError) { fail(label + " — response not JSON", res.parseError); return; }
+  if (!res.body) { fail(label + " — empty response body"); return; }
+
+  if (res.body.ok === false && res.body.code === expectedCode) {
+    pass(label + " rejected with " + expectedCode);
+  } else {
+    fail(label + " — expected rejection " + expectedCode, "got " + JSON.stringify(res.body));
+  }
+
+  await sleep(1500);
+  var after;
+  try {
+    after = (await readTasksTail()).rows.length;
+  } catch (err) {
+    fail(label + " — could not confirm no Tasks row was written (inconclusive)", err.message);
+    return;
+  }
+
+  check(label + " — no Tasks row written", after === before,
+    "Tasks went from " + before + " to " + after + " rows despite the rejection");
 }
 
 /* ------------------------------------------------------------------ *
@@ -410,6 +628,29 @@ async function main() {
     process.exit(1);
   }
 
+  /* The Tasks tab is new in v2 — probe it the same way, and stop the same way.
+     Reaching the createTask cases with an unreadable Tasks tab would make every
+     one of them inconclusive-but-green-looking. */
+  try {
+    var tprobe = await readTasksTail();
+    pass("Tasks tab readable (" + tprobe.rows.length + " row(s) in the tail)");
+
+    var expectedTasksHeader =
+      ["id","desc","owner","workDays","deadline","sourceIssueId","createdBy","createdAt"];
+    var tHeaderOk = expectedTasksHeader.every(function (h, i) {
+      return String(tprobe.header[i] || "").trim().toLowerCase() === h.toLowerCase();
+    });
+    check("Tasks header matches the D-066 schema", tHeaderOk,
+      "found [" + tprobe.header.join(" | ") + "]");
+  } catch (err) {
+    console.log("  FAIL  Tasks tab could not be read — stopping before writing anything\n");
+    console.log("        " + err.message + "\n");
+    console.log("  Create the Tasks tab with headers:\n");
+    console.log("    id | desc | owner | workDays | deadline | sourceIssueId | createdBy | createdAt\n");
+    console.log("  Nothing was written to the sheet. Fix it and re-run.\n");
+    process.exit(1);
+  }
+
   /* ---------------- happy paths ---------------- */
   console.log("\n--- happy paths (POST + real write-then-verify) ---\n");
 
@@ -427,6 +668,52 @@ async function main() {
   await happyPath("appendEvent envelope form", {
     action: "appendEvent", eventAction: "setStatus", value: "done"
   });
+
+  /* ---------------- v2 happy paths ---------------- */
+  console.log("\n--- v2 happy paths: createTask (D-066) ---\n");
+
+  var created = await createTaskHappyPath("createTask (minimum fields)", {
+    desc: "Smoke: call the supplier " + RUN,
+    owner: ACTOR, workDays: 0.5, week: "2026-08-17"
+  });
+
+  var created2 = await createTaskHappyPath("createTask (every optional field)", {
+    desc: "Smoke: full payload " + RUN,
+    owner: ACTOR, workDays: 2, week: "2026-08-17",
+    deadline: "2026-08-20", sourceIssueId: "I-0001", note: "smoke test"
+  });
+
+  if (created && created2) {
+    check("two sequential creations got DIFFERENT ids", created.id !== created2.id,
+      created.id + " vs " + created2.id);
+    check("the second id is strictly greater than the first",
+      Number(created2.id.slice(2)) > Number(created.id.slice(2)),
+      created.id + " -> " + created2.id);
+  }
+
+  console.log("\n--- v2 happy paths: discard / cancel / confirmWeek ---\n");
+
+  /* discard/undiscard must run against a REAL ad-hoc id, which is exactly what
+     createTask just produced — using a made-up T-9999 would pass the namespace
+     check but wouldn't exercise the pairing against a task that exists. */
+  if (created) {
+    await happyPathFixedId("discard (ad-hoc, with reason)", created.id,
+      { action: "discard", value: "", note: "Smoke: no longer needed" });
+    await happyPathFixedId("undiscard (the reversal, D-069)", created.id,
+      { action: "undiscard", value: "" });
+  } else {
+    fail("discard/undiscard happy paths skipped — createTask did not return an id");
+  }
+
+  await happyPathFixedId("cancel (plan-namespace id, with reason)", "SMOKEPLAN-" + Date.now(),
+    { action: "cancel", value: "", note: "Smoke: scope dropped" });
+
+  await happyPathFixedId("uncancel (the reversal, D-069)", "SMOKEPLAN-" + Date.now(),
+    { action: "uncancel", value: "" });
+
+  await happyPathFixedId("confirmWeek (freezes §12's denominator, D-070)",
+    "WEEK-2026-08-17",
+    { action: "confirmWeek", value: "2026-08-17", note: '["M2-t1","' + (created ? created.id : "T-0001") + '"]' });
 
   /* ---------------- rejections ---------------- */
   console.log("\n--- rejections (server-side guarantees, §3) ---\n");
@@ -511,13 +798,157 @@ async function main() {
     { action: "unpin", taskId: t, value: "2026-08-10", actor: ACTOR },
     "BAD_VALUE_UNPIN", { taskId: t });
 
+  /* ---------------- v2 rejections: createTask (D-066) ---------------- */
+  console.log("\n--- v2 rejections: createTask ---\n");
+
+  var baseTask = { desc: "Smoke reject " + RUN, owner: ACTOR, workDays: 1, week: "2026-08-17" };
+
+  await createTaskRejection('owner "Both" (its own code, never OWNER_UNKNOWN)',
+    Object.assign({}, baseTask, { owner: "Both" }), "OWNER_BOTH_NOT_ALLOWED");
+
+  await createTaskRejection("unknown owner",
+    Object.assign({}, baseTask, { owner: "NotARealPerson_" + RUN }), "OWNER_UNKNOWN");
+
+  await createTaskRejection("empty desc",
+    Object.assign({}, baseTask, { desc: "" }), "MISSING_DESC");
+
+  await createTaskRejection("missing week (§11.6: no task without a week)",
+    { desc: baseTask.desc, owner: ACTOR, workDays: 1 }, "MISSING_WEEK");
+
+  await createTaskRejection("week on a non-Monday (BAD_VALUE_WEEK, distinct from MISSING_WEEK)",
+    Object.assign({}, baseTask, { week: "2026-08-18" }), "BAD_VALUE_WEEK");
+
+  await createTaskRejection("workDays of 0",
+    Object.assign({}, baseTask, { workDays: 0 }), "BAD_VALUE_WORKDAYS");
+
+  await createTaskRejection("negative workDays",
+    Object.assign({}, baseTask, { workDays: -2 }), "BAD_VALUE_WORKDAYS");
+
+  await createTaskRejection("non-numeric workDays",
+    Object.assign({}, baseTask, { workDays: "soon" }), "BAD_VALUE_WORKDAYS");
+
+  await createTaskRejection("missing workDays (mandatory per §1 v2)",
+    { desc: baseTask.desc, owner: ACTOR, week: "2026-08-17" }, "BAD_VALUE_WORKDAYS");
+
+  await createTaskRejection("malformed deadline",
+    Object.assign({}, baseTask, { deadline: "next friday" }), "BAD_VALUE_DEADLINE");
+
+  await createTaskRejection("impossible deadline date",
+    Object.assign({}, baseTask, { deadline: "2026-02-30" }), "BAD_VALUE_DEADLINE");
+
+  await createTaskRejection("unknown actor on createTask (still ACTOR_UNKNOWN, not OWNER_*)",
+    Object.assign({}, baseTask, { actor: "NotARealPerson_" + RUN }), "ACTOR_UNKNOWN");
+
+  /* ---------------- v2 rejections: namespace rules (D-067, D-068) ---------------- */
+  console.log("\n--- v2 rejections: discard / cancel namespace rules ---\n");
+
+  await rejection("discard on a PLAN task id (D-067 namespace rule)",
+    { action: "discard", taskId: "M2-t1", value: "", actor: ACTOR, note: "should be refused" },
+    "DISCARD_NOT_ADHOC", { taskId: "M2-t1" });
+
+  await rejection("undiscard on a plan task id",
+    { action: "undiscard", taskId: "M2-t1", value: "", actor: ACTOR },
+    "DISCARD_NOT_ADHOC");
+
+  await rejection("discard with no reason (D-067: the note is mandatory)",
+    { action: "discard", taskId: "T-0001", value: "", actor: ACTOR },
+    "MISSING_DISCARD_REASON");
+
+  await rejection("discard with a whitespace-only reason",
+    { action: "discard", taskId: "T-0001", value: "", actor: ACTOR, note: "   " },
+    "MISSING_DISCARD_REASON");
+
+  await rejection("discard carrying a value",
+    { action: "discard", taskId: "T-0001", value: "x", actor: ACTOR, note: "reason" },
+    "BAD_VALUE_DISCARD");
+
+  t = nextTaskId();
+  await rejection("cancel on an AD-HOC id (D-068, the mirror rule)",
+    { action: "cancel", taskId: "T-0001", value: "", actor: ACTOR, note: "should be refused" },
+    "CANCEL_NOT_PLAN_TASK");
+
+  await rejection("uncancel on an ad-hoc id",
+    { action: "uncancel", taskId: "T-0001", value: "", actor: ACTOR },
+    "CANCEL_NOT_PLAN_TASK");
+
+  t = nextTaskId();
+  await rejection("cancel with no reason (D-068: the note is mandatory)",
+    { action: "cancel", taskId: t, value: "", actor: ACTOR },
+    "MISSING_CANCEL_REASON", { taskId: t });
+
+  t = nextTaskId();
+  await rejection("cancel carrying a value",
+    { action: "cancel", taskId: t, value: "x", actor: ACTOR, note: "reason" },
+    "BAD_VALUE_CANCEL", { taskId: t });
+
+  /* "discarded"/"cancelled" are DERIVED from those events, never setStatus
+     values — the §1-vs-§3 conflict D-067 resolved. */
+  t = nextTaskId();
+  await rejection('setStatus "discarded" (a derived state, not a status — D-067)',
+    { action: "setStatus", taskId: t, value: "discarded", actor: ACTOR },
+    "BAD_VALUE_STATUS", { taskId: t });
+
+  t = nextTaskId();
+  await rejection('setStatus "cancelled"',
+    { action: "setStatus", taskId: t, value: "cancelled", actor: ACTOR },
+    "BAD_VALUE_STATUS", { taskId: t });
+
+  /* ---------------- v2 rejections: confirmWeek (D-070) ---------------- */
+  console.log("\n--- v2 rejections: confirmWeek ---\n");
+
+  await rejection("confirmWeek whose Task ID date does not match its Value",
+    { action: "confirmWeek", taskId: "WEEK-2026-08-17", value: "2026-08-24",
+      actor: ACTOR, note: "[]" },
+    "BAD_VALUE_CONFIRM_WEEK");
+
+  await rejection("confirmWeek on a non-Monday",
+    { action: "confirmWeek", taskId: "WEEK-2026-08-18", value: "2026-08-18",
+      actor: ACTOR, note: "[]" },
+    "BAD_VALUE_CONFIRM_WEEK");
+
+  await rejection("confirmWeek with a Task ID missing the WEEK- prefix",
+    { action: "confirmWeek", taskId: "2026-08-17", value: "2026-08-17",
+      actor: ACTOR, note: "[]" },
+    "BAD_VALUE_CONFIRM_WEEK");
+
+  await rejection("confirmWeek with NO Note (never read as an empty denominator)",
+    { action: "confirmWeek", taskId: "WEEK-2026-08-17", value: "2026-08-17", actor: ACTOR },
+    "BAD_VALUE_CONFIRM_WEEK");
+
+  await rejection("confirmWeek whose Note is not JSON",
+    { action: "confirmWeek", taskId: "WEEK-2026-08-17", value: "2026-08-17",
+      actor: ACTOR, note: "M2-t1, M2-t2" },
+    "BAD_VALUE_CONFIRM_WEEK");
+
+  await rejection("confirmWeek whose Note is a JSON object, not an array",
+    { action: "confirmWeek", taskId: "WEEK-2026-08-17", value: "2026-08-17",
+      actor: ACTOR, note: '{"ids":[]}' },
+    "BAD_VALUE_CONFIRM_WEEK");
+
+  await rejection("confirmWeek whose Note array holds a non-string",
+    { action: "confirmWeek", taskId: "WEEK-2026-08-17", value: "2026-08-17",
+      actor: ACTOR, note: '["M2-t1", 42]' },
+    "BAD_VALUE_CONFIRM_WEEK");
+
+  var overLongNote = JSON.stringify(new Array(900).join("x").split("x").map(function (_, i) {
+    return "M" + i + "-t1";
+  }));
+  await rejection("confirmWeek with an over-long Note (rejected, NEVER truncated — D-070)",
+    { action: "confirmWeek", taskId: "WEEK-2026-08-17", value: "2026-08-17",
+      actor: ACTOR, note: overLongNote },
+    "NOTE_TOO_LONG");
+
   /* ---------------- summary ---------------- */
   console.log("\n=== summary ===\n");
   console.log("  passed:   " + passes);
   console.log("  failed:   " + failures);
   console.log("\n  Rows written by this run are tagged " + RUN + "-* in the Task ID column.");
-  console.log("  Still to run BY HAND (see the header of this file): the header-guard");
-  console.log("  procedure and the concurrency/LockService procedure.");
+  console.log("  createTask also wrote real T-NNNN rows to the Tasks tab (desc contains " +
+    RUN + ") plus their pin events.");
+  console.log("  Still to run BY HAND (see the header of this file): (A) the header-guard");
+  console.log("  procedure, (B) the concurrency/LockService procedure, and (C) the");
+  console.log("  concurrent-createTask procedure — two parallel creations must yield two");
+  console.log("  distinct ids and two complete rows, which this serial script cannot prove.");
   console.log("\n" + (failures === 0 ? "ALL CHECKS PASSED" : failures + " CHECK(S) FAILED") + "\n");
 
   process.exit(failures === 0 ? 0 : 1);
