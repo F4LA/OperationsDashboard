@@ -34,6 +34,9 @@
     /* ---------- Identity persistence (§3 "Option B") ---------- */
     ACTOR_STORAGE_KEY: "opsdash.actor",
 
+    /* ---------- View persistence (§6.3, D-062) ---------- */
+    VIEW_STORAGE_KEY: "opsdash.view",
+
     /**
      * Builds a Sheets API v4 read URL for one tab (§3 read path). `range`,
      * if given, is appended after "!" (e.g. "A:H"); omitted reads the whole tab.

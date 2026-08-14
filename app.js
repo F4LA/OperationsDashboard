@@ -129,9 +129,13 @@
           var band = Number(settings.onTrackBandWorkDays);
           if (!(band >= 0)) band = 1; // fallback documented at the call site, never silently NaN
 
+          var opsWeekStartDay = settings.opsWeekStartDay;
+          if (!opsWeekStartDay) opsWeekStartDay = "Friday"; // fallback documented at the call site, never silently missing (D-061)
+
           var folded = root.OpsDashEvents.fold(events);
           var currentState = root.OpsDashEvents.toCurrentState(folded);
           var deliverables = root.OpsDashEvents.deliverables(folded);
+          var pins = root.OpsDashEvents.pins(folded);
 
           if (folded.warnings.length && root.console) {
             root.console.warn("[OpsDash] Events fold warnings:", folded.warnings);
@@ -149,8 +153,10 @@
             frozenPlan: frozenPlan,
             currentState: currentState,
             deliverables: deliverables,
+            pins: pins,
             people: people,
-            band: band
+            band: band,
+            opsWeekStartDay: opsWeekStartDay
           });
         });
       })

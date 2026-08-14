@@ -27,6 +27,15 @@
  *
  * The frozen plan-mode baseline (for §5.2's planned curve) is computed exactly
  * once by app.js and never touched here — see metrics.js's header.
+ *
+ * This Week (§6.3, Phase 7, D-061/D-062/D-063): a second view sharing this
+ * same module's in-memory state — switching views (topbar segmented control,
+ * `opsdash.view` in localStorage) never refetches anything. OpsDashThisWeek
+ * computes the pure bucket math (D-063a/b); the pin override (D-063c — pin
+ * decides bucket MEMBERSHIP, never touches the engine's projection) is
+ * applied here, in applyPinOverride(), on top of that pure result. A
+ * verified pin/unpin repaints with the same before/after-signature diff
+ * pattern as Part C's diffAndRepaint (D-054), scoped to per-person columns.
  */
 (function (root) {
   "use strict";
@@ -41,12 +50,17 @@
     frozenPlan: null,      // planMode() result — computed ONCE by app.js, never here
     currentState: {},      // D-027 map, patched incrementally after each mark
     deliverables: {},      // {taskId: url}
+    pins: {},              // {taskId: isoMonday} — current pin per task (§3, §6.3)
     people: [],            // [{name, active}]
     actor: null,
     band: 1,
     onlyMine: false,
     liveResult: null,
-    metrics: null
+    metrics: null,
+    view: "board",          // "board" | "week" (D-062)
+    opsWeekStartDay: "Friday",
+    _thisWeekWindow: null,  // last computed opsWeek() result, cached for diffAndRepaintThisWeek
+    _thisWeekBuckets: null  // last computed (post pin-override) buckets, cached for the same
   };
 
   var dom = {};            // cached DOM refs, filled in mount()
@@ -200,6 +214,31 @@
    * Rendering — topbar (actor / refresh) and summary bar (sprint progress)
    * ------------------------------------------------------------------ */
 
+  /** Two-segment view toggle (D-062) — "the chosen option IS the write" in
+   *  spirit, just for view state instead of a Sheet write: click sets state
+   *  + localStorage, then a plain render() with no refetch (§6.3, D-062). */
+  function viewSwitchHtml() {
+    function btn(view, label) {
+      var active = state.view === view;
+      return '<button type="button" class="view-switch-btn' + (active ? " is-active" : "") +
+        '" data-view="' + view + '" aria-pressed="' + active + '">' + escapeHtml(label) + "</button>";
+    }
+    return (
+      '<div class="view-switch" role="group" aria-label="View">' +
+        btn("board", "Sprint board") +
+        btn("week", "This week") +
+      "</div>"
+    );
+  }
+
+  function onViewSwitchClick(e) {
+    var next = e.currentTarget.getAttribute("data-view");
+    if (next === state.view) return;
+    state.view = next;
+    localStorage.setItem(CFG().VIEW_STORAGE_KEY, next);
+    render(); // same in-memory state either way — no refetch (D-062)
+  }
+
   function renderTopbarRight() {
     var options = ['<option value="">— Select —</option>'];
     for (var i = 0; i < state.people.length; i++) {
@@ -210,6 +249,7 @@
     }
 
     dom.topbarRight.innerHTML =
+      viewSwitchHtml() +
       '<div class="actor-select-wrap">' +
         '<label for="actor-select">Acting as</label>' +
         '<select id="actor-select" class="actor-select">' + options.join("") + "</select>" +
@@ -223,6 +263,11 @@
     document.getElementById("actor-select").addEventListener("change", onActorChange);
     document.getElementById("only-mine-checkbox").addEventListener("change", onOnlyMineToggle);
     document.getElementById("refresh-btn").addEventListener("click", onRefreshClick);
+
+    var viewBtns = dom.topbarRight.querySelectorAll(".view-switch-btn");
+    for (var vi = 0; vi < viewBtns.length; vi++) {
+      viewBtns[vi].addEventListener("click", onViewSwitchClick);
+    }
   }
 
   function chipHtml(color, label) {
@@ -674,6 +719,18 @@
 
   function render() {
     renderTopbarRight();
+
+    if (state.view === "week") {
+      // Sprint-wide progress/burn-up belong to the Sprint Board (§6 View 1);
+      // This Week has its own header (the ops-week window) instead (§6.3).
+      dom.summaryBar.classList.add("hidden");
+      dom.burnupPanel.classList.add("hidden");
+      renderThisWeekView();
+      return;
+    }
+
+    dom.summaryBar.classList.remove("hidden");
+    dom.burnupPanel.classList.remove("hidden");
     renderSummaryBar();
     renderSprintBurnup();
 
@@ -691,6 +748,313 @@
       html.push(renderRock(state.plan.rocks[i].id));
     }
     dom.mainEl.innerHTML = html.join("");
+  }
+
+  /* ------------------------------------------------------------------ *
+   * This Week (§6.3, Phase 7)
+   * ------------------------------------------------------------------ */
+
+  function computeThisWeekWindow() {
+    return root.OpsDashThisWeek.opsWeek(CFG().todayISO(), state.opsWeekStartDay);
+  }
+
+  /** owner field from availableToPull/cascadeOf is raw plan text ("Both" or
+   *  a name) — this is the same two-line resolution engine.js's ownersOf
+   *  does, kept here rather than exported since it's not dependency logic. */
+  function ownersOfPlain(owner) {
+    return owner === "Both" ? state.plan.people.slice() : [owner];
+  }
+
+  /**
+   * D-063(c): the pin overrides bucket MEMBERSHIP for the "notStarted"
+   * bucket only — "Done this week" and "Working on" are governed by real
+   * status/timestamps (a pin cannot un-finish a task or hide it while it's
+   * in progress), and §6.3 itself only ever talks about pulling a FUTURE
+   * task in or postponing one out, i.e. the open/not-started case. Applied
+   * here, on top of OpsDashThisWeek.buckets()'s pure D-063(a)/(b) result,
+   * so that pure function never has to know about pins at all.
+   */
+  function applyPinOverride(bucketsByPerson, window) {
+    var pins = state.pins;
+    var tasks = state.liveResult.tasks;
+    var person, list, kept, i, id, pin;
+
+    // 1. Drop anything the projection put here but that's actually pinned
+    //    to a DIFFERENT week (postponed away, or pulled into another week).
+    for (person in bucketsByPerson) {
+      if (!Object.prototype.hasOwnProperty.call(bucketsByPerson, person)) continue;
+      list = bucketsByPerson[person].notStarted;
+      kept = [];
+      for (i = 0; i < list.length; i++) {
+        id = list[i];
+        pin = pins[id];
+        if (pin !== undefined && pin !== window.mondayKey) continue;
+        kept.push(id);
+      }
+      bucketsByPerson[person].notStarted = kept;
+    }
+
+    // 2. Add anything pinned INTO this window that the projection alone
+    //    would not have placed here (a task pulled forward from later).
+    for (var taskId in tasks) {
+      if (!Object.prototype.hasOwnProperty.call(tasks, taskId)) continue;
+      if (pins[taskId] !== window.mondayKey) continue;
+      var task = tasks[taskId];
+      var cs = state.currentState[taskId];
+      var status = cs && cs.status ? cs.status : "open";
+      if (status !== "open") continue; // pin only governs the open/not-started bucket
+      var owners = task.owners || [task.owner];
+      for (var j = 0; j < owners.length; j++) {
+        var p = owners[j];
+        if (bucketsByPerson[p] && bucketsByPerson[p].notStarted.indexOf(taskId) === -1) {
+          bucketsByPerson[p].notStarted.push(taskId);
+        }
+      }
+    }
+  }
+
+  function computeThisWeekBuckets(window) {
+    var b = root.OpsDashThisWeek.buckets(state.liveResult, state.currentState, window, state.plan.people);
+    applyPinOverride(b, window);
+    return b;
+  }
+
+  function twNextMondayKey(mondayKey) {
+    var eng = root.OpsDashEngine._internals;
+    return eng.formatISO(eng.parseISO(mondayKey) + 7 * 86400000);
+  }
+
+  function twTaskDesc(taskId) {
+    var t = state.index.tasks[taskId];
+    return t ? t.desc : taskId;
+  }
+
+  function renderTwAddDropdown(person) {
+    var candidates = root.OpsDashThisWeek.availableToPull(state.plan, state.currentState).filter(function (t) {
+      return ownersOfPlain(t.owner).indexOf(person) !== -1;
+    });
+    var optHtml = ['<option value="">+ add to this week…</option>'].concat(
+      candidates.map(function (t) {
+        return '<option value="' + escapeAttr(t.id) + '">' + escapeHtml(t.id) + " — " + escapeHtml(t.desc) + "</option>";
+      })
+    ).join("");
+    return '<select class="tw-add-select" data-action="tw-pull" data-person="' + escapeAttr(person) + '" ' +
+      'aria-label="Add a task to ' + escapeAttr(person) + '’s this week">' + optHtml + "</select>";
+  }
+
+  function renderTwTaskRow(taskId, bucketKind, window) {
+    var task = state.liveResult.tasks[taskId];
+    var pinned = state.pins[taskId] === window.mondayKey;
+    var deliverableUrl = state.deliverables[taskId];
+
+    var actionsHtml = "";
+    if (bucketKind === "notStarted") {
+      actionsHtml =
+        '<button type="button" class="tw-action-btn" data-action="tw-postpone" data-task-id="' +
+          escapeAttr(taskId) + '">Postpone</button>' +
+        (pinned
+          ? '<button type="button" class="tw-action-btn" data-action="tw-release" data-task-id="' +
+            escapeAttr(taskId) + '">Release</button>'
+          : "");
+    }
+
+    return (
+      '<div class="tw-task" data-task-id="' + escapeAttr(taskId) + '">' +
+        '<div class="tw-task-main">' +
+          '<span class="tw-task-id">' + escapeHtml(taskId) + "</span>" +
+          '<span class="tw-task-desc">' + escapeHtml(twTaskDesc(taskId)) + "</span>" +
+          (pinned
+            ? '<span class="pin-marker" role="img" aria-label="Manually pinned into this week" ' +
+              'title="Manually pinned into this week">📌</span>'
+            : "") +
+        "</div>" +
+        '<div class="tw-task-meta">' +
+          '<span class="duration">' + escapeHtml(durationLabel(task)) + "</span>" +
+          (deliverableUrl
+            ? '<a class="deliverable-link" href="' + escapeAttr(deliverableUrl) +
+              '" target="_blank" rel="noopener noreferrer">Deliverable ↗</a>'
+            : "") +
+        "</div>" +
+        (actionsHtml ? '<div class="tw-task-actions">' + actionsHtml + "</div>" : "") +
+        '<div class="tw-postpone-confirm hidden" aria-live="polite" data-task-id="' + escapeAttr(taskId) + '"></div>' +
+      "</div>"
+    );
+  }
+
+  function renderTwBucket(title, taskIds, bucketKind, window) {
+    if (!taskIds.length) {
+      return '<div class="tw-bucket"><h4>' + escapeHtml(title) + '</h4><p class="tw-bucket-empty">Nothing here.</p></div>';
+    }
+    var sorted = taskIds.slice().sort();
+    var rows = sorted.map(function (id) { return renderTwTaskRow(id, bucketKind, window); }).join("");
+    return '<div class="tw-bucket"><h4>' + escapeHtml(title) + " (" + taskIds.length + ")</h4>" + rows + "</div>";
+  }
+
+  function renderTwColumn(person, bucketsByPerson, window) {
+    var b = bucketsByPerson[person] || { done: [], workingOn: [], notStarted: [] };
+    return (
+      '<div class="tw-column" data-person="' + escapeAttr(person) + '">' +
+        "<h3>" + escapeHtml(person) + "</h3>" +
+        renderTwAddDropdown(person) +
+        renderTwBucket("Done this week", b.done, "done", window) +
+        renderTwBucket("Working on", b.workingOn, "workingOn", window) +
+        renderTwBucket("Not started", b.notStarted, "notStarted", window) +
+      "</div>"
+    );
+  }
+
+  function renderThisWeekView() {
+    var win = computeThisWeekWindow();
+    var bucketsByPerson = computeThisWeekBuckets(win);
+    state._thisWeekWindow = win;
+    state._thisWeekBuckets = bucketsByPerson;
+
+    var columnsHtml = state.plan.people.map(function (p) {
+      return renderTwColumn(p, bucketsByPerson, win);
+    }).join("");
+
+    dom.mainEl.innerHTML =
+      '<div class="tw-header">' +
+        "<h2>This Week</h2>" +
+        '<span class="tw-window">' + escapeHtml(win.start) + " – " + escapeHtml(win.end) + "</span>" +
+      "</div>" +
+      '<div class="tw-columns">' + columnsHtml + "</div>";
+  }
+
+  function patchThisWeekColumn(person) {
+    var old = dom.mainEl.querySelector('.tw-column[data-person="' + cssEscape(person) + '"]');
+    if (!old) return;
+    var wrap = document.createElement("div");
+    wrap.innerHTML = renderTwColumn(person, state._thisWeekBuckets, state._thisWeekWindow);
+    old.replaceWith(wrap.firstElementChild);
+  }
+
+  /**
+   * Membership ALONE is not enough here, unlike Part C's task/milestone/Rock
+   * signatures: pinning a task that the projection had already placed in
+   * this bucket changes nothing about set membership, but DOES change what
+   * renders (the pin marker, the Release button) — so a pin flag has to be
+   * part of the signature or that repaint gets silently skipped, the exact
+   * "signature too coarse" failure Part C's own diffAndRepaint was written
+   * to avoid for the Sprint Board. Only "notStarted" carries a pin marker
+   * (D-063c is scoped to that bucket alone — see applyPinOverride).
+   */
+  function twColumnSig(b, pins, mondayKey) {
+    if (!b) return "";
+    var notStartedWithPinFlag = b.notStarted.slice().sort().map(function (id) {
+      return id + (pins[id] === mondayKey ? ":pinned" : "");
+    });
+    return b.done.slice().sort().join(",") + "|" +
+      b.workingOn.slice().sort().join(",") + "|" +
+      notStartedWithPinFlag.join(",");
+  }
+
+  /** Same before/after-signature diff pattern as Part C's diffAndRepaint
+   *  (D-054), scoped to This Week's per-person columns (§6.3 step 8). */
+  function diffAndRepaintThisWeek(prevBuckets, prevPins, prevWindow) {
+    var win = computeThisWeekWindow();
+    var newBuckets = computeThisWeekBuckets(win);
+    state._thisWeekWindow = win;
+    state._thisWeekBuckets = newBuckets;
+
+    if (!prevWindow || prevWindow.mondayKey !== win.mondayKey) {
+      // Crossed into a different ops week since the last render — simplest
+      // correct thing is a full re-render rather than a per-column diff.
+      renderThisWeekView();
+      return;
+    }
+
+    var people = state.plan.people;
+    for (var i = 0; i < people.length; i++) {
+      var p = people[i];
+      var before = twColumnSig(prevBuckets[p], prevPins, prevWindow.mondayKey);
+      var after = twColumnSig(newBuckets[p], state.pins, win.mondayKey);
+      if (before !== after) patchThisWeekColumn(p);
+    }
+  }
+
+  function writePin(taskId, mondayValue, successMsg) {
+    root.OpsDashEvents.postEvent("pin", taskId, mondayValue, state.actor, "")
+      .then(function (result) {
+        if (!result.ok) {
+          toast("Could not update the pin: " + describeWriteError(result), "error");
+          return;
+        }
+        var prevBuckets = state._thisWeekBuckets;
+        var prevPins = Object.assign({}, state.pins); // BEFORE mutating (see twColumnSig)
+        var prevWindow = state._thisWeekWindow;
+        state.pins[taskId] = mondayValue;
+        diffAndRepaintThisWeek(prevBuckets, prevPins, prevWindow);
+        toast(successMsg, "success");
+      })
+      .catch(function (err) {
+        toast("Could not update the pin: " + err.message, "error");
+      });
+  }
+
+  function writeUnpin(taskId) {
+    root.OpsDashEvents.postEvent("unpin", taskId, "", state.actor, "")
+      .then(function (result) {
+        if (!result.ok) {
+          toast("Could not release the pin: " + describeWriteError(result), "error");
+          return;
+        }
+        var prevBuckets = state._thisWeekBuckets;
+        var prevPins = Object.assign({}, state.pins); // BEFORE mutating (see twColumnSig)
+        var prevWindow = state._thisWeekWindow;
+        delete state.pins[taskId];
+        diffAndRepaintThisWeek(prevBuckets, prevPins, prevWindow);
+        toast("Released — back to automatic projection.", "success");
+      })
+      .catch(function (err) {
+        toast("Could not release the pin: " + err.message, "error");
+      });
+  }
+
+  function onTwPull(taskId, person) {
+    if (!requireActor()) return;
+    var win = state._thisWeekWindow || computeThisWeekWindow();
+    writePin(taskId, win.mondayKey, "Pulled " + taskId + " into this week.");
+  }
+
+  function onTwPostponeClick(taskId) {
+    var row = dom.mainEl.querySelector('.tw-task[data-task-id="' + cssEscape(taskId) + '"]');
+    if (!row) return;
+    var confirmBox = row.querySelector(".tw-postpone-confirm");
+    if (!confirmBox) return;
+
+    var cascade = root.OpsDashThisWeek.cascadeOf(state.plan, taskId);
+    var msg = cascade.length
+      ? "This also postpones what depends on it: " +
+        cascade.map(function (c) { return c.id + " (" + c.owner + ")"; }).join(", ") +
+        ". This is informational — postponing is not blocked (D-063d)."
+      : "Nothing else depends on this task.";
+
+    confirmBox.innerHTML =
+      "<p>" + escapeHtml(msg) + "</p>" +
+      '<button type="button" class="tw-action-btn" data-action="tw-confirm-postpone" data-task-id="' +
+        escapeAttr(taskId) + '">Confirm postpone</button>' +
+      '<button type="button" class="tw-action-btn" data-action="tw-cancel-postpone" data-task-id="' +
+        escapeAttr(taskId) + '">Cancel</button>';
+    confirmBox.classList.remove("hidden");
+  }
+
+  function onTwCancelPostpone(taskId) {
+    var row = dom.mainEl.querySelector('.tw-task[data-task-id="' + cssEscape(taskId) + '"]');
+    if (!row) return;
+    var confirmBox = row.querySelector(".tw-postpone-confirm");
+    if (confirmBox) { confirmBox.classList.add("hidden"); confirmBox.innerHTML = ""; }
+  }
+
+  function onTwConfirmPostpone(taskId) {
+    if (!requireActor()) return;
+    var win = state._thisWeekWindow || computeThisWeekWindow();
+    writePin(taskId, twNextMondayKey(win.mondayKey), "Postponed " + taskId + " to next week.");
+  }
+
+  function onTwRelease(taskId) {
+    if (!requireActor()) return;
+    writeUnpin(taskId);
   }
 
   /* ------------------------------------------------------------------ *
@@ -725,6 +1089,7 @@
         var folded = root.OpsDashEvents.fold(events);
         state.currentState = root.OpsDashEvents.toCurrentState(folded);
         state.deliverables = root.OpsDashEvents.deliverables(folded);
+        state.pins = root.OpsDashEvents.pins(folded);
         recompute();
         render();
         toast("Refreshed.", "success");
@@ -884,12 +1249,24 @@
 
     if (action === "edit-deliverable") onEditDeliverable(taskId);
     else if (action === "save-deliverable") onSaveDeliverable(taskId);
+    else if (action === "tw-postpone") onTwPostponeClick(taskId);
+    else if (action === "tw-cancel-postpone") onTwCancelPostpone(taskId);
+    else if (action === "tw-confirm-postpone") onTwConfirmPostpone(taskId);
+    else if (action === "tw-release") onTwRelease(taskId);
   }
 
   function onMainChange(e) {
     var el = e.target;
-    if (!el || el.getAttribute("data-action") !== "set-status") return;
-    onSetStatus(el.getAttribute("data-task-id"), el.value, el);
+    if (!el) return;
+    var action = el.getAttribute("data-action");
+    if (action === "set-status") { onSetStatus(el.getAttribute("data-task-id"), el.value, el); return; }
+    if (action === "tw-pull") {
+      var taskId = el.value;
+      var person = el.getAttribute("data-person");
+      if (!taskId) return;
+      onTwPull(taskId, person);
+      el.value = ""; // reset to placeholder — direct-select pattern, no separate Add button
+    }
   }
 
   function onMainKeydown(e) {
@@ -907,7 +1284,8 @@
 
   /**
    * @param initial {
-   *   plan, frozenPlan, currentState, deliverables, people, band
+   *   plan, frozenPlan, currentState, deliverables, pins, people, band,
+   *   opsWeekStartDay
    * }
    */
   function mount(initial) {
@@ -916,9 +1294,11 @@
     state.frozenPlan = initial.frozenPlan;
     state.currentState = initial.currentState || {};
     state.deliverables = initial.deliverables || {};
+    state.pins = initial.pins || {};
     state.people = initial.people || [];
     state.band = typeof initial.band === "number" ? initial.band : 1;
     state.onlyMine = false;
+    state.opsWeekStartDay = initial.opsWeekStartDay || "Friday";
 
     var cfg = CFG();
     var stored = localStorage.getItem(cfg.ACTOR_STORAGE_KEY);
@@ -928,6 +1308,9 @@
     var isKnownActive = state.people.some(function (p) { return p.name === candidate && p.active; });
     state.actor = isKnownActive ? candidate : null; // §7: stale/removed actor → unset, not an error
     if (urlActor && isKnownActive) localStorage.setItem(cfg.ACTOR_STORAGE_KEY, urlActor);
+
+    var storedView = localStorage.getItem(cfg.VIEW_STORAGE_KEY);
+    state.view = (storedView === "board" || storedView === "week") ? storedView : "board"; // D-062 default
 
     dom.topbarRight = document.getElementById("board-topbar-right");
     dom.summaryBar = document.getElementById("board-summary-bar");

@@ -722,6 +722,167 @@ main#main {
   text-overflow: ellipsis;
 }
 
+/* ---------- View switch (§6.3, D-062) ----------
+   Two-segment toggle, left of the person-selector in the topbar. Same
+   is-active treatment as .status-ctrl.status-in_progress (steel-600 bg,
+   white text) — an already-used, already-legible pairing in this app,
+   reused rather than inventing a second "selected" look. */
+.view-switch {
+  display: flex;
+  gap: 2px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.24);
+  border-radius: 9999px;
+  padding: 2px;
+}
+.view-switch-btn {
+  border: none;
+  background: transparent;
+  color: var(--steel-100);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.view-switch-btn:hover { color: #fff; }
+.view-switch-btn:focus-visible { outline: 2px solid var(--steel-400); outline-offset: 2px; }
+.view-switch-btn.is-active { background: var(--steel-600); color: #fff; }
+
+/* ---------- This Week (§6.3, Phase 7) ---------- */
+.tw-header {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 20px 32px 4px;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+.tw-header h2 {
+  font-family: var(--font-display);
+  font-size: 24px;
+  letter-spacing: 0.02em;
+  color: var(--navy-900);
+  margin: 0;
+}
+.tw-window { font-size: 13px; color: var(--text-muted); }
+
+.tw-columns {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 12px 32px 64px;
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  overflow-x: auto;
+}
+.tw-column {
+  flex: 1 1 260px;
+  min-width: 260px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 16px;
+}
+.tw-column h3 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  letter-spacing: 0.02em;
+  color: var(--navy-900);
+  margin: 0 0 10px;
+}
+.tw-add-select {
+  width: 100%;
+  margin-bottom: 14px;
+  padding: 7px 10px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--steel-700);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.tw-add-select:hover { border-color: var(--steel-400); }
+.tw-add-select:focus-visible { outline: 2px solid var(--steel-400); outline-offset: 2px; }
+
+.tw-bucket { margin-bottom: 16px; }
+.tw-bucket:last-child { margin-bottom: 0; }
+.tw-bucket h4 {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+}
+.tw-bucket-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  margin: 0;
+}
+
+.tw-task {
+  border-top: 1px solid var(--border);
+  padding: 10px 0;
+}
+.tw-bucket > .tw-task:first-of-type { border-top: none; padding-top: 0; }
+.tw-task-main {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.tw-task-id {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--steel-700);
+  background: var(--steel-tint);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.tw-task-desc { font-size: 13px; color: var(--text); line-height: 1.35; }
+.pin-marker { font-size: 12px; line-height: 1; }
+.tw-task-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+.tw-task-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.tw-action-btn {
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 7px 12px; /* keeps the tap target comfortably above this app's own 24px minimum (overshoot-flag) */
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease, background-color 120ms ease;
+}
+.tw-action-btn:hover { border-color: var(--steel-400); color: var(--steel-700); background: var(--steel-tint); }
+.tw-postpone-confirm {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: var(--surface-1);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+.tw-postpone-confirm p { margin: 0 0 8px; font-size: 12px; color: var(--text); }
+
 /* ---------- Reduced motion ---------- */
 @media (prefers-reduced-motion: reduce) {
   .toast { animation: none; }
@@ -737,4 +898,7 @@ main#main {
   .task-row { grid-template-columns: 1fr; }
   .task-deliverable { grid-column: 1 / -1; }
   .deliverable-input { width: 100%; }
+  .tw-header { padding: 16px 16px 4px; }
+  .tw-columns { padding: 12px 16px 48px; }
+  .tw-column { min-width: 220px; }
 }
