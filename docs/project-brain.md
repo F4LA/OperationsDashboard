@@ -1,6 +1,6 @@
 # Project Brain — Operations Dashboard
 The current state in one page. Updated at the close of every chat via the push Code session.
-_Last updated: 2026-08-14 — Bernardo (D-075 tope de Note; D-076 parte 2 partida en 2A lógica / 2B vista)_
+_Last updated: 2026-08-14 — Bernardo (D-077: matemática del §12 en metrics.js, aclara D-071c y corrige D-076)_
 
 > **Source of truth for WHAT to build** is the spec: `docs/spec.md` (v2.0.1).
 > **Source of truth for WHY** is `docs/decision-log.md`.
@@ -94,6 +94,7 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 - D-068(f) (no cancelación masiva de milestone/proyecto) es revisable si pasa dos veces en un sprint real.
 - D-068(c) es la primera modificación a engine.js desde la Fase 2. Vigilar con especial atención la regresión del motor (60/60 plan, 17/17 live) cuando se implemente.
 - Tope de Note: RESUELTO por D-075 — MAX_NOTE_LEN = 5000 aplica a todo Note, un solo número consumido por servidor y frontend. Cierra el punto que D-072 había dejado abierto.
+- D-071(c) queda parcialmente inexacta por D-077: la matemática del §12 va en metrics.js, no en todos.js. todos.js es markup puro del §11. El resto de D-071(c) sigue vigente.
 
 ## Key dates
 - No hard external deadline on the dashboard itself. Target: Views 1–3 usable in the first build week; This Week + pin + link layer (Fase 7) shipped before Gantt/Timeline (Fase 6, diferida por D-059). (Sprint being tracked, for reference: S3-2026, ends 2026-09-13.)
