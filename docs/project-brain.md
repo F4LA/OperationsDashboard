@@ -1,6 +1,6 @@
 # Project Brain — Operations Dashboard
 The current state in one page. Updated at the close of every chat via the push Code session.
-_Last updated: 2026-08-14 — Bernardo (Fase 8 parte 2A CERRADA en d288b6a; próximo: 2B en chat nuevo)_
+_Last updated: 2026-08-15 — Bernardo (diseño de la Fase 8 parte 2B cerrado; próximo: BUILD de la 2B)_
 
 > **Source of truth for WHAT to build** is the spec: `docs/spec.md` (v2.0.1).
 > **Source of truth for WHY** is `docs/decision-log.md`.
@@ -9,7 +9,7 @@ _Last updated: 2026-08-14 — Bernardo (Fase 8 parte 2A CERRADA en d288b6a; pró
 > Live: https://f4la.github.io/OperationsDashboard/ (Sprint Board + métricas, desde Fase 5 — commit 06b568d)
 
 ## Current phase
-Fase 8 parte 1 (backend) CERRADA y desplegada. createTask, discard/undiscard, cancel/uncancel y confirmWeek en producción en el Web App (Version 2, misma URL). Pestaña Tasks creada con el esquema de D-066. Próximo: parte 2, partida por D-076 en 2A (lógica: events.js, engine.js, thisweek.js, metrics.js) y 2B (vista: todos.js, retiro de renderTw*, bump de versión). Parte 2A construida y pusheada en c025459 (regresión 478 verde; 60/60 plan y 17/17 live sin cambios; scope verificado byte a byte contra e84f718). Pase de correcciones de D-078 hecho y verificado en 626557e (regresión 525 verde; 60/60 y 17/17 sin cambios; board.js, app.js e index.html byte a byte idénticos a e84f718; versión sin subir en 20260814b). FASE 8 PARTE 2A CERRADA en d288b6a, verificada contra los archivos commiteados y no contra el reporte (precedente D-056): regresión 536 verde, 60/60 plan y 17/17 live sin cambios y sin un solo fixture editado, board.js / app.js / index.html byte a byte idénticos a e84f718, versión sin subir en 20260814b, todos.js sin crear. Toda la lógica del §11 y del §12 existe y está probada; no hay una sola pantalla que la consuma todavía. Próximo: parte 2B (la vista) en chat nuevo.
+Fase 8 parte 1 (backend) CERRADA y desplegada. createTask, discard/undiscard, cancel/uncancel y confirmWeek en producción en el Web App (Version 2, misma URL). Pestaña Tasks creada con el esquema de D-066. Próximo: parte 2, partida por D-076 en 2A (lógica: events.js, engine.js, thisweek.js, metrics.js) y 2B (vista: todos.js, retiro de renderTw*, bump de versión). Parte 2A construida y pusheada en c025459 (regresión 478 verde; 60/60 plan y 17/17 live sin cambios; scope verificado byte a byte contra e84f718). Pase de correcciones de D-078 hecho y verificado en 626557e (regresión 525 verde; 60/60 y 17/17 sin cambios; board.js, app.js e index.html byte a byte idénticos a e84f718; versión sin subir en 20260814b). FASE 8 PARTE 2A CERRADA en d288b6a, verificada contra los archivos commiteados y no contra el reporte (precedente D-056): regresión 536 verde, 60/60 plan y 17/17 live sin cambios y sin un solo fixture editado, board.js / app.js / index.html byte a byte idénticos a e84f718, versión sin subir en 20260814b, todos.js sin crear. Toda la lógica del §11 y del §12 existe y está probada; no hay una sola pantalla que la consuma todavía. Próximo: parte 2B (la vista) en chat nuevo. Diseño de la parte 2B CERRADO en chat (D-080, D-081): layout de ficha por persona, confirmación única de semana desde el filtro Everyone, y un lector nuevo de la pestaña Tasks que la parte 1 dejó sin construir del lado del cliente. Falta construir: dashboard/todos.js, el lector de Tasks, el retiro de los renderTw* de board.js, el wiring en app.js y el bump de versión.
 
 ## Status
 Fase 5 completa: la burn-up planned-vs-actual existe en dos scopes y la reproyección viva de §4.7 ahora se ve en pantalla en cada marca (antes se recalculaba en memoria pero solo se repintaba la fila marcada). Regresión 181/181. El tracking real arrancó el 2026-08-14 por backfill (D-058): las tareas completadas desde el 27 de julio se cargan con fecha de hoy, así que la curva "actual" tiene un salto vertical ese día por diseño, no por defecto.
@@ -67,7 +67,7 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 
 ## Next up (per spec §9)
 - Fase 8 parte 2A: CERRADA (d288b6a).
-- Fase 8 parte 2B (vista): todos.js, retiro de los renderTw* de board.js, wiring en app.js, bump de versión (D-057).
+- Fase 8 parte 2B (vista): lector de la pestaña Tasks (D-080), dashboard/todos.js con el layout de D-081, retiro de los renderTw* de board.js, wiring en app.js, bump de versión (D-057).
 - Carga de los 3 Rocks faltantes.
 - Fase 6 diferida.
 
@@ -77,6 +77,7 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 - Vigilar en 2A la regresión del motor (60/60 plan, 17/17 live): es la primera modificación a engine.js desde la Fase 2 (D-068c). El set de canceladas entra por collectActive y se pasa solo desde liveMode, así que plan mode debe quedar idéntico.
 - REDESPLIEGUE MANUAL DEL WEB APP pendiente: la Tarea 0 de la 2A cambió backend/Code.gs (D-075) y el despliegue vivo sigue en Version 2, que ya no coincide con el repo. Hasta redesplegar, una razón de más de 5000 caracteres llega a la celda sin rechazo nombrado y el smoke real no refleja el cambio. Lo hace Bernardo a mano en el editor de Apps Script.
 - La 2B DEBE pasarle pinEvents a weeklyCompletion. Sin ese parámetro opcional, un pin fuera del commitment no puede juzgarse como movimiento y los movimientos se subcuentan en silencio. pins() quedó con su shape intacto y ahora se reproyecta desde pinEvents(), que es la que trae el timestamp.
+- PASE VISUAL PENDIENTE, no bloqueante y DESPUÉS de la 2B: Bernardo reporta que el dashboard se lee apretado y demasiado uniforme — tipografía, aire entre filas y falta de un color que subraye lo importante. Aplica a todo el dashboard, no solo al §11. Se abre en su propio chat cuando la 2B esté cerrada, mismo procedimiento que D-050, para no mezclar rediseño con vista nueva.
 
 ## Deferred (not being actively worked)
 - Vista 4 (auto-update from Rock Projects) — D-014.
