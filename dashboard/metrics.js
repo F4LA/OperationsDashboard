@@ -487,18 +487,29 @@
      * timestamp, so the answer is stable and does not depend on the order
      * events happened to arrive in.
      *
-     * Each non-completed outcome additionally requires that its own event fell
-     * inside the window — UNLESS the task is in the frozen commitment, which
-     * is this week's commitment by definition and is therefore always judged
-     * (D-078, correction 1). `completed` keeps its own window test either way:
-     * §12 says "reached done within the window", so a committed task finished
-     * long ago is in the denominator without being in the numerator.
+     * Every outcome requires that its own event fell inside the window —
+     * UNLESS the task is in the frozen commitment, which is this week's
+     * commitment by definition and is therefore always judged (D-078,
+     * correction 1; extended to `completed` by D-079).
      */
     function classify(taskId) {
       var isCommitted = committed[taskId] === true;
 
+      // D-079: a COMMITTED task counts as completed even if it reached done
+      // before the window opened. The frozen commitment is already the
+      // membership filter for the week — if the id is in D-070's array it is
+      // this week's by definition — so §12's "within the window" is there to
+      // exclude noise from OUTSIDE (the defect D-078 fixed), not to withhold
+      // credit for work that was genuinely committed. Leaving it out told a
+      // person "you didn't do this" about finished work sitting in plain
+      // sight, at the L10 close with the team watching, which is the failure
+      // that stops people trusting the number at all.
+      //
+      // The window test still applies in full to anything NOT committed.
       var cs = currentState[taskId];
-      if (cs && cs.status === "done" && inWindow(cs.statusChangedAt)) return "completed";
+      if (cs && cs.status === "done" && (isCommitted || inWindow(cs.statusChangedAt))) {
+        return "completed";
+      }
 
       var dis = discardMap[taskId];
       if (dis && (isCommitted || inWindow(dis.timestamp))) return "discarded";

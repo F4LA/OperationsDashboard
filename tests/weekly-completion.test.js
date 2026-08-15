@@ -66,8 +66,20 @@ var r = M.weeklyCompletion(base({
 
 check("completed counts a task that reached done inside the window",
   r.team.completed.indexOf("A1") !== -1, JSON.stringify(r.team.completed));
-check("a task completed BEFORE the window is not counted",
-  r.team.completed.indexOf("A2") === -1, JSON.stringify(r.team.completed));
+
+/* EXPECTATION CHANGED by D-079. This previously asserted that A2 — done on
+   2026-08-01, before the window — was NOT counted. But A2 is in this week's
+   frozen commitment, and D-079 rules that a committed task counts as completed
+   whenever it was finished: the commitment is already the membership filter for
+   the week, and withholding the credit told a person "you didn't do this" about
+   finished work.
+
+   The window bound itself is NOT loosened — it still governs everything
+   uncommitted, which is asserted directly in the D-079 block below
+   ("an UNCOMMITTED task done before the window is still NOT counted") and
+   across the whole D-078 correction-1 block. */
+check("a COMMITTED task completed before the window IS counted (D-079)",
+  r.team.completed.indexOf("A2") !== -1, JSON.stringify(r.team.completed));
 check("moved counts a task pinned to a LATER Monday",
   r.team.moved.indexOf("A3") !== -1, JSON.stringify(r.team.moved));
 check("discarded comes from the discards map",
@@ -77,8 +89,9 @@ check("cancelled comes from the cancels map",
 check("cancelled is reported SEPARATELY from discarded (§12: different signals)",
   r.team.cancelled.indexOf("A4") === -1 && r.team.discarded.indexOf("A5") === -1,
   JSON.stringify({ d: r.team.discarded, c: r.team.cancelled }));
+// completedCount is 3, not 2, since D-079 admitted the committed-but-early A2.
 check("counts accompany the id lists",
-  r.team.completedCount === 2 && r.team.movedCount === 1 &&
+  r.team.completedCount === 3 && r.team.movedCount === 1 &&
   r.team.discardedCount === 1 && r.team.cancelledCount === 1, JSON.stringify(r.team));
 
 /* a pin to THIS week, or to an earlier one, is not "moved" */
@@ -301,6 +314,80 @@ check("months of unrelated status history produce no outcomes for this week",
   bigHistory.team.completedCount === 0 && bigHistory.team.movedCount === 0 &&
   bigHistory.team.discardedCount === 0 && bigHistory.team.cancelledCount === 0,
   JSON.stringify(bigHistory.team));
+
+/* ================= D-079: a COMMITTED task done before the window ============ */
+console.log("\n=== a committed task finished before the window still counts (D-079) ===\n");
+
+var LONG_AGO = "2026-07-24T10:00:00Z"; // three weeks before WINDOW
+
+/* (1) In the commitment, done long before the window → completed, and the rate
+   goes UP rather than down. This is the case D-079 exists for. */
+var committedEarly = M.weeklyCompletion(base({
+  commitment: ["A1", "A2"],
+  currentState: { A1: { status: "done", statusChangedAt: LONG_AGO } }
+}));
+check("a COMMITTED task done three weeks early counts as completed",
+  committedEarly.team.completed.indexOf("A1") !== -1,
+  JSON.stringify(committedEarly.team.completed));
+check("...so the rate RISES instead of falling (1 of 2, not 0 of 2)",
+  committedEarly.team.rate === 0.5, committedEarly.team.rate);
+check("...and it is still in the denominator, not double-counted out of it",
+  committedEarly.team.denominator === 2, committedEarly.team.denominator);
+check("...and it reaches the owner's own tally too",
+  committedEarly.byPerson.Ana.completed.indexOf("A1") !== -1,
+  JSON.stringify(committedEarly.byPerson.Ana));
+
+/* (2) The guard on D-078. NOT in the commitment, done before the window → not
+   counted. If this ever flips, the original all-history defect is back and the
+   discard/completion counts start inflating every week again. */
+var uncommittedEarly = M.weeklyCompletion(base({
+  commitment: ["A2"],
+  currentState: { A1: { status: "done", statusChangedAt: LONG_AGO } }
+}));
+check("an UNCOMMITTED task done before the window is still NOT counted (D-078 holds)",
+  uncommittedEarly.team.completed.indexOf("A1") === -1,
+  JSON.stringify(uncommittedEarly.team.completed));
+check("...and it does not sneak into the tally at all",
+  uncommittedEarly.team.completedCount === 0, JSON.stringify(uncommittedEarly.team));
+
+/* The same relaxation must NOT leak to a week with no commitment at all. */
+var noCommitEarly = M.weeklyCompletion(base({
+  commitment: null,
+  currentState: { A1: { status: "done", statusChangedAt: LONG_AGO } }
+}));
+check("with no commitment at all, an early completion is not counted either",
+  noCommitEarly.team.completedCount === 0, JSON.stringify(noCommitEarly.team));
+
+/* (3) Committed but never finished → still nothing. The exception is about
+   WHEN it was done, not about waiving the done requirement. */
+var committedUnfinished = M.weeklyCompletion(base({
+  commitment: ["A1", "A2"],
+  currentState: { A1: { status: "in_progress", statusChangedAt: "2026-08-15T10:00:00Z" } }
+}));
+check("a COMMITTED task that was never finished is still not completed",
+  committedUnfinished.team.completedCount === 0,
+  JSON.stringify(committedUnfinished.team.completed));
+check("...and the rate reflects that (0 of 2)", committedUnfinished.team.rate === 0,
+  committedUnfinished.team.rate);
+
+/* An in-window completion of a committed task is unaffected by the change. */
+var committedInWindow = M.weeklyCompletion(base({
+  commitment: ["A1"],
+  currentState: { A1: { status: "done", statusChangedAt: "2026-08-15T10:00:00Z" } }
+}));
+check("a committed task done INSIDE the window still counts, unchanged",
+  committedInWindow.team.rate === 1, JSON.stringify(committedInWindow.team));
+
+/* Priority is untouched: completed still outranks the other three. */
+var committedEarlyAndDiscarded = M.weeklyCompletion(base({
+  commitment: ["A1"],
+  currentState: { A1: { status: "done", statusChangedAt: LONG_AGO } },
+  discards: { A1: { note: "x", actor: "Ana", timestamp: "2026-08-16T10:00:00Z" } }
+}));
+check("completed still outranks discarded for a committed early-done task (D-078b)",
+  committedEarlyAndDiscarded.team.completedCount === 1 &&
+  committedEarlyAndDiscarded.team.discardedCount === 0,
+  JSON.stringify(committedEarlyAndDiscarded.team));
 
 /* ================= D-078 correction 2: rate with an empty denominator ========= */
 console.log("\n=== an empty frozen denominator gives rate null, not 0 (D-078 c2) ===\n");
