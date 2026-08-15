@@ -752,8 +752,14 @@ main#main {
 .view-switch-btn:focus-visible { outline: 2px solid var(--steel-400); outline-offset: 2px; }
 .view-switch-btn.is-active { background: var(--steel-600); color: #fff; }
 
-/* ---------- This Week (§6.3, Phase 7) ---------- */
-.tw-header {
+/* ---------- To-dos (§11, Phase 8 part 2B) ----------
+   Tokens carried over unchanged from the retired This Week view (§6.3,
+   Phase 7) that this supersedes (D-081e) — same visual language, renamed to
+   match what actually consumes it now. No redesign pass: every value below
+   is either identical to its .tw-* predecessor or built from the same
+   existing tokens (D-078's own instruction — a visual pass is separate,
+   later work). */
+.todo-header {
   max-width: var(--container);
   margin: 0 auto;
   padding: 20px 32px 4px;
@@ -761,41 +767,93 @@ main#main {
   align-items: baseline;
   gap: 14px;
 }
-.tw-header h2 {
+.todo-header h2 {
   font-family: var(--font-display);
   font-size: 24px;
   letter-spacing: 0.02em;
   color: var(--navy-900);
   margin: 0;
 }
-.tw-window { font-size: 13px; color: var(--text-muted); }
+.todo-window { font-size: 13px; color: var(--text-muted); }
 
-.tw-columns {
+.todo-controls {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 10px 32px 0;
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.todo-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.todo-control select {
+  font-size: 12.5px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  padding: 5px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.todo-control select:focus-visible { outline: 2px solid var(--steel-400); outline-offset: 2px; }
+
+.todo-summary {
+  max-width: var(--container);
+  margin: 10px auto 0;
+  padding: 10px 32px;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.todo-summary-rate { font-size: 15px; color: var(--text); }
+.todo-summary-rate strong { color: var(--navy-900); }
+.todo-summary-detail { font-size: 12px; color: var(--text-muted); }
+
+.todo-cards {
   max-width: var(--container);
   margin: 0 auto;
   padding: 12px 32px 64px;
   display: flex;
+  flex-direction: column;
   gap: 16px;
-  align-items: flex-start;
-  overflow-x: auto;
 }
-.tw-column {
-  flex: 1 1 260px;
-  min-width: 260px;
+.todo-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
-  padding: 16px;
+  padding: 16px 20px;
 }
-.tw-column h3 {
+.todo-card-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.todo-card-header h3 {
   font-family: var(--font-display);
   font-size: 18px;
   letter-spacing: 0.02em;
   color: var(--navy-900);
-  margin: 0 0 10px;
+  margin: 0;
 }
-.tw-add-select {
+.todo-card-rate { font-size: 12.5px; font-weight: 600; color: var(--text-muted); }
+
+.todo-pull-select,
+.todo-add-select {
   width: 100%;
   margin-bottom: 14px;
   padding: 7px 10px;
@@ -807,12 +865,12 @@ main#main {
   font-weight: 600;
   cursor: pointer;
 }
-.tw-add-select:hover { border-color: var(--steel-400); }
-.tw-add-select:focus-visible { outline: 2px solid var(--steel-400); outline-offset: 2px; }
+.todo-pull-select:hover { border-color: var(--steel-400); }
+.todo-pull-select:focus-visible { outline: 2px solid var(--steel-400); outline-offset: 2px; }
 
-.tw-bucket { margin-bottom: 16px; }
-.tw-bucket:last-child { margin-bottom: 0; }
-.tw-bucket h4 {
+.todo-section { margin-bottom: 16px; }
+.todo-section:last-child { margin-bottom: 0; }
+.todo-section h4 {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -820,36 +878,51 @@ main#main {
   color: var(--text-muted);
   margin: 0 0 8px;
 }
-.tw-bucket-empty {
+.todo-section-empty {
   font-size: 12px;
   color: var(--text-muted);
   font-style: italic;
   margin: 0;
 }
 
-.tw-task {
+.todo-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
   border-top: 1px solid var(--border);
   padding: 10px 0;
 }
-.tw-bucket > .tw-task:first-of-type { border-top: none; padding-top: 0; }
-.tw-task-main {
+.todo-section > .todo-row:first-of-type { border-top: none; padding-top: 0; }
+.todo-row-status { flex-shrink: 0; }
+.todo-row-main { flex: 1; min-width: 0; }
+.todo-row-top {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 4px;
 }
-.tw-task-id {
+.todo-origin-marker {
   font-size: 10.5px;
   font-weight: 700;
   color: var(--steel-700);
   background: var(--steel-tint);
   padding: 1px 6px;
   border-radius: 4px;
+  white-space: nowrap;
 }
-.tw-task-desc { font-size: 13px; color: var(--text); line-height: 1.35; }
+.todo-row-desc { font-size: 13px; color: var(--text); line-height: 1.35; }
 .pin-marker { font-size: 12px; line-height: 1; }
-.tw-task-meta {
+.todo-move-marker {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--yellow);
+  background: var(--yellow-bg);
+  padding: 1px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.todo-row-meta {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -857,12 +930,8 @@ main#main {
   font-size: 11.5px;
   color: var(--text-muted);
 }
-.tw-task-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 6px;
-}
-.tw-action-btn {
+.todo-row-actions { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+.todo-action-btn {
   font-size: 11.5px;
   font-weight: 500;
   padding: 7px 12px; /* keeps the tap target comfortably above this app's own 24px minimum (overshoot-flag) */
@@ -873,15 +942,90 @@ main#main {
   cursor: pointer;
   transition: border-color 120ms ease, color 120ms ease, background-color 120ms ease;
 }
-.tw-action-btn:hover { border-color: var(--steel-400); color: var(--steel-700); background: var(--steel-tint); }
-.tw-postpone-confirm {
+.todo-action-btn:hover { border-color: var(--steel-400); color: var(--steel-700); background: var(--steel-tint); }
+.todo-action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.todo-closed-badge {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--red);
+  background: var(--red-bg);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+}
+
+.todo-reason-panel {
   margin-top: 8px;
   padding: 8px 10px;
   background: var(--surface-1);
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
+  flex-basis: 100%;
 }
-.tw-postpone-confirm p { margin: 0 0 8px; font-size: 12px; color: var(--text); }
+.todo-cascade { margin: 0 0 8px; font-size: 12px; color: var(--text); }
+.todo-reason-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  font-family: inherit;
+  background: var(--surface);
+  color: var(--text);
+  resize: vertical;
+}
+.todo-reason-input:focus-visible { outline: 2px solid var(--steel-400); outline-offset: 2px; }
+.todo-reason-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.todo-reason-count { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.todo-reason-count.todo-reason-over { color: var(--red); font-weight: 700; }
+
+.todo-adhoc-form {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.todo-adhoc-form input,
+.todo-adhoc-form select {
+  padding: 6px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  background: var(--surface);
+  color: var(--text);
+}
+.todo-adhoc-desc { flex: 1 1 200px; min-width: 140px; }
+.todo-adhoc-form input:focus-visible,
+.todo-adhoc-form select:focus-visible { outline: 2px solid var(--steel-400); outline-offset: 2px; }
+
+.todo-capacity-warning {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  font-size: 12.5px;
+  color: var(--yellow);
+  background: var(--yellow-bg);
+  border-radius: var(--radius-sm);
+}
+
+.todo-confirm-week {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 0 32px 32px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.todo-confirm-note { font-size: 12px; color: var(--text-muted); }
 
 /* ---------- Reduced motion ---------- */
 @media (prefers-reduced-motion: reduce) {
@@ -898,7 +1042,9 @@ main#main {
   .task-row { grid-template-columns: 1fr; }
   .task-deliverable { grid-column: 1 / -1; }
   .deliverable-input { width: 100%; }
-  .tw-header { padding: 16px 16px 4px; }
-  .tw-columns { padding: 12px 16px 48px; }
-  .tw-column { min-width: 220px; }
+  .todo-header { padding: 16px 16px 4px; }
+  .todo-controls { padding: 10px 16px 0; }
+  .todo-summary { padding: 10px 16px; }
+  .todo-cards { padding: 12px 16px 48px; }
+  .todo-confirm-week { padding: 0 16px 24px; }
 }

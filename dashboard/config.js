@@ -24,11 +24,12 @@
     API_KEY: "AIzaSyBEVkTpgPdKMkvx5Bp4EuExWsPqRiTvLJc",
     WEB_APP_URL: "https://script.google.com/macros/s/AKfycbz_t2Z5jDc15oaXyYXA-JirD31EBEgqPJrv0HRRn33_TTNqMWPRgA0sTFojKd4v1HFR3Q/exec",
 
-    /* ---------- Sheet tabs (D-033 schema) ---------- */
+    /* ---------- Sheet tabs (D-033 schema; Tasks added D-066/D-080) ---------- */
     TABS: {
       PEOPLE: "People",
       EVENTS: "Events",
-      SETTINGS: "Settings"
+      SETTINGS: "Settings",
+      TASKS: "Tasks"
     },
 
     /* ---------- Identity persistence (§3 "Option B") ---------- */
@@ -36,6 +37,18 @@
 
     /* ---------- View persistence (§6.3, D-062) ---------- */
     VIEW_STORAGE_KEY: "opsdash.view",
+
+    /**
+     * The single source of this number for the WHOLE frontend (D-075). Must
+     * match backend/Code.gs's own MAX_NOTE_LEN exactly — that file is the
+     * enforcement, this one is only so the reason/note input can show a live
+     * counter and disable its confirm button before the round-trip, instead
+     * of the person typing a paragraph and finding out only after the server
+     * rejects it. Two copies of one number is the exact D-024/D-088 scar this
+     * project keeps citing; if the server's cap ever changes, this is the
+     * one other place that has to change with it.
+     */
+    MAX_NOTE_LEN: 5000,
 
     /**
      * Builds a Sheets API v4 read URL for one tab (§3 read path). `range`,

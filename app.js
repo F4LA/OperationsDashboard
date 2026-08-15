@@ -67,6 +67,44 @@
     return settings;
   }
 
+  /**
+   * Tasks tab (D-066, D-080) — one row per ad-hoc task, the plan-equivalent
+   * for emergent work. Positional, same style as parsePeople/parseSettings.
+   * Column order is the ACTUAL schema backend/Code.gs writes (TASKS_HEADERS):
+   *   id | desc | owner | workDays | deadline | sourceIssueId | createdBy | createdAt
+   *
+   * Structural fields ONLY. status is deliberately absent: an ad-hoc task's
+   * status is derived from the Events fold exactly like a plan task's (§3),
+   * so there is one source of state, never two. `week` is likewise absent —
+   * it is not a column on this row at all; it lives on the task's `pin`
+   * event (D-066b — "every ad-hoc task is born with a week" is a guarantee
+   * about the Events log, not about this tab). Callers needing a task's week
+   * read it from OpsDashEvents.pins()/pinEvents(), the single source §3 fixes.
+   *
+   * @returns { [id]: {id, desc, owner, workDays, deadline, sourceIssueId, createdBy, createdAt} }
+   */
+  function parseTasks(rows) {
+    var out = {};
+    for (var i = 1; i < rows.length; i++) {
+      var r = rows[i] || [];
+      var id = trimStr(r[0]);
+      if (!id) continue;
+      var workDaysRaw = r[3];
+      var workDays = workDaysRaw === undefined || workDaysRaw === "" ? null : Number(workDaysRaw);
+      out[id] = {
+        id: id,
+        desc: trimStr(r[1]),
+        owner: trimStr(r[2]),
+        workDays: (typeof workDays === "number" && isFinite(workDays)) ? workDays : null,
+        deadline: trimStr(r[4]),
+        sourceIssueId: trimStr(r[5]),
+        createdBy: trimStr(r[6]),
+        createdAt: trimStr(r[7])
+      };
+    }
+    return out;
+  }
+
   function fetchSheetValues(cfg, tabName) {
     return fetch(cfg.sheetUrl(tabName)).then(function (response) {
       return response.text().then(function (text) {
@@ -120,11 +158,13 @@
         return Promise.all([
           fetchSheetValues(cfg, cfg.TABS.PEOPLE),
           fetchSheetValues(cfg, cfg.TABS.SETTINGS),
-          root.OpsDashEvents.fetchEvents()
+          root.OpsDashEvents.fetchEvents(),
+          fetchSheetValues(cfg, cfg.TABS.TASKS)
         ]).then(function (results) {
           var people = parsePeople(results[0]);
           var settings = parseSettings(results[1]);
           var events = results[2];
+          var tasks = parseTasks(results[3]); // D-080
 
           var band = Number(settings.onTrackBandWorkDays);
           if (!(band >= 0)) band = 1; // fallback documented at the call site, never silently NaN
@@ -136,6 +176,11 @@
           var currentState = root.OpsDashEvents.toCurrentState(folded);
           var deliverables = root.OpsDashEvents.deliverables(folded);
           var pins = root.OpsDashEvents.pins(folded);
+          // §11/§12 (Phase 8 part 2B) — read once here, alongside the maps
+          // above, so the todos view never re-folds Events on its own.
+          var pinEvents = root.OpsDashEvents.pinEvents(folded);
+          var discards = root.OpsDashEvents.discards(folded);
+          var cancels = root.OpsDashEvents.cancels(folded);
 
           if (folded.warnings.length && root.console) {
             root.console.warn("[OpsDash] Events fold warnings:", folded.warnings);
@@ -158,6 +203,26 @@
             band: band,
             opsWeekStartDay: opsWeekStartDay
           });
+
+          if (root.OpsDashTodos) {
+            root.OpsDashTodos.mount({
+              plan: plan,
+              currentState: currentState,
+              deliverables: deliverables,
+              pins: pins,
+              pinEvents: pinEvents,
+              discards: discards,
+              cancels: cancels,
+              tasks: tasks,
+              people: people,
+              opsWeekStartDay: opsWeekStartDay,
+              // The raw folded Events result (D-009), NOT just the derived
+              // maps above: weekCommitment() (D-070) has to be re-read for
+              // whichever week the person selects at runtime, so the view
+              // needs the fold itself, not only a one-time snapshot of it.
+              folded: folded
+            });
+          }
         });
       })
       .catch(function (err) {
