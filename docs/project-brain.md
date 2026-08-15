@@ -1,6 +1,6 @@
 # Project Brain — Operations Dashboard
 The current state in one page. Updated at the close of every chat via the push Code session.
-_Last updated: 2026-08-15 — Bernardo (Fase 8 parte 2B revisada y cerrada en e67d20c; D-083 acepta MAX_NOTE_LEN duplicado)_
+_Last updated: 2026-08-15 — Bernardo (limpieza de Next up: líneas obsoletas/repetidas de la Fase 8 retiradas)_
 
 > **Source of truth for WHAT to build** is the spec: `docs/spec.md` (v2.0.1).
 > **Source of truth for WHY** is `docs/decision-log.md`.
@@ -67,9 +67,7 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 - Nada activo en código.
 
 ## Next up (per spec §9)
-- Fase 8 parte 2A: CERRADA (d288b6a).
 - Fase 8 CERRADA por completo (parte 1 + 2A + 2B). Próximo: carga de los 3 Rocks faltantes, único bloqueante real que queda para que el dashboard refleje el sprint entero.
-- Carga de los 3 Rocks faltantes.
 - Fase 6 (Network / Timeline): CANCELADA por D-082. dashboard/network.js y su <script> se borran en el pase de la 2B. Prototipos de referencia si alguna vez se retoma: Rock3_Network_Graph.html (barras de espera punteadas, más simple) y Rock3_Interactive_Timeline.html (más avanzado, .deps vacío preparado); ninguno dibuja conectores de dependencia.
 
 ## Blocked / waiting
