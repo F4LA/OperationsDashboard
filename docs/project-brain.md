@@ -1,6 +1,6 @@
 # Project Brain — Operations Dashboard
 The current state in one page. Updated at the close of every chat via the push Code session.
-_Last updated: 2026-08-14 — Bernardo (diseño de Fase 8 cerrado: §11 + §12 + cancelación, D-066…D-071; sin código todavía)_
+_Last updated: 2026-08-14 — Bernardo (Fase 8 parte 1 cerrada: backend en producción, smoke 155/0)_
 
 > **Source of truth for WHAT to build** is the spec: `docs/spec.md` (v2.0.1).
 > **Source of truth for WHY** is `docs/decision-log.md`.
@@ -9,7 +9,7 @@ _Last updated: 2026-08-14 — Bernardo (diseño de Fase 8 cerrado: §11 + §12 +
 > Live: https://f4la.github.io/OperationsDashboard/ (Sprint Board + métricas, desde Fase 5 — commit 06b568d)
 
 ## Current phase
-Fase 8 EN DISEÑO CERRADO, sin construir. §11 y §12 aprobados, más la cancelación de tareas de Rock (D-068). Las cinco preguntas abiertas del handoff quedaron resueltas en D-066…D-071. Próximo paso: sesión BUILD parte 1 (backend); la parte 2 (frontend) después.
+Fase 8 parte 1 (backend) CERRADA y desplegada. createTask, discard/undiscard, cancel/uncancel y confirmWeek en producción en el Web App (Version 2, misma URL). Pestaña Tasks creada con el esquema de D-066. Próximo: parte 2 (frontend), en chat nuevo.
 
 ## Status
 Fase 5 completa: la burn-up planned-vs-actual existe en dos scopes y la reproyección viva de §4.7 ahora se ve en pantalla en cada marca (antes se recalculaba en memoria pero solo se repintaba la fila marcada). Regresión 181/181. El tracking real arrancó el 2026-08-14 por backfill (D-058): las tareas completadas desde el 27 de julio se cargan con fecha de hoy, así que la curva "actual" tiene un salto vertical ese día por diseño, no por defecto.
@@ -42,6 +42,7 @@ Nota de seguridad (consistente con el "no auth" del §3, no es un defecto): la U
   Regresión 157/157. Probada E2E en navegador real (D-049).
 - Fase 5 (Métricas, §5): metrics.js con burnupSeries (D-053), gráfica SVG inline sprint-wide + por Rock, y diffAndRepaint (D-054). Commits 45f8afd y 06b568d. Probada E2E en f4la.github.io con la reproyección cross-dependencia visible en pantalla. tests/burnup.test.js (24 checks) commiteado; regresión total 181/181.
 - Fase 7 (This Week §6.3 + pin manual): dashboard/thisweek.js con opsWeek/buckets/availableToPull/cascadeOf, todas puras; vista con control segmentado y persistencia en opsdash.view; pull, postpone-con-cascada y release por el postEvent/verifyEvent existente; opsWeekStartDay por fin consumido en app.js. Commit 9c0ee25. tests/thisweek.test.js: 67 checks; regresión total 248/248. Decisiones: D-061, D-062, D-063, D-064.
+- Fase 8 parte 1 — backend (commits 5262844 + b08646f). Regresión 327 (mock harness de 55 → 134). Smoke contra el Web App real: 155/0. Ids T-0001…T-0004 creados por las corridas de prueba.
 
 ## Repo layout (as built)
 ```
@@ -64,7 +65,6 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 - Nada activo en código.
 
 ## Next up (per spec §9)
-- Fase 8 parte 1 (backend: createTask, discard/undiscard, cancel/uncancel, confirmWeek, pestaña Tasks — primera vez que el backend escribe fuera del Events log).
 - Fase 8 parte 2 (frontend: todos.js, extensiones a thisweek.js, lo cancelado tratado como deferred en liveMode, métricas).
 - Carga de los 3 Rocks faltantes.
 - Fase 6 diferida.
@@ -91,6 +91,7 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 - D-063(e) queda superseded por D-071(b): availableToPull ahora debe devolver también las tareas bloqueadas, marcadas y nombrando su bloqueador.
 - D-068(f) (no cancelación masiva de milestone/proyecto) es revisable si pasa dos veces en un sprint real.
 - D-068(c) es la primera modificación a engine.js desde la Fase 2. Vigilar con especial atención la regresión del motor (60/60 plan, 17/17 live) cuando se implemente.
+- Tope de Note para discard/cancel (D-072): sin límite propio hoy, contra una celda de Sheets que corta a 50.000 caracteres. Se resuelve en la parte 2 (frontend), que va a limitar el input de todas formas.
 
 ## Key dates
 - No hard external deadline on the dashboard itself. Target: Views 1–3 usable in the first build week; This Week + pin + link layer (Fase 7) shipped before Gantt/Timeline (Fase 6, diferida por D-059). (Sprint being tracked, for reference: S3-2026, ends 2026-09-13.)
