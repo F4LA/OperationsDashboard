@@ -1,6 +1,6 @@
 # Project Brain — Operations Dashboard
 The current state in one page. Updated at the close of every chat via the push Code session.
-_Last updated: 2026-08-15 — Bernardo (diseño de la Fase 8 parte 2B cerrado; próximo: BUILD de la 2B)_
+_Last updated: 2026-08-15 — Bernardo (Fase 6 cancelada por D-082; próximo: BUILD de la 2B)_
 
 > **Source of truth for WHAT to build** is the spec: `docs/spec.md` (v2.0.1).
 > **Source of truth for WHY** is `docs/decision-log.md`.
@@ -69,11 +69,11 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 - Fase 8 parte 2A: CERRADA (d288b6a).
 - Fase 8 parte 2B (vista): lector de la pestaña Tasks (D-080), dashboard/todos.js con el layout de D-081, retiro de los renderTw* de board.js, wiring en app.js, bump de versión (D-057).
 - Carga de los 3 Rocks faltantes.
-- Fase 6 diferida.
+- Fase 6 (Network / Timeline): CANCELADA por D-082. dashboard/network.js y su <script> se borran en el pase de la 2B. Prototipos de referencia si alguna vez se retoma: Rock3_Network_Graph.html (barras de espera punteadas, más simple) y Rock3_Interactive_Timeline.html (más avanzado, .deps vacío preparado); ninguno dibuja conectores de dependencia.
 
 ## Blocked / waiting
 - Nada bloqueado. Pendiente NO bloqueante: los dos procedimientos manuales de D-037 (header-guard y concurrencia) YA se corrieron y pasaron — ya no quedan pendientes.
-- Los 3 Rocks faltantes del sprint no están cargados en el plan JSON. Hasta que estén, la Fase 6 sigue diferida per D-059 y el dashboard solo refleja R3.
+- Los 3 Rocks faltantes del sprint no están cargados en el plan JSON, así que el dashboard sigue reflejando solo R3. Ya no bloquea ninguna fase: la Fase 6 quedó cancelada por D-082.
 - Vigilar en 2A la regresión del motor (60/60 plan, 17/17 live): es la primera modificación a engine.js desde la Fase 2 (D-068c). El set de canceladas entra por collectActive y se pasa solo desde liveMode, así que plan mode debe quedar idéntico.
 - REDESPLIEGUE MANUAL DEL WEB APP pendiente: la Tarea 0 de la 2A cambió backend/Code.gs (D-075) y el despliegue vivo sigue en Version 2, que ya no coincide con el repo. Hasta redesplegar, una razón de más de 5000 caracteres llega a la celda sin rechazo nombrado y el smoke real no refleja el cambio. Lo hace Bernardo a mano en el editor de Apps Script.
 - La 2B DEBE pasarle pinEvents a weeklyCompletion. Sin ese parámetro opcional, un pin fuera del commitment no puede juzgarse como movimiento y los movimientos se subcuentan en silencio. pins() quedó con su shape intacto y ahora se reproyecta desde pinEvents(), que es la que trae el timestamp.
@@ -82,9 +82,9 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 ## Deferred (not being actively worked)
 - Vista 4 (auto-update from Rock Projects) — D-014.
 - Retire Asana, Project Builder emitting the JSON, Operating System producing Rock-3-level planning detail — all downstream, after the dashboard is built and proven (D-014).
-- Gantt/Network (Fase 6): diferido por D-059 hasta cargar los Rocks faltantes.
-- Network/Timeline (Fase 6): diferida por D-059 hasta que estén cargados los Rocks faltantes. Prototipos de referencia localizados el 2026-08-14 en el disco de Bernardo (fuera de este repo): Rock3_Network_Graph.html y Rock3_Interactive_Timeline.html. Hallazgos para cuando toque: las filas son por MILESTONE agrupadas por Project (no carriles por persona — lo "por persona" se resolvió con botones de filtro); el Interactive Timeline es la mejor base pero perdió las barras punteadas de espera que sí tiene el Network Graph; ninguno de los dos dibuja conectores de dependencia (los muestra como texto), aunque el CSS del Interactive dejó un `.deps` preparado y vacío.
-- Carga automática del documento de Rock al dashboard: hoy el §8 lo lista como "Project Builder emite el JSON", conveniencia downstream. Con los Rocks faltantes cargados pasa a ser el trabajo que destraba la Fase 6. Pedido explícito de Bernardo (2026-08-14) de dejarlo registrado.
+- Gantt/Network (Fase 6): CANCELADA por D-082, no diferida. Ver Next up para el detalle de qué se borra.
+- Prototipos de referencia de la Fase 6 cancelada, localizados el 2026-08-14 en el disco de Bernardo (fuera de este repo): Rock3_Network_Graph.html y Rock3_Interactive_Timeline.html. Hallazgos guardados por si algún día se retoma: las filas son por MILESTONE agrupadas por Project (no carriles por persona — lo "por persona" se resolvió con botones de filtro); el Interactive Timeline es la mejor base pero perdió las barras punteadas de espera que sí tiene el Network Graph; ninguno de los dos dibuja conectores de dependencia (los muestra como texto), aunque el CSS del Interactive dejó un `.deps` preparado y vacío.
+- Carga automática del documento de Rock al dashboard: hoy el §8 lo lista como "Project Builder emite el JSON", conveniencia downstream. Pedido explícito de Bernardo (2026-08-14) de dejarlo registrado.
 - Pulido menor de This Week: el dropdown "+ add to this week" lista también tareas que ya se muestran en la columna de esa persona, así que aparecen duplicadas. Inofensivo. Revisar después de una semana de uso real.
 - Borrar la burn-up se evaluó el 2026-08-14 y se descartó (D-071d): el pie numérico ya da el veredicto, la curva agrega cuándo empezó el desvío a costo cero.
 
@@ -92,7 +92,7 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 - D-025 provisional: semántica de executionOrder y de "Both" multi-persona, a confirmar antes del primer plan que las ejercite. No bloquea nada hoy (Rock 3 no las usa).
   Confirmado contra el sprint-plan.json en vivo (2026-08-13): cero apariciones de executionOrder en los 47 tasks, y people == ["Brent","Bernardo"] == el conjunto exacto de owners del Rock, así que los 18 tasks "Both" ejercitan la semántica de recurso pero no la ambigüedad. Sigue sin bloquear.
 - D-030 es una aproximación práctica (seeding de availableFrom desde done); revisar si un sprint real la contradice. (Mismo tono que D-025.)
-- D-060 declara que las dependencias no cruzan Rocks. Revisable: si un sprint futuro necesita entrelazar Rocks, `crossDependsOn` ya está soportado y el conector de la Fase 6 vuelve al alcance.
+- D-060 declara que las dependencias no cruzan Rocks. Revisable: si un sprint futuro necesita entrelazar Rocks, `crossDependsOn` ya está soportado, aunque la Fase 6 que hubiera dibujado ese conector quedó cancelada por D-082, no solo diferida.
 - D-063(c) fija que el pin NO reproyecta (el motor no recibe pins; es un override de bucket, no de fechas). Revisable si un sprint real pide que el pin mueva la proyección.
 - D-063(e) queda superseded por D-071(b): availableToPull ahora debe devolver también las tareas bloqueadas, marcadas y nombrando su bloqueador.
 - D-068(f) (no cancelación masiva de milestone/proyecto) es revisable si pasa dos veces en un sprint real.
@@ -100,4 +100,4 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 - Tope de Note: RESUELTO por D-075 — MAX_NOTE_LEN = 5000 aplica a todo Note, un solo número consumido por servidor y frontend. Cierra el punto que D-072 había dejado abierto.
 
 ## Key dates
-- No hard external deadline on the dashboard itself. Target: Views 1–3 usable in the first build week; This Week + pin + link layer (Fase 7) shipped before Gantt/Timeline (Fase 6, diferida por D-059). (Sprint being tracked, for reference: S3-2026, ends 2026-09-13.)
+- No hard external deadline on the dashboard itself. Target: Views 1–3 usable in the first build week; This Week + pin + link layer (Fase 7) shipped ahead of Gantt/Timeline (Fase 6, cancelled by D-082). (Sprint being tracked, for reference: S3-2026, ends 2026-09-13.)
