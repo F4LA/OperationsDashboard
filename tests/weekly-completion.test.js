@@ -1,0 +1,258 @@
+#!/usr/bin/env node
+/**
+ * OpsDashMetrics — §12 weekly completion + cancelled work-days (Phase 8 part 2A).
+ *
+ * Covers, per D-077 (§12 math belongs in metrics.js) and D-068(d)/(e):
+ *   weeklyCompletion() — completed / moved / discarded / cancelled / rate
+ *   progress()         — cancelled work-days leave the denominator
+ *   burnupSeries()     — gains a cancelled scalar and NOTHING else changes
+ *
+ *     node tests/weekly-completion.test.js
+ *
+ * Isolated hand-built fixtures throughout (same style as burnup.test.js): the
+ * functions under test are pure, so nothing here needs the engine or a plan.
+ */
+"use strict";
+
+var path = require("path");
+var REPO = path.resolve(__dirname, "..");
+
+global.window = global;
+require(path.join(REPO, "dashboard/config.js"));
+require(path.join(REPO, "dashboard/validate.js"));
+require(path.join(REPO, "dashboard/engine.js"));
+require(path.join(REPO, "dashboard/metrics.js"));
+var M = global.OpsDashMetrics;
+
+var failures = 0;
+var passes = 0;
+function check(name, cond, detail) {
+  if (cond) { passes++; console.log("  PASS  " + name); }
+  else { failures++; console.log("  FAIL  " + name + (detail ? "  -> " + detail : "")); }
+}
+
+var WINDOW = { start: "2026-08-14", end: "2026-08-20", mondayKey: "2026-08-17" };
+var PEOPLE = ["Ana", "Beto"];
+
+var TASK_OWNERS = {
+  A1: ["Ana"], A2: ["Ana"], A3: ["Ana"], A4: ["Ana"], A5: ["Ana"],
+  B1: ["Beto"], B2: ["Beto"],
+  J1: ["Ana", "Beto"]           // a "Both" task, owners already expanded
+};
+
+function base(over) {
+  var o = {
+    window: WINDOW, people: PEOPLE, taskOwners: TASK_OWNERS,
+    currentState: {}, pins: {}, discards: {}, cancels: {}, commitment: null
+  };
+  for (var k in over) o[k] = over[k];
+  return o;
+}
+
+/* ================= the four outcomes ================= */
+console.log("\n=== the four §12 outcomes ===\n");
+
+var r = M.weeklyCompletion(base({
+  commitment: ["A1", "A2", "A3", "A4", "B1"],
+  currentState: {
+    A1: { status: "done", statusChangedAt: "2026-08-15T10:00:00Z" },   // completed
+    A2: { status: "done", statusChangedAt: "2026-08-01T10:00:00Z" },   // done BEFORE the window
+    B1: { status: "done", statusChangedAt: "2026-08-18T09:00:00Z" }    // completed
+  },
+  pins:     { A3: "2026-08-24" },                                       // moved forward
+  discards: { A4: { note: "not needed", actor: "Ana", timestamp: "2026-08-16T10:00:00Z" } },
+  cancels:  { A5: { note: "scope dropped", actor: "Ana", timestamp: "2026-08-16T10:00:00Z" } }
+}));
+
+check("completed counts a task that reached done inside the window",
+  r.team.completed.indexOf("A1") !== -1, JSON.stringify(r.team.completed));
+check("a task completed BEFORE the window is not counted",
+  r.team.completed.indexOf("A2") === -1, JSON.stringify(r.team.completed));
+check("moved counts a task pinned to a LATER Monday",
+  r.team.moved.indexOf("A3") !== -1, JSON.stringify(r.team.moved));
+check("discarded comes from the discards map",
+  r.team.discarded.indexOf("A4") !== -1, JSON.stringify(r.team.discarded));
+check("cancelled comes from the cancels map",
+  r.team.cancelled.indexOf("A5") !== -1, JSON.stringify(r.team.cancelled));
+check("cancelled is reported SEPARATELY from discarded (§12: different signals)",
+  r.team.cancelled.indexOf("A4") === -1 && r.team.discarded.indexOf("A5") === -1,
+  JSON.stringify({ d: r.team.discarded, c: r.team.cancelled }));
+check("counts accompany the id lists",
+  r.team.completedCount === 2 && r.team.movedCount === 1 &&
+  r.team.discardedCount === 1 && r.team.cancelledCount === 1, JSON.stringify(r.team));
+
+/* a pin to THIS week, or to an earlier one, is not "moved" */
+var notMoved = M.weeklyCompletion(base({
+  commitment: ["A1", "A2"],
+  pins: { A1: "2026-08-17", A2: "2026-08-10" }
+}));
+check("a pin to this same week is not counted as moved",
+  notMoved.team.moved.indexOf("A1") === -1, JSON.stringify(notMoved.team.moved));
+check("a pin to an EARLIER week is not counted as moved either",
+  notMoved.team.moved.indexOf("A2") === -1, JSON.stringify(notMoved.team.moved));
+
+/* one task, one outcome */
+var bothWays = M.weeklyCompletion(base({
+  commitment: ["A1"],
+  currentState: { A1: { status: "done", statusChangedAt: "2026-08-15T10:00:00Z" } },
+  pins: { A1: "2026-08-24" }
+}));
+check("a task both completed and pinned forward counts ONCE, as completed",
+  bothWays.team.completedCount === 1 && bothWays.team.movedCount === 0,
+  JSON.stringify(bothWays.team));
+
+/* ================= the rate and its denominator ================= */
+console.log("\n=== rate vs the frozen denominator (D-070) ===\n");
+
+var rated = M.weeklyCompletion(base({
+  commitment: ["A1", "A2", "A3", "A4"],
+  currentState: {
+    A1: { status: "done", statusChangedAt: "2026-08-15T10:00:00Z" },
+    A2: { status: "done", statusChangedAt: "2026-08-16T10:00:00Z" }
+  }
+}));
+check("denominator is the frozen commitment's length", rated.team.denominator === 4,
+  rated.team.denominator);
+check("rate is completed / denominator", rated.team.rate === 0.5, rated.team.rate);
+
+/* THE rule of D-070: no confirmation, no rate. */
+var unconfirmed = M.weeklyCompletion(base({
+  commitment: null,
+  currentState: { A1: { status: "done", statusChangedAt: "2026-08-15T10:00:00Z" } }
+}));
+check("an UNCONFIRMED week has rate null — a denominator is never invented",
+  unconfirmed.team.rate === null, JSON.stringify(unconfirmed.team));
+check("...and reports denominator null, not 0",
+  unconfirmed.team.denominator === null, JSON.stringify(unconfirmed.team));
+check("...while still counting the numerator, which is real either way",
+  unconfirmed.team.completedCount === 1, JSON.stringify(unconfirmed.team));
+
+/* Confirmed-empty is a REAL denominator of zero and must not look unconfirmed. */
+var emptyConfirmed = M.weeklyCompletion(base({ commitment: [] }));
+check("a week confirmed EMPTY has denominator 0, not null",
+  emptyConfirmed.team.denominator === 0, JSON.stringify(emptyConfirmed.team));
+check("...and a real rate of 0, distinguishable from 'no rate'",
+  emptyConfirmed.team.rate === 0 && emptyConfirmed.team.rate !== null,
+  JSON.stringify(emptyConfirmed.team));
+
+/* §11.5: mid-week additions raise the numerator, never the denominator. */
+var over = M.weeklyCompletion(base({
+  commitment: ["A1", "A2"],
+  currentState: {
+    A1: { status: "done", statusChangedAt: "2026-08-15T10:00:00Z" },
+    A2: { status: "done", statusChangedAt: "2026-08-15T10:00:00Z" },
+    A3: { status: "done", statusChangedAt: "2026-08-16T10:00:00Z" }  // added mid-week
+  }
+}));
+check("work added mid-week counts in the numerator", over.team.completedCount === 3,
+  JSON.stringify(over.team.completed));
+check("...but never inflates the frozen denominator", over.team.denominator === 2,
+  over.team.denominator);
+check("a rate ABOVE 1 is reported as-is, never clamped to 100% (§11.5)",
+  over.team.rate === 1.5, over.team.rate);
+
+/* ================= per person ================= */
+console.log("\n=== per person ===\n");
+
+var pp = M.weeklyCompletion(base({
+  commitment: ["A1", "A2", "B1", "J1"],
+  currentState: {
+    A1: { status: "done", statusChangedAt: "2026-08-15T10:00:00Z" },
+    B1: { status: "done", statusChangedAt: "2026-08-15T10:00:00Z" },
+    J1: { status: "done", statusChangedAt: "2026-08-16T10:00:00Z" }
+  }
+}));
+
+check("every person gets an entry", !!pp.byPerson.Ana && !!pp.byPerson.Beto,
+  Object.keys(pp.byPerson).join(","));
+check("Ana's completed holds her own tasks", pp.byPerson.Ana.completed.indexOf("A1") !== -1,
+  JSON.stringify(pp.byPerson.Ana.completed));
+check("Beto's completed does not hold Ana's A1",
+  pp.byPerson.Beto.completed.indexOf("A1") === -1,
+  JSON.stringify(pp.byPerson.Beto.completed));
+check("a Both task counts for BOTH owners (D-063b's rule, carried into §12)",
+  pp.byPerson.Ana.completed.indexOf("J1") !== -1 &&
+  pp.byPerson.Beto.completed.indexOf("J1") !== -1,
+  JSON.stringify({ a: pp.byPerson.Ana.completed, b: pp.byPerson.Beto.completed }));
+check("each person is rated against THEIR slice of the commitment, not the team's",
+  pp.byPerson.Ana.denominator === 3 && pp.byPerson.Beto.denominator === 2,
+  JSON.stringify({ a: pp.byPerson.Ana.denominator, b: pp.byPerson.Beto.denominator }));
+check("the team total is not the sum of the per-person lists (J1 is shared)",
+  pp.team.denominator === 4, pp.team.denominator);
+check("a person with nothing gets zeroes, not a missing entry",
+  M.weeklyCompletion(base({ commitment: [] })).byPerson.Beto.completedCount === 0);
+
+/* Rock tasks are ordinary here (§12) — no separate class. */
+var rockish = M.weeklyCompletion(base({
+  commitment: ["M2-t1", "A1"],
+  taskOwners: { "M2-t1": ["Ana"], A1: ["Ana"] },
+  currentState: { "M2-t1": { status: "done", statusChangedAt: "2026-08-15T10:00:00Z" } }
+}));
+check("a Rock task counts like any other (§12: they ARE the week's to-dos)",
+  rockish.team.completed.indexOf("M2-t1") !== -1 && rockish.team.denominator === 2,
+  JSON.stringify(rockish.team));
+
+/* ================= §5.1: cancelled work-days (D-068d) ================= */
+console.log("\n=== progress(): cancelled work-days leave the denominator ===\n");
+
+var frozen = {
+  P1: { workDays: 2, plannedFinish: "2026-08-10" },
+  P2: { workDays: 3, plannedFinish: "2026-08-11" },
+  P3: { workDays: 5, plannedFinish: "2026-08-12" }
+};
+var ids = ["P1", "P2", "P3"];
+var stateDone = { P1: { status: "done", statusChangedAt: "2026-08-10T10:00:00Z" } };
+
+var noCancel = M.progress(frozen, stateDone, ids);
+check("with nothing cancelled the totals are unchanged (2/10)",
+  noCancel.done === 2 && noCancel.total === 10, JSON.stringify(noCancel));
+check("cancelled is 0, not undefined, so callers can always read it",
+  noCancel.cancelled === 0, JSON.stringify(noCancel));
+
+var withCancel = M.progress(frozen, stateDone, ids, { P3: true });
+check("a cancelled task's work-days LEAVE the denominator (10 -> 5)",
+  withCancel.total === 5, JSON.stringify(withCancel));
+check("...and are returned separately as the cancelled total",
+  withCancel.cancelled === 5, JSON.stringify(withCancel));
+check("the percentage rises because the remaining work is what is measured",
+  withCancel.pct === 0.4 && withCancel.pct > noCancel.pct,
+  withCancel.pct + " vs " + noCancel.pct);
+
+/* The point of D-068(d): cancelling the rest lets the Rock actually finish. */
+var allButDone = M.progress(frozen, stateDone, ids, { P2: true, P3: true });
+check("cancelling everything unfinished lets the bar reach 100% (D-058's habit avoided)",
+  allButDone.pct === 1, JSON.stringify(allButDone));
+
+var doneAndCancelled = M.progress(frozen, stateDone, ids, { P1: true });
+check("a cancelled task leaves the NUMERATOR too, even if it was done",
+  doneAndCancelled.done === 0 && doneAndCancelled.total === 8,
+  JSON.stringify(doneAndCancelled));
+
+check("everything cancelled gives pct 0 rather than dividing by zero",
+  M.progress(frozen, stateDone, ids, { P1: true, P2: true, P3: true }).pct === 0);
+
+/* ================= §5.2: burn-up gains a scalar and nothing else ============ */
+console.log("\n=== burnupSeries(): additive only (D-053, D-068e) ===\n");
+
+var seriesPlain = M.burnupSeries(frozen, stateDone, ids, "2026-08-08", "2026-08-14", "2026-08-12");
+var seriesCancel = M.burnupSeries(frozen, stateDone, ids, "2026-08-08", "2026-08-14", "2026-08-12",
+  { P3: true });
+
+check("the PLANNED curve is byte-identical with and without cancellations",
+  JSON.stringify(seriesPlain.points.map(function (p) { return p.planned; })) ===
+  JSON.stringify(seriesCancel.points.map(function (p) { return p.planned; })),
+  "the frozen promise must not be rewritten mid-sprint");
+check("the ACTUAL curve is unchanged too",
+  JSON.stringify(seriesPlain.points.map(function (p) { return p.actual; })) ===
+  JSON.stringify(seriesCancel.points.map(function (p) { return p.actual; })));
+check("total is unchanged — cancelled days stay in the promise",
+  seriesPlain.total === seriesCancel.total, seriesPlain.total + " vs " + seriesCancel.total);
+check("the ONLY difference is the new cancelled scalar",
+  seriesPlain.cancelled === 0 && seriesCancel.cancelled === 5,
+  JSON.stringify({ a: seriesPlain.cancelled, b: seriesCancel.cancelled }));
+
+console.log("\n=== summary ===");
+console.log("  passed: " + passes);
+console.log("  failed: " + failures);
+console.log("\n" + (failures === 0 ? "ALL CHECKS PASSED" : failures + " CHECK(S) FAILED") + "\n");
+process.exit(failures === 0 ? 0 : 1);

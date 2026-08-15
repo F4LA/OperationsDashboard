@@ -86,6 +86,56 @@ check("missing startDayName falls back to Friday", fallback.mondayKey === friday
 var garbage = ThisWeek.opsWeek("2026-08-14", "not-a-day");
 check("unparseable startDayName falls back to Friday", garbage.mondayKey === friday.mondayKey, JSON.stringify(garbage));
 
+/* ---- offset: closing / current / opening (§11.1, D-071a) ---- */
+console.log("\n--- opsWeek offset ---\n");
+
+var cur = ThisWeek.opsWeek("2026-08-12", "Friday");
+var curExplicit = ThisWeek.opsWeek("2026-08-12", "Friday", 0);
+var closing = ThisWeek.opsWeek("2026-08-12", "Friday", -1);
+var opening = ThisWeek.opsWeek("2026-08-12", "Friday", 1);
+
+check("a 2-argument call still works and equals offset 0",
+  JSON.stringify(cur) === JSON.stringify(curExplicit),
+  JSON.stringify(cur) + " vs " + JSON.stringify(curExplicit));
+
+check("offset -1 starts exactly 7 calendar days before the current window",
+  Date.parse(closing.start + "T00:00:00Z") === Date.parse(cur.start + "T00:00:00Z") - 7 * DAY_MS,
+  closing.start + " vs " + cur.start);
+check("offset +1 starts exactly 7 calendar days after",
+  Date.parse(opening.start + "T00:00:00Z") === Date.parse(cur.start + "T00:00:00Z") + 7 * DAY_MS,
+  opening.start + " vs " + cur.start);
+
+[["closing", closing], ["current", cur], ["opening", opening]].forEach(function (pair) {
+  var name = pair[0], w = pair[1];
+  check(name + ": window is still 7 calendar days inclusive",
+    Date.parse(w.end + "T00:00:00Z") - Date.parse(w.start + "T00:00:00Z") === 6 * DAY_MS,
+    JSON.stringify(w));
+  check(name + ": mondayKey is a Monday",
+    new Date(w.mondayKey + "T00:00:00Z").getUTCDay() === 1, JSON.stringify(w));
+  check(name + ": mondayKey is the one Monday INSIDE this window",
+    w.mondayKey >= w.start && w.mondayKey <= w.end, JSON.stringify(w));
+});
+
+check("the three windows are consecutive and non-overlapping",
+  closing.end < cur.start && cur.end < opening.start,
+  JSON.stringify([closing, cur, opening]));
+check("their mondayKeys are 7 days apart in order",
+  Date.parse(cur.mondayKey + "T00:00:00Z") - Date.parse(closing.mondayKey + "T00:00:00Z") === 7 * DAY_MS &&
+  Date.parse(opening.mondayKey + "T00:00:00Z") - Date.parse(cur.mondayKey + "T00:00:00Z") === 7 * DAY_MS,
+  [closing.mondayKey, cur.mondayKey, opening.mondayKey].join(" "));
+
+/* The mondayKey is recomputed from the shifted window rather than by adding 7
+   to the unshifted key. Those agree for Friday; this checks the property that
+   makes them agree, across every possible start day. */
+ALL_DAYS.forEach(function (day) {
+  [-1, 0, 1].forEach(function (off) {
+    var w = ThisWeek.opsWeek("2026-08-12", day, off);
+    var dow = new Date(w.mondayKey + "T00:00:00Z").getUTCDay();
+    check("startDay=" + day + " offset=" + off + ": key is the Monday within its own window",
+      dow === 1 && w.mondayKey >= w.start && w.mondayKey <= w.end, JSON.stringify(w));
+  });
+});
+
 /* ================= buckets (D-063a/b) ================= */
 console.log("\n=== buckets — isolated fixture ===\n");
 
@@ -141,7 +191,7 @@ check("T6 (Both) appears in Ana's notStarted",
 check("T6 (Both) ALSO appears in Beto's notStarted — one task, two columns (D-063b)",
   b.Beto.notStarted.indexOf("T6") !== -1, JSON.stringify(b.Beto.notStarted));
 
-/* ================= availableToPull / cascadeOf (D-063e / D-063d) ================= */
+/* ================= availableToPull / cascadeOf (D-071b / D-063d) ================= */
 console.log("\n=== availableToPull / cascadeOf — isolated fixture ===\n");
 
 var plan2 = {
@@ -173,8 +223,52 @@ var pullableIds = pullable.map(function (t) { return t.id; });
 check("T2 (dep T1 done) is available to pull", pullableIds.indexOf("T2") !== -1, pullableIds);
 check("T3 (dep T1 done) is available to pull", pullableIds.indexOf("T3") !== -1, pullableIds);
 check("T1 itself (already done) is NOT in the dropdown", pullableIds.indexOf("T1") === -1, pullableIds);
-check("T4 (dep T2 NOT done) is BLOCKED and excluded from the dropdown",
-  pullableIds.indexOf("T4") === -1, pullableIds);
+
+/* ---- CONTRACT CHANGE: D-071(b) supersedes D-063(e) ----
+   This assertion used to read "T4 (dep T2 NOT done) is BLOCKED and excluded
+   from the dropdown" and checked indexOf("T4") === -1. §11.5 reversed that
+   requirement: the dropdown must now SHOW blocked tasks, flagged, naming the
+   blocker and its owner, because hiding them hid the coordination the L10 is
+   there to do. The test is not loosened — it is inverted and then tightened,
+   asserting the flag and the named blocker that the old behaviour could not
+   have produced at all. */
+function pullableById(id) {
+  return pullable.filter(function (t) { return t.id === id; })[0];
+}
+
+var t4 = pullableById("T4");
+check("T4 (dep T2 NOT done) NOW APPEARS in the dropdown (D-071b supersedes D-063e)",
+  !!t4, pullableIds);
+check("T4 is flagged blocked:true", !!t4 && t4.blocked === true, JSON.stringify(t4));
+check("T4's blockedBy names the blocking task T2",
+  !!t4 && t4.blockedBy.length === 1 && t4.blockedBy[0].id === "T2",
+  JSON.stringify(t4 && t4.blockedBy));
+check("T4's blockedBy names the BLOCKER'S OWNER — the whole point of D-071(b)",
+  !!t4 && t4.blockedBy[0].owner === "Beto", JSON.stringify(t4 && t4.blockedBy));
+check("T4's blockedBy also carries the blocker's desc, so the row can be read",
+  !!t4 && t4.blockedBy[0].desc === "Depends on T1", JSON.stringify(t4 && t4.blockedBy));
+
+var t2 = pullableById("T2");
+check("an UNBLOCKED task carries blocked:false", !!t2 && t2.blocked === false, JSON.stringify(t2));
+check("an unblocked task's blockedBy is an empty array, never undefined",
+  !!t2 && Array.isArray(t2.blockedBy) && t2.blockedBy.length === 0, JSON.stringify(t2));
+check("every entry still carries id, desc and owner",
+  pullable.every(function (t) { return t.id && t.desc && t.owner; }),
+  JSON.stringify(pullable));
+check("order by id is preserved",
+  pullableIds.slice().sort().join(",") === pullableIds.join(","), pullableIds);
+
+/* ---- cancelled tasks are excluded, and stop blocking (D-068) ---- */
+var pullableWithCancel = ThisWeek.availableToPull(plan2, currentState2, ["T3"]);
+check("a CANCELLED task is not offered for pulling",
+  pullableWithCancel.every(function (t) { return t.id !== "T3"; }),
+  JSON.stringify(pullableWithCancel.map(function (t) { return t.id; })));
+
+var pullableDepCancelled = ThisWeek.availableToPull(plan2, currentState2, ["T2"]);
+var t4NoBlocker = pullableDepCancelled.filter(function (t) { return t.id === "T4"; })[0];
+check("cancelling the BLOCKER unblocks its dependent — matches what the engine now schedules",
+  !!t4NoBlocker && t4NoBlocker.blocked === false && t4NoBlocker.blockedBy.length === 0,
+  JSON.stringify(t4NoBlocker));
 
 var cascade = ThisWeek.cascadeOf(plan2, "T2");
 var cascadeIds = cascade.map(function (c) { return c.id; });

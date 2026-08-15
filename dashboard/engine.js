@@ -135,21 +135,43 @@
     return v;
   }
 
-  /** A milestone marked deferred propagates to every one of its tasks (D-017). */
-  function collectActive(plan, index) {
+  /**
+   * A milestone marked deferred propagates to every one of its tasks (D-017).
+   *
+   * @param cancelledSet OPTIONAL {taskId: true} — a cancelled task leaves the
+   *        schedule through the SAME line a plan-deferred one does (D-068c
+   *        specifies this as reuse of an existing path, not a new concept), so
+   *        its dependents find the dependency satisfied and move forward.
+   *
+   *        Passed ONLY from liveMode. planMode never receives it: the frozen
+   *        baseline predates every cancellation, and keeping that call site
+   *        argument-free is what makes it impossible for a cancellation to
+   *        move the plan-mode fixture.
+   *
+   * Cancelled ids are returned in their own list, NOT folded into `deferred`.
+   * The two share a code path but are different facts — one is "the plan
+   * always said later", the other is "a person decided this won't happen" —
+   * and §12 reports them separately. When a task is both, cancelled wins the
+   * classification.
+   */
+  function collectActive(plan, index, cancelledSet) {
     var active = [];
     var deferred = [];
+    var cancelled = [];
+    var cancelledMap = cancelledSet || {};
 
     for (var i = 0; i < index.taskOrder.length; i++) {
       var id = index.taskOrder[i];
       var task = index.tasks[id];
       var milestone = index.milestones[index.milestoneOfTask[id]];
+      var isCancelled = cancelledMap[id] === true;
       var isDeferred = task.deferred === true || (milestone && milestone.deferred === true);
-      if (isDeferred) deferred.push(id);
+      if (isCancelled) cancelled.push(id);
+      else if (isDeferred) deferred.push(id);
       else active.push(id);
     }
 
-    return { active: active, deferred: deferred };
+    return { active: active, deferred: deferred, cancelled: cancelled };
   }
 
   function ownersOf(task, people) {
@@ -594,7 +616,13 @@
     return { milestones: milestones, rocks: rocks };
   }
 
-  function liveMode(plan, currentState, todayISO) {
+  /**
+   * @param cancelledTaskIds OPTIONAL array of cancelled task ids (D-068c).
+   *        Three-argument calls remain valid and mean "nothing cancelled",
+   *        which is what every pre-Phase-8 caller and the Phase 2 fixture
+   *        rely on.
+   */
+  function liveMode(plan, currentState, todayISO, cancelledTaskIds) {
     var errors = [];
     var V = getValidate(root);
 
@@ -623,8 +651,16 @@
     var sprintEndMs = plan.sprint.end ? parseISO(plan.sprint.end) : null;
     var axis = new Axis(sprintStartMs);
 
-    /* ---- active vs deferred (D-017), same as plan mode ---- */
-    var split = collectActive(plan, index);
+    /* ---- active vs deferred (D-017) vs cancelled (D-068c) ----
+       The ONLY difference from plan mode's call: the cancelled set. A
+       cancelled task leaves the schedule by the same route as a deferred
+       one, so its dependents come out unblocked without any new logic. */
+    var cancelledSet = {};
+    if (Array.isArray(cancelledTaskIds)) {
+      for (i = 0; i < cancelledTaskIds.length; i++) cancelledSet[cancelledTaskIds[i]] = true;
+    }
+
+    var split = collectActive(plan, index, cancelledSet);
     var activeIds = split.active;
     var activeSet = {};
     for (i = 0; i < activeIds.length; i++) activeSet[activeIds[i]] = true;
@@ -869,12 +905,14 @@
       rocks: rollup.rocks,
       order: order,
       fixedTaskIds: fixedTaskIds,
-      deferredTasks: split.deferred,
+      deferredTasks: split.deferred,   // still ONLY "deferred by the plan" (D-017)
+      cancelledTasks: split.cancelled,  // D-068c — a separate fact, same code path
       stats: {
         scheduled: order.length,
         fixed: fixedTaskIds.length,
         active: activeIds.length,
-        deferred: split.deferred.length
+        deferred: split.deferred.length,
+        cancelled: split.cancelled.length
       }
     };
   }

@@ -27,6 +27,19 @@
  *   OpsDashEvents.toCurrentState(input) → the D-027 map, exactly two keys per task
  *   OpsDashEvents.deliverables(input)   → { taskId: url }
  *   OpsDashEvents.pins(input)           → { taskId: isoMonday }
+ *   OpsDashEvents.discards(input)       → { taskId: {note, actor, timestamp} }  (D-067)
+ *   OpsDashEvents.cancels(input)        → { taskId: {note, actor, timestamp} }  (D-068)
+ *   OpsDashEvents.weekCommitment(input, mondayKey) → string[] | null            (D-070)
+ *
+ * The v2 projections (discards, cancels, weekCommitment) add NO fold
+ * machinery: the generic fold already indexes by (Task ID, Action) and keeps
+ * the latest by Timestamp, which is all three of them need. discards and
+ * cancels are the same positive/negative pair shape as pin/unpin, which is
+ * what D-069 mandated. `discarded` and `cancelled` are DERIVED from those
+ * events being present — neither is a setStatus value, per D-067: one way to
+ * discard, not two. None of this changes the currentState shape D-027 fixed,
+ * which engine.js consumes and the Phase 2 fixture pins down; they are
+ * separate maps alongside it.
  *   OpsDashEvents.fetchEvents()         → Promise<events[]> (full Events tab, Sheets API v4)
  *   OpsDashEvents.postEvent(action, taskId, value, actor, note) → Promise<{ok, ...}>
  *   OpsDashEvents.verifyEvent({taskId, action, value, actor})  → Promise<{ok, ...}>
@@ -404,6 +417,130 @@
     return out;
   }
 
+  /**
+   * Shared resolver for a positive/negative action pair folded onto ONE slot
+   * — the shape D-069 mandated by mirroring pin/unpin. pins() predates it and
+   * keeps its own inlined copy so its behaviour stays provably untouched;
+   * every later pair (discard/undiscard, cancel/uncancel) routes through here.
+   *
+   * The winner is whichever of the two is later by timestamp, tie-broken by
+   * rowIndex — for an append-only log the later write wins, the same rule
+   * fold() itself uses.
+   *
+   * @returns { taskId: {note, actor, timestamp} }. Absence from the map means
+   *          "not discarded" / "not cancelled": the negative member REMOVES
+   *          the key rather than recording a false entry.
+   */
+  function foldPositiveNegativePair(input, positiveAction, negativeAction) {
+    var folded = input && input.byTask ? input : fold(input);
+    var out = {};
+
+    for (var taskId in folded.byTask) {
+      if (!Object.prototype.hasOwnProperty.call(folded.byTask, taskId)) continue;
+
+      var onEv = folded.byTask[taskId][positiveAction];
+      var offEv = folded.byTask[taskId][negativeAction];
+      if (!onEv) continue;
+
+      if (offEv) {
+        var onMs = parseTimestampMs(onEv.timestamp);
+        var offMs = parseTimestampMs(offEv.timestamp);
+        var onKey = onMs === null ? -Infinity : onMs;
+        var offKey = offMs === null ? -Infinity : offMs;
+        var offWins = offKey > onKey || (offKey === onKey && offEv.rowIndex > onEv.rowIndex);
+        if (offWins) continue;
+      }
+
+      out[taskId] = {
+        note: trimStr(onEv.note),
+        actor: trimStr(onEv.actor),
+        timestamp: canonicalIso(onEv.timestamp)
+      };
+    }
+
+    return out;
+  }
+
+  /**
+   * Current discard state per ad-hoc task (§11.4, D-067, D-069). "discarded"
+   * is DERIVED from the presence of this event — deliberately NOT a setStatus
+   * value, so there is exactly one way to discard something.
+   */
+  function discards(input) {
+    return foldPositiveNegativePair(input, "discard", "undiscard");
+  }
+
+  /**
+   * Current cancel state per PLAN task (§11.4, D-068, D-069). Same shape and
+   * same fold as discards; kept separate because a discard and a cancellation
+   * are different acts and §12 counts them apart.
+   */
+  function cancels(input) {
+    return foldPositiveNegativePair(input, "cancel", "uncancel");
+  }
+
+  /**
+   * The frozen §12 denominator for one ops week (D-070).
+   *
+   * Reads the confirmWeek event whose Task ID is "WEEK-<mondayKey>". The
+   * generic fold already keeps the latest per (Task ID, Action), so
+   * re-confirming a week replaces its denominator with no new machinery.
+   *
+   * @returns null      the week was never confirmed
+   *          string[]  the frozen task ids — INCLUDING [] for a week that was
+   *                    confirmed with nothing in it
+   *
+   * That null-vs-[] distinction is load-bearing and has to survive the fold:
+   * it is exactly what D-072(a) made the server enforce. §12 divides by this,
+   * so "nobody confirmed yet" and "confirmed, nothing committed" cannot look
+   * alike — one has no rate at all, the other has a real denominator of zero.
+   */
+  function weekCommitment(input, mondayKey) {
+    var folded = input && input.byTask ? input : fold(input);
+    var key = "WEEK-" + trimStr(mondayKey);
+
+    var byAction = folded.byTask[key];
+    var ev = byAction && byAction.confirmWeek;
+    if (!ev) return null;
+
+    var raw = trimStr(ev.note);
+    var parsed = null;
+    var bad = false;
+
+    if (raw === "") {
+      bad = true; // server rejects this; only reachable by hand-editing the Sheet
+    } else {
+      try {
+        parsed = JSON.parse(raw);
+      } catch (err) {
+        bad = true;
+      }
+    }
+
+    if (!bad) {
+      var okShape = isArray(parsed) &&
+        parsed.every(function (x) { return typeof x === "string"; });
+      if (!okShape) bad = true;
+    }
+
+    if (bad) {
+      // Only reachable by editing the Sheet by hand — the server rejects both an
+      // absent and a malformed Note. Reported as UNCONFIRMED rather than as an
+      // empty commitment: silently returning [] would manufacture a denominator
+      // of zero out of corrupt data, which is the D-070 failure in reverse.
+      // Never throws, never silent.
+      if (typeof console !== "undefined" && console && console.warn) {
+        console.warn('[OpsDash] Events: confirmWeek for "' + key + '" has a Note that is not ' +
+          "a JSON array of strings; treating that week as UNCONFIRMED (no denominator) " +
+          "rather than as an empty commitment. Fix the Note in the Sheet. Raw: " +
+          raw.slice(0, 120));
+      }
+      return null;
+    }
+
+    return parsed;
+  }
+
   function indexOf(arr, v) {
     for (var i = 0; i < arr.length; i++) if (arr[i] === v) return i;
     return -1;
@@ -574,6 +711,9 @@
     toCurrentState: toCurrentState,
     deliverables: deliverables,
     pins: pins,
+    discards: discards,
+    cancels: cancels,
+    weekCommitment: weekCommitment,
     fetchEvents: fetchEvents,
     postEvent: postEvent,
     verifyEvent: verifyEvent,

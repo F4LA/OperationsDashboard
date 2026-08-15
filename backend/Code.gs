@@ -36,9 +36,11 @@
  *   value        per-action, see validateValue_ below
  *   sprintId     optional  recorded as-is; not validated (the spec's rejection
  *                          list is explicit and does not include it)
- *   note         optional free text, EXCEPT: mandatory (the reason) on discard
- *                          and cancel; a JSON array of strings, capped at
- *                          MAX_NOTE_LEN, on confirmWeek (D-069, D-070)
+ *   note         optional free text, capped at MAX_NOTE_LEN for EVERY action
+ *                          (D-075) and rejected — never truncated — over it.
+ *                          EXCEPT: mandatory (the reason) on discard and
+ *                          cancel; a JSON array of strings on confirmWeek
+ *                          (D-069, D-070)
  *
  * Fields (createTask, D-066 — a sibling RPC, writes the Tasks tab + a pin
  * event under the same lock, never the Events log directly):
@@ -113,12 +115,22 @@ var LOCK_WAIT_MS = 30000;
 var MAX_VALUE_LEN = 2000;
 
 /**
- * D-070: confirmWeek's Note carries the JSON array of frozen task ids for
- * that week — rejected loudly over this length, never truncated (a truncated
- * denominator would look like "everyone did double the work", not "broken").
- * Not specified by the spec/decision log as an exact number; 5000 chars is a
- * deliberately generous bound — comfortably covers a week of 100+ task ids
- * with JSON-array overhead — chosen here and flagged as a judgment call.
+ * The cap on EVERY Note, whatever the action (D-075). Two things ride on it:
+ *
+ *   - confirmWeek's Note carries the JSON array of frozen task ids for that
+ *     week, and a truncated denominator would read as "everyone did double
+ *     the work" rather than "broken" (D-070);
+ *   - discard/cancel reasons are free text a person pastes, and a Sheets cell
+ *     cuts at 50,000 characters, which would surface as a raw exception
+ *     instead of a named rejection.
+ *
+ * Over the cap is REJECTED, never shortened, in both cases.
+ *
+ * 5000 is a deliberately generous bound — comfortably a week of 100+ task ids
+ * with JSON-array overhead. This is the single source of that number: D-075
+ * requires the frontend to read it from here and never define its own, and
+ * forbids a `maxlength` attribute on the reason input, because a paste that
+ * silently arrives clipped is the same truncation moved into the browser.
  */
 var MAX_NOTE_LEN = 5000;
 
@@ -754,13 +766,31 @@ function validateMondayIso_(value, code, label) {
 }
 
 /**
- * Note validation, per action (v2): mandatory reason on discard/cancel
- * (D-069); a JSON array of strings capped at MAX_NOTE_LEN on confirmWeek,
- * rejected loudly over the cap rather than truncated (D-070). Every other
- * action's note is free, optional text — unchanged from v1.
+ * Note validation (v2). MAX_NOTE_LEN applies to EVERY Note, whatever the
+ * action (D-075) — checked first, before any per-action branch, so a
+ * pasted wall of text in a discard/cancel reason is refused by name
+ * instead of reaching a Sheets cell that silently cuts at 50,000. The
+ * no-truncation rule of D-070 is unchanged and now simply covers more
+ * ground: over the cap is rejected, never shortened.
+ *
+ * Per-action rules on top of that: mandatory reason on discard/cancel
+ * (D-069); a JSON array of strings on confirmWeek (D-070). Every other
+ * action's note stays free, optional text — now merely length-bounded.
  */
 function validateNote_(eventAction, rawNote) {
   var note = trimStr_(rawNote);
+
+  // D-075: one cap, one error code, every action. Deliberately ahead of the
+  // branches — this used to live inside the confirmWeek branch, which left
+  // pin/unpin/discard/undiscard/cancel/uncancel notes unbounded.
+  if (note.length > MAX_NOTE_LEN) {
+    return { error: {
+      ok: false, code: "NOTE_TOO_LONG",
+      message: "Note exceeds " + MAX_NOTE_LEN + " characters (" + note.length +
+        "). Rejected, never truncated: a silently shortened note loses the very " +
+        "content it was written to record (D-070, D-075)."
+    } };
+  }
 
   if (eventAction === "discard" && !note) {
     return { error: {
@@ -776,14 +806,7 @@ function validateNote_(eventAction, rawNote) {
   }
 
   if (eventAction === "confirmWeek") {
-    if (note.length > MAX_NOTE_LEN) {
-      return { error: {
-        ok: false, code: "NOTE_TOO_LONG",
-        message: "confirmWeek Note exceeds " + MAX_NOTE_LEN + " characters (" +
-          note.length + "). Never truncated — a truncated denominator would look " +
-          "like extra completions, not missing data (D-070)."
-      } };
-    }
+    // The length cap that used to live here now runs for every action, above.
     // An ABSENT note is rejected rather than read as "[]". D-070 requires the
     // Note to BE the JSON array, and an empty denominator arrived at by
     // accident (the frontend forgot the payload) is indistinguishable from

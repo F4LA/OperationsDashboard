@@ -216,6 +216,150 @@ check("liveMode from the folded log matches expected-live-mode.json exactly",
 check("deliverable survived the same fold",
   E.deliverables(log)["T1"] === "https://drive.google.com/file/d/x");
 
+/* ================= v2 projections (D-067, D-068, D-069, D-070) ================= */
+
+function evn(id, task, action, value, actor, ts, note) {
+  return [id, "S3-2026", task, action, value, actor, ts, note === undefined ? "" : note];
+}
+
+console.log("\n=== discards / cancels: the positive-negative pair (D-069) ===\n");
+
+var dLog = [HEADER,
+  evn("E-D1", "T-0001", "discard", "", "Bernardo", "2026-08-10T09:00:00-04:00", "client cancelled"),
+  evn("E-D2", "T-0002", "discard", "", "Brent", "2026-08-10T10:00:00-04:00", "duplicate"),
+  evn("E-D3", "T-0002", "undiscard", "", "Brent", "2026-08-11T10:00:00-04:00", ""),
+  evn("E-C1", "M2-t1", "cancel", "", "Bernardo", "2026-08-10T09:00:00-04:00", "scope dropped"),
+  evn("E-C2", "M2-t2", "cancel", "", "Bernardo", "2026-08-10T09:00:00-04:00", "oops"),
+  evn("E-C3", "M2-t2", "uncancel", "", "Bernardo", "2026-08-12T09:00:00-04:00", "")
+];
+
+var d = E.discards(dLog);
+check("a discarded task appears in discards()", !!d["T-0001"], JSON.stringify(d));
+check("discards() carries the reason, actor and timestamp",
+  d["T-0001"].note === "client cancelled" && d["T-0001"].actor === "Bernardo" &&
+  /^2026-08-10T09:00:00/.test(d["T-0001"].timestamp), JSON.stringify(d["T-0001"]));
+check("a later undiscard REMOVES the key rather than recording a false entry",
+  !("T-0002" in d), JSON.stringify(d));
+
+var c = E.cancels(dLog);
+check("a cancelled task appears in cancels()", !!c["M2-t1"], JSON.stringify(c));
+check("cancels() carries its own reason", c["M2-t1"].note === "scope dropped", JSON.stringify(c));
+check("a later uncancel removes the key", !("M2-t2" in c), JSON.stringify(c));
+check("discards and cancels are separate maps — a discard is not a cancel",
+  !("T-0001" in c) && !("M2-t1" in d), JSON.stringify({ d: Object.keys(d), c: Object.keys(c) }));
+
+/* An undiscard BEFORE the discard must not win — order is by timestamp, not by
+   which action happens to be scanned first. */
+var reLog = [HEADER,
+  evn("E-R1", "T-0003", "undiscard", "", "Brent", "2026-08-09T09:00:00-04:00", ""),
+  evn("E-R2", "T-0003", "discard", "", "Brent", "2026-08-10T09:00:00-04:00", "re-discarded")
+];
+check("a re-discard after an undiscard wins (latest timestamp, not action order)",
+  !!E.discards(reLog)["T-0003"], JSON.stringify(E.discards(reLog)));
+
+/* Same timestamp on both members: the later ROW wins, matching fold()'s own rule. */
+var tieLog = [HEADER,
+  evn("E-T1", "T-0004", "discard", "", "Brent", "2026-08-10T09:00:00-04:00", "r"),
+  evn("E-T2", "T-0004", "undiscard", "", "Brent", "2026-08-10T09:00:00-04:00", "")
+];
+check("on an identical timestamp the later row wins (rowIndex tie-break)",
+  !("T-0004" in E.discards(tieLog)), JSON.stringify(E.discards(tieLog)));
+
+var tieLogRev = [HEADER,
+  evn("E-T3", "T-0005", "undiscard", "", "Brent", "2026-08-10T09:00:00-04:00", ""),
+  evn("E-T4", "T-0005", "discard", "", "Brent", "2026-08-10T09:00:00-04:00", "r")
+];
+check("...and the tie-break is genuinely by row, not a fixed preference",
+  !!E.discards(tieLogRev)["T-0005"], JSON.stringify(E.discards(tieLogRev)));
+
+check("a task with no discard/cancel event is simply absent from both maps",
+  !("M9-t9" in E.discards(dLog)) && !("M9-t9" in E.cancels(dLog)));
+
+/* D-067: discarded/cancelled are DERIVED, never setStatus values. The fold must
+   not have grown them as statuses. */
+var cs = E.toCurrentState(dLog);
+check("discard does NOT appear as a status in currentState (D-067: one way to discard)",
+  !cs["T-0001"] || cs["T-0001"].status !== "discarded", JSON.stringify(cs["T-0001"]));
+check("currentState entries still carry exactly the two D-027 keys",
+  Object.keys(E.toCurrentState([HEADER,
+    evn("E-S1", "X1", "setStatus", "done", "Brent", "2026-08-10T09:00:00-04:00")
+  ])["X1"]).sort().join(",") === "status,statusChangedAt");
+
+console.log("\n=== weekCommitment: the frozen denominator (D-070) ===\n");
+
+var wLog = [HEADER,
+  evn("E-W1", "WEEK-2026-08-17", "confirmWeek", "2026-08-17", "Bernardo",
+    "2026-08-14T17:00:00-04:00", '["M2-t1","T-0001"]'),
+  evn("E-W2", "WEEK-2026-08-24", "confirmWeek", "2026-08-24", "Bernardo",
+    "2026-08-21T17:00:00-04:00", "[]")
+];
+
+check("a confirmed week returns its frozen id array",
+  JSON.stringify(E.weekCommitment(wLog, "2026-08-17")) === '["M2-t1","T-0001"]',
+  JSON.stringify(E.weekCommitment(wLog, "2026-08-17")));
+
+/* The distinction D-072(a) made the server enforce has to survive the fold. */
+var emptyWeek = E.weekCommitment(wLog, "2026-08-24");
+check("a week confirmed EMPTY returns [] — a real denominator of zero",
+  isArrayOf(emptyWeek) && emptyWeek.length === 0, JSON.stringify(emptyWeek));
+check("an UNCONFIRMED week returns null, which is not the same value as []",
+  E.weekCommitment(wLog, "2026-09-07") === null, JSON.stringify(E.weekCommitment(wLog, "2026-09-07")));
+check("null and [] are distinguishable by the caller (the whole point of D-070)",
+  E.weekCommitment(wLog, "2026-09-07") !== emptyWeek &&
+  JSON.stringify(emptyWeek) !== JSON.stringify(null));
+
+function isArrayOf(v) { return Object.prototype.toString.call(v) === "[object Array]"; }
+
+/* Re-confirming replaces, with no new fold machinery: the generic fold already
+   keeps the latest per (Task ID, Action). */
+var reconfirm = [HEADER,
+  evn("E-W3", "WEEK-2026-08-17", "confirmWeek", "2026-08-17", "Bernardo",
+    "2026-08-14T17:00:00-04:00", '["A","B","C"]'),
+  evn("E-W4", "WEEK-2026-08-17", "confirmWeek", "2026-08-17", "Bernardo",
+    "2026-08-14T18:30:00-04:00", '["A","B"]')
+];
+check("re-confirming a week REPLACES its denominator (latest wins)",
+  JSON.stringify(E.weekCommitment(reconfirm, "2026-08-17")) === '["A","B"]',
+  JSON.stringify(E.weekCommitment(reconfirm, "2026-08-17")));
+
+/* Corrupt Note: only reachable by hand-editing the Sheet, since the server
+   rejects it. Must warn and report UNCONFIRMED, never throw, never silently
+   manufacture a zero denominator. */
+var warned = [];
+var realWarn = console.warn;
+console.warn = function () { warned.push(Array.prototype.join.call(arguments, " ")); };
+
+var badLog = [HEADER,
+  evn("E-W5", "WEEK-2026-09-14", "confirmWeek", "2026-09-14", "Bernardo",
+    "2026-09-11T17:00:00-04:00", "M2-t1, M2-t2")
+];
+var badResult = E.weekCommitment(badLog, "2026-09-14");
+check("an unparseable Note yields null (UNCONFIRMED), not []", badResult === null,
+  JSON.stringify(badResult));
+check("...and says so on console.warn, naming the WEEK key",
+  warned.length === 1 && warned[0].indexOf("WEEK-2026-09-14") !== -1, JSON.stringify(warned));
+
+warned = [];
+var objLog = [HEADER,
+  evn("E-W6", "WEEK-2026-09-21", "confirmWeek", "2026-09-21", "Bernardo",
+    "2026-09-18T17:00:00-04:00", '{"ids":["A"]}')
+];
+check("a JSON object rather than an array is also UNCONFIRMED",
+  E.weekCommitment(objLog, "2026-09-21") === null);
+check("...and warns too", warned.length === 1, JSON.stringify(warned));
+
+warned = [];
+var mixedLog = [HEADER,
+  evn("E-W7", "WEEK-2026-09-28", "confirmWeek", "2026-09-28", "Bernardo",
+    "2026-09-25T17:00:00-04:00", '["A",42]')
+];
+check("an array holding a non-string is UNCONFIRMED", E.weekCommitment(mixedLog, "2026-09-28") === null);
+check("...and warns", warned.length === 1, JSON.stringify(warned));
+
+console.warn = realWarn;
+
+check("weekCommitment never throws on a corrupt Note", true);
+
 console.log("\n=== summary ===");
 console.log("  passed: " + passes);
 console.log("  failed: " + failures);

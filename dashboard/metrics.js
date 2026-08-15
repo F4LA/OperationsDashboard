@@ -35,8 +35,20 @@
  *   OpsDashMetrics.onTrack(frozenTasks, currentState, taskIds, todayISO, band) → {planned, actual, gap, band, color}
  *   OpsDashMetrics.computeAll(plan, frozenPlanResult, currentState, todayISO, band)
  *       → { sprint: {progress, onTrack}, rocks: { [rockId]: {name, progress, onTrack} } }
- *   OpsDashMetrics.burnupSeries(frozenTasks, currentState, taskIds, axisStartISO, axisEndISO, todayISO)
- *       → { points: [{date, planned, actual|null}], total, axisStart, axisEnd, today }
+ *   OpsDashMetrics.burnupSeries(frozenTasks, currentState, taskIds, axisStartISO, axisEndISO, todayISO, cancelledSet)
+ *       → { points: [{date, planned, actual|null}], total, axisStart, axisEnd, today, cancelled }
+ *   OpsDashMetrics.weeklyCompletion(opts)
+ *       → { team, byPerson } — §12's weekly numbers (D-077)
+ *
+ * §12 (Phase 8 part 2A) lives here rather than beside the §11 markup because
+ * D-053 fixed the house split — pure math in metrics.js, markup in the file
+ * that draws — and D-077 resolved the D-071(c)/D-076 clash the same way.
+ *
+ * Cancelled work (D-068d/e) enters as an OPTIONAL {taskId:true} set:
+ * progress() drops those work-days from the denominator and reports them
+ * separately, while onTrack() and burnupSeries()'s planned curve are
+ * deliberately left alone — the promise stays frozen, so the chart can still
+ * show that too much was promised.
  *
  * Requires OpsDashEngine (for parseISO/formatISO — calendar date parsing shared
  * with the engine's own, so a date string is interpreted identically everywhere
@@ -131,21 +143,45 @@
    * @param taskIds      ids to include in scope (a Rock's ids, or every key
    *                     of frozenTasks for sprint-wide)
    */
-  function progress(frozenTasks, currentState, taskIds) {
+  /**
+   * @param cancelledSet OPTIONAL {taskId: true} (D-068d). Cancelled work-days
+   *        LEAVE the denominator and come back as `cancelled`, shown beside
+   *        the bar rather than inside it.
+   *
+   *        Leaving them in would mean the Rock can never reach 100% and its
+   *        chip stays red forever over work somebody decided not to do —
+   *        which D-058 called the worst possible habit for a new board.
+   *        Hiding them entirely would be the opposite lie. So: out of the
+   *        denominator, and named.
+   */
+  function progress(frozenTasks, currentState, taskIds, cancelledSet) {
     var done = 0;
     var total = 0;
+    var cancelled = 0;
+    var cancelledMap = cancelledSet || {};
 
     for (var i = 0; i < taskIds.length; i++) {
       var id = taskIds[i];
       var t = frozenTasks[id];
       if (!t) continue; // not in this frozen plan (shouldn't happen for a valid scope)
       var wd = t.workDays || 0;
+
+      if (cancelledMap[id] === true) {
+        cancelled += wd;
+        continue; // out of BOTH numerator and denominator
+      }
+
       total += wd;
       var cs = currentState[id];
       if (cs && cs.status === "done") done += wd;
     }
 
-    return { done: done, total: total, pct: total > 0 ? done / total : 0 };
+    return {
+      done: done,
+      total: total,
+      pct: total > 0 ? done / total : 0,
+      cancelled: cancelled
+    };
   }
 
   /* ------------------------------------------------------------------ *
@@ -217,12 +253,26 @@
    * CALENDAR, and onTrack() already compares calendar dates, not axis
    * positions — one calendar day per point, weekends included.
    */
-  function burnupSeries(frozenTasks, currentState, taskIds, axisStartISO, axisEndISO, todayISO) {
+  /**
+   * @param cancelledSet OPTIONAL {taskId: true} (D-068e). ADDITIVE ONLY: it
+   *        contributes one extra scalar, `cancelled`, so the mandatory numeric
+   *        footer can name the cancelled days separately. The PLANNED curve is
+   *        deliberately NOT recomputed and its arithmetic below is untouched.
+   *
+   *        The planned curve is the frozen promise (D-053). The progress bar
+   *        answers "how much of the remaining work is done"; the burn-up
+   *        answers "how are we doing against what we promised". Rewriting the
+   *        promise mid-sprint would leave the chart unable to show that too
+   *        much was promised — which is the one thing it exists to reveal.
+   */
+  function burnupSeries(frozenTasks, currentState, taskIds, axisStartISO, axisEndISO, todayISO, cancelledSet) {
     var parseISO = getParseISO();
     var formatISO = getFormatISO();
     var startMs = parseISO(axisStartISO);
     var endMs = parseISO(axisEndISO);
     var todayMs = parseISO(todayISO);
+    var cancelledMap = cancelledSet || {};
+    var cancelledWorkDays = 0;
 
     var total = 0;
     var infos = [];
@@ -230,6 +280,7 @@
       var task = frozenTasks[taskIds[i]];
       if (!task) continue; // not in this frozen plan — same guard progress()/onTrack() use
       var wd = task.workDays || 0;
+      if (cancelledMap[taskIds[i]] === true) cancelledWorkDays += wd;
       total += wd;
 
       var plannedMs = task.plannedFinish ? parseISO(task.plannedFinish) : null;
@@ -265,15 +316,170 @@
       total: total,
       axisStart: axisStartISO,
       axisEnd: axisEndISO,
-      today: todayISO
+      today: todayISO,
+      // The one addition (D-068e). `total` and every point above are computed
+      // exactly as before — this is a label for the footer, not an input to
+      // the curve.
+      cancelled: cancelledWorkDays
     };
+  }
+
+  /* ------------------------------------------------------------------ *
+   * §12 — weekly completion (Phase 8 part 2A, D-077)
+   *
+   * Lives here, not next to the §11 markup, because D-053 fixed the house
+   * split: pure math in metrics.js, markup in whatever file draws. This is
+   * the same family as progress() and burnupSeries() directly above.
+   * ------------------------------------------------------------------ */
+
+  function emptyTally() {
+    return { completed: [], moved: [], discarded: [], cancelled: [] };
+  }
+
+  function tallyCounts(t, denominator) {
+    return {
+      completed: t.completed.slice(),
+      moved: t.moved.slice(),
+      discarded: t.discarded.slice(),
+      cancelled: t.cancelled.slice(),
+      completedCount: t.completed.length,
+      movedCount: t.moved.length,
+      discardedCount: t.discarded.length,
+      cancelledCount: t.cancelled.length,
+      denominator: denominator === null ? null : denominator.length,
+      // No denominator = no rate. Deliberately NOT reconstructed by counting
+      // what happens to be visible: a Rock task the engine proposed and nobody
+      // touched leaves NO event at all, so a counted denominator would silently
+      // omit exactly the tasks that went well. That is the entire reason D-070
+      // froze it with an explicit event.
+      rate: denominator === null
+        ? null
+        : (denominator.length === 0 ? 0 : t.completed.length / denominator.length)
+    };
+  }
+
+  /**
+   * @param opts {
+   *   window,        { start, end, mondayKey } from OpsDashThisWeek.opsWeek()
+   *   taskOwners,    { taskId: [person, ...] } — resolved owners, "Both" already
+   *                  expanded, so this function never re-derives ownership
+   *   people,        [name, ...] — every person gets an entry, even at zero
+   *   currentState,  D-027 map
+   *   pins,          OpsDashEvents.pins()
+   *   discards,      OpsDashEvents.discards()
+   *   cancels,       OpsDashEvents.cancels()
+   *   commitment     OpsDashEvents.weekCommitment() → string[] | null
+   * }
+   *
+   * @returns { team: <tally>, byPerson: { [person]: <tally> } }
+   *
+   * Counting rules, all from §12 / §11.5:
+   *   completed — reached done with statusChangedAt INSIDE the window
+   *               (truncated to its date part, D-028)
+   *   moved     — pinned to a Monday LATER than this window's mondayKey
+   *   discarded — present in the discards map (ad-hoc, D-067)
+   *   cancelled — present in the cancels map (plan tasks, D-068), counted and
+   *               reported SEPARATELY from discarded: a discard is meeting
+   *               noise, a cancellation is a plan that stopped matching reality
+   *   rate      — completed ÷ the frozen denominator, or null if unconfirmed
+   *
+   * The numerator is NOT clamped to the denominator. Work added mid-week counts
+   * when finished but never inflates the frozen denominator (§11.5), so a rate
+   * above 1 is a real, meaningful outcome — someone did more than they
+   * committed to — and flattening it to 100% would hide that.
+   *
+   * Rock tasks are counted like any other (§12): in this company they ARE the
+   * week's to-dos, and a rate that excluded them would measure half the week.
+   */
+  function weeklyCompletion(opts) {
+    var window = opts.window;
+    var people = opts.people || [];
+    var taskOwners = opts.taskOwners || {};
+    var currentState = opts.currentState || {};
+    var pins = opts.pins || {};
+    var discardMap = opts.discards || {};
+    var cancelMap = opts.cancels || {};
+    var commitment = opts.commitment === undefined ? null : opts.commitment;
+
+    var team = emptyTally();
+    var byPerson = {};
+    var i;
+    for (i = 0; i < people.length; i++) byPerson[people[i]] = emptyTally();
+
+    // Every task the week could possibly be judged on: the frozen commitment
+    // plus anything that produced one of the four outcomes. A task added
+    // mid-week is not in the commitment but still counts in the numerator.
+    var considered = {};
+    if (commitment) for (i = 0; i < commitment.length; i++) considered[commitment[i]] = true;
+    addKeys(considered, currentState);
+    addKeys(considered, pins);
+    addKeys(considered, discardMap);
+    addKeys(considered, cancelMap);
+
+    for (var taskId in considered) {
+      if (!Object.prototype.hasOwnProperty.call(considered, taskId)) continue;
+
+      var bucket = classify(taskId);
+      if (!bucket) continue;
+
+      team[bucket].push(taskId);
+
+      var owners = taskOwners[taskId] || [];
+      for (var o = 0; o < owners.length; o++) {
+        if (byPerson[owners[o]]) byPerson[owners[o]][bucket].push(taskId);
+      }
+    }
+
+    /**
+     * One task → at most one outcome. Order matters: a task that was completed
+     * is completed even if it was also moved earlier in the week, and a closed
+     * task (discarded/cancelled) is reported as closed rather than as moved.
+     */
+    function classify(taskId) {
+      var cs = currentState[taskId];
+      if (cs && cs.status === "done" && cs.statusChangedAt) {
+        var day = String(cs.statusChangedAt).slice(0, 10); // D-028
+        if (day >= window.start && day <= window.end) return "completed";
+      }
+      if (Object.prototype.hasOwnProperty.call(discardMap, taskId)) return "discarded";
+      if (Object.prototype.hasOwnProperty.call(cancelMap, taskId)) return "cancelled";
+      if (pins[taskId] && pins[taskId] > window.mondayKey) return "moved";
+      return null;
+    }
+
+    var out = { team: tallyCounts(team, commitment), byPerson: {} };
+    for (i = 0; i < people.length; i++) {
+      // Each person is rated against the slice of the frozen commitment that
+      // is theirs — the team denominator would make everyone look behind.
+      var person = people[i];
+      var personCommitment = commitment === null ? null : commitment.filter(function (id) {
+        return (taskOwners[id] || []).indexOf(person) !== -1;
+      });
+      out.byPerson[person] = tallyCounts(byPerson[person], personCommitment);
+    }
+    return out;
+  }
+
+  function addKeys(target, source) {
+    for (var k in source) {
+      if (Object.prototype.hasOwnProperty.call(source, k)) target[k] = true;
+    }
   }
 
   /* ------------------------------------------------------------------ *
    * computeAll — the one call board.js needs per render
    * ------------------------------------------------------------------ */
 
-  function computeAll(plan, frozenPlanResult, currentState, todayISO, band) {
+  /**
+   * @param cancelledSet OPTIONAL {taskId: true}, threaded down to progress()
+   *        (D-068d). Omitting it means "nothing cancelled" and produces
+   *        byte-identical output to every pre-Phase-8 call.
+   *
+   * onTrack() deliberately does NOT receive it: its planned curve is the
+   * frozen promise and does not move when work is cancelled (D-068e), the
+   * same reasoning as burnupSeries above.
+   */
+  function computeAll(plan, frozenPlanResult, currentState, todayISO, band, cancelledSet) {
     var idx = buildRockIndex(plan);
     var frozenTasks = frozenPlanResult.tasks;
     var allTaskIds = Object.keys(frozenTasks);
@@ -284,14 +490,14 @@
       var ids = idx.rockTaskIds[rockId];
       rocks[rockId] = {
         name: idx.rockName[rockId],
-        progress: progress(frozenTasks, currentState, ids),
+        progress: progress(frozenTasks, currentState, ids, cancelledSet),
         onTrack: onTrack(frozenTasks, currentState, ids, todayISO, band)
       };
     }
 
     return {
       sprint: {
-        progress: progress(frozenTasks, currentState, allTaskIds),
+        progress: progress(frozenTasks, currentState, allTaskIds, cancelledSet),
         onTrack: onTrack(frozenTasks, currentState, allTaskIds, todayISO, band)
       },
       rocks: rocks,
@@ -304,6 +510,7 @@
     progress: progress,
     onTrack: onTrack,
     burnupSeries: burnupSeries,
+    weeklyCompletion: weeklyCompletion,
     computeAll: computeAll
   };
 })(typeof window !== "undefined" ? window : this);

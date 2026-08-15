@@ -135,6 +135,11 @@ vm.runInContext(codeSrc, sandbox, { filename: "backend/Code.gs" });
 var doPost = sandbox.doPost;
 var makeEventId_ = sandbox.makeEventId_;
 
+// Read the cap out of Code.gs rather than restating the number here. D-075
+// names the exact scar this avoids: two copies of one value drift, and then
+// nobody knows which one is authoritative.
+var MAX_NOTE_LEN = sandbox.MAX_NOTE_LEN;
+
 /* ------------------------------------------------------------------ *
  * Fixtures + helpers
  * ------------------------------------------------------------------ */
@@ -722,6 +727,49 @@ check("an over-long Note is REJECTED, never truncated (D-070)",
   "note length " + hugeNote.length + " -> " + JSON.stringify(r));
 check("nothing written when the Note is over-length", overLen.Events.rows.length === 1,
   overLen.Events.rows.length);
+
+/* ---- D-075: the same cap now covers EVERY action's Note, not just confirmWeek ---- */
+console.log("\n--- the Note cap applies to every action (D-075) ---\n");
+
+// Plain prose, not a JSON array: this is what a pasted discard/cancel reason
+// looks like, and before D-075 it was unbounded on every action but confirmWeek.
+var hugeReason = new Array(MAX_NOTE_LEN + 200).join("x");
+
+var longDiscard = freshSheets();
+r = post({ action: "discard", taskId: "T-9999", value: "",
+           actor: "Bernardo", note: hugeReason }, longDiscard);
+check("an over-long discard reason rejected with NOTE_TOO_LONG (was unbounded pre-D-075)",
+  r.ok === false && r.code === "NOTE_TOO_LONG", JSON.stringify(r));
+check("nothing written for the over-long discard", longDiscard.Events.rows.length === 1,
+  longDiscard.Events.rows.length);
+
+var longCancel = freshSheets();
+r = post({ action: "cancel", taskId: "PLAN-ONLY-ID", value: "",
+           actor: "Bernardo", note: hugeReason }, longCancel);
+check("an over-long cancel reason rejected with NOTE_TOO_LONG",
+  r.ok === false && r.code === "NOTE_TOO_LONG", JSON.stringify(r));
+check("nothing written for the over-long cancel", longCancel.Events.rows.length === 1,
+  longCancel.Events.rows.length);
+
+var longPin = freshSheets();
+r = post({ action: "pin", taskId: "PLAN-ONLY-ID", value: "2026-08-17",
+           actor: "Bernardo", note: hugeReason }, longPin);
+check("an over-long note on a pin rejected too — the optional notes are covered as well",
+  r.ok === false && r.code === "NOTE_TOO_LONG", JSON.stringify(r));
+check("nothing written for the over-long pin", longPin.Events.rows.length === 1,
+  longPin.Events.rows.length);
+
+// The cap must be a cap, not a wall: a normal-length reason still goes through.
+r = post({ action: "discard", taskId: "T-9999", value: "", actor: "Bernardo",
+           note: "Client cancelled the engagement, so this no longer applies." });
+check("a normal-length discard reason is still accepted", r.ok === true, JSON.stringify(r));
+
+// The length check must run BEFORE the per-action branches, so an over-long
+// note is NOT reported as a missing reason or a malformed JSON array.
+r = post({ action: "cancel", taskId: "PLAN-ONLY-ID", value: "", actor: "Bernardo",
+           note: hugeReason });
+check("length is checked before the mandatory-reason branch, so the code is not masked",
+  r.code === "NOTE_TOO_LONG" && r.code !== "MISSING_CANCEL_REASON", JSON.stringify(r));
 
 // Boundary, so the cap above isn't passing simply because everything is rejected:
 // a realistically large week (300 ids, ~2.9k chars) must still go through.
