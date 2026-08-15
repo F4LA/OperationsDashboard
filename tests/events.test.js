@@ -285,6 +285,41 @@ check("currentState entries still carry exactly the two D-027 keys",
     evn("E-S1", "X1", "setStatus", "done", "Brent", "2026-08-10T09:00:00-04:00")
   ])["X1"]).sort().join(",") === "status,statusChangedAt");
 
+console.log("\n=== pinEvents: pins plus the timestamp (D-078) ===\n");
+
+var pinLog = [HEADER,
+  evn("E-P1", "T-0001", "pin", "2026-08-17", "Bernardo", "2026-08-14T17:00:00-04:00", "committed"),
+  evn("E-P2", "T-0002", "pin", "2026-08-24", "Brent", "2026-08-10T09:00:00-04:00", ""),
+  evn("E-P3", "T-0003", "pin", "2026-08-17", "Brent", "2026-08-10T09:00:00-04:00", ""),
+  evn("E-P4", "T-0003", "unpin", "", "Brent", "2026-08-11T09:00:00-04:00", "")
+];
+
+var pe = E.pinEvents(pinLog);
+check("pinEvents exposes the pinned Monday as .value", pe["T-0001"].value === "2026-08-17",
+  JSON.stringify(pe["T-0001"]));
+check("pinEvents exposes the pin event's own timestamp",
+  /^2026-08-14T17:00:00/.test(pe["T-0001"].timestamp), JSON.stringify(pe["T-0001"]));
+check("pinEvents exposes the actor", pe["T-0001"].actor === "Bernardo", JSON.stringify(pe["T-0001"]));
+check("a later unpin removes the entry, same as pins()", !("T-0003" in pe), Object.keys(pe).join(","));
+
+/* pins() must be byte-identical to what it was before it was reprojected from
+   pinEvents — board.js compares its values against a Monday string directly. */
+var pinsOut = E.pins(pinLog);
+check("pins() still returns plain Monday STRINGS, not objects",
+  typeof pinsOut["T-0001"] === "string" && pinsOut["T-0001"] === "2026-08-17",
+  JSON.stringify(pinsOut));
+check("pins() and pinEvents() agree on which tasks are pinned",
+  Object.keys(pinsOut).sort().join(",") === Object.keys(pe).sort().join(","),
+  Object.keys(pinsOut).join(",") + " vs " + Object.keys(pe).join(","));
+check("pins() values equal pinEvents() .value for every task",
+  Object.keys(pinsOut).every(function (k) { return pinsOut[k] === pe[k].value; }),
+  JSON.stringify(pinsOut));
+
+/* A pin whose Value is blank was never a pin — the historical contract. */
+var blankPin = [HEADER, evn("E-P5", "T-0009", "pin", "", "Brent", "2026-08-10T09:00:00-04:00", "")];
+check("a blank pin Value yields no entry in either projection",
+  !("T-0009" in E.pins(blankPin)) && !("T-0009" in E.pinEvents(blankPin)));
+
 console.log("\n=== weekCommitment: the frozen denominator (D-070) ===\n");
 
 var wLog = [HEADER,

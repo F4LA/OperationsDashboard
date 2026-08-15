@@ -347,14 +347,27 @@
       discardedCount: t.discarded.length,
       cancelledCount: t.cancelled.length,
       denominator: denominator === null ? null : denominator.length,
-      // No denominator = no rate. Deliberately NOT reconstructed by counting
-      // what happens to be visible: a Rock task the engine proposed and nobody
-      // touched leaves NO event at all, so a counted denominator would silently
-      // omit exactly the tasks that went well. That is the entire reason D-070
-      // froze it with an explicit event.
-      rate: denominator === null
+      /**
+       * No denominator = no rate. Deliberately NOT reconstructed by counting
+       * what happens to be visible: a Rock task the engine proposed and nobody
+       * touched leaves NO event at all, so a counted denominator would silently
+       * omit exactly the tasks that went well. That is the entire reason D-070
+       * froze it with an explicit event.
+       *
+       * A denominator of ZERO also gives rate null, not 0 (D-078, correction
+       * 2): dividing by zero is undefined, and showing 0% to someone who
+       * completed three tasks they picked up mid-week is the same class of lie
+       * as the silent denominator D-070 exists to prevent.
+       *
+       * So `rate` collapses two different situations into null, and the
+       * caller MUST use `denominator` to tell them apart — 2B has to render
+       * them differently:
+       *     denominator === null → the week was never confirmed  ("—")
+       *     denominator === 0    → confirmed with nothing in it  ("no commitments")
+       */
+      rate: (denominator === null || denominator.length === 0)
         ? null
-        : (denominator.length === 0 ? 0 : t.completed.length / denominator.length)
+        : t.completed.length / denominator.length
     };
   }
 
@@ -365,7 +378,12 @@
    *                  expanded, so this function never re-derives ownership
    *   people,        [name, ...] — every person gets an entry, even at zero
    *   currentState,  D-027 map
-   *   pins,          OpsDashEvents.pins()
+   *   pins,          OpsDashEvents.pins()      — {taskId: isoMonday}
+   *   pinEvents,     OpsDashEvents.pinEvents() — same, plus each pin's own
+   *                  timestamp, which is what lets a move made THIS week be
+   *                  told from an old pin pointing forward (D-078). Optional:
+   *                  without it, a pin can only be judged when its task is in
+   *                  the frozen commitment.
    *   discards,      OpsDashEvents.discards()
    *   cancels,       OpsDashEvents.cancels()
    *   commitment     OpsDashEvents.weekCommitment() → string[] | null
@@ -397,6 +415,7 @@
     var taskOwners = opts.taskOwners || {};
     var currentState = opts.currentState || {};
     var pins = opts.pins || {};
+    var pinEventMap = opts.pinEvents || {};
     var discardMap = opts.discards || {};
     var cancelMap = opts.cancels || {};
     var commitment = opts.commitment === undefined ? null : opts.commitment;
@@ -406,15 +425,47 @@
     var i;
     for (i = 0; i < people.length; i++) byPerson[people[i]] = emptyTally();
 
-    // Every task the week could possibly be judged on: the frozen commitment
-    // plus anything that produced one of the four outcomes. A task added
-    // mid-week is not in the commitment but still counts in the numerator.
+    var committed = {};
+    if (commitment) for (i = 0; i < commitment.length; i++) committed[commitment[i]] = true;
+
+    /** Event date inside this window? Truncated to the day per D-028. */
+    function inWindow(isoTimestamp) {
+      if (!isoTimestamp) return false;
+      var day = String(isoTimestamp).slice(0, 10);
+      return day >= window.start && day <= window.end;
+    }
+
+    /**
+     * The tasks this week is allowed to judge (D-078, correction 1): the frozen
+     * commitment, plus anything whose OUTCOME-PRODUCING EVENT landed inside the
+     * window.
+     *
+     * This used to sweep in every key of currentState, which meant every task
+     * that had ever been touched in the whole sprint. Combined with the
+     * membership-only tests below, a task discarded three weeks ago was
+     * re-counted as discarded this week, and every week after — so the discard
+     * rate §12 asks you to watch across a sprint inflated on its own.
+     */
     var considered = {};
-    if (commitment) for (i = 0; i < commitment.length; i++) considered[commitment[i]] = true;
-    addKeys(considered, currentState);
-    addKeys(considered, pins);
-    addKeys(considered, discardMap);
-    addKeys(considered, cancelMap);
+    addKeys(considered, committed);
+
+    for (var sId in currentState) {
+      if (!Object.prototype.hasOwnProperty.call(currentState, sId)) continue;
+      var scs = currentState[sId];
+      if (scs && scs.status === "done" && inWindow(scs.statusChangedAt)) considered[sId] = true;
+    }
+    for (var dId in discardMap) {
+      if (!Object.prototype.hasOwnProperty.call(discardMap, dId)) continue;
+      if (inWindow(discardMap[dId] && discardMap[dId].timestamp)) considered[dId] = true;
+    }
+    for (var cId in cancelMap) {
+      if (!Object.prototype.hasOwnProperty.call(cancelMap, cId)) continue;
+      if (inWindow(cancelMap[cId] && cancelMap[cId].timestamp)) considered[cId] = true;
+    }
+    for (var pId in pinEventMap) {
+      if (!Object.prototype.hasOwnProperty.call(pinEventMap, pId)) continue;
+      if (inWindow(pinEventMap[pId] && pinEventMap[pId].timestamp)) considered[pId] = true;
+    }
 
     for (var taskId in considered) {
       if (!Object.prototype.hasOwnProperty.call(considered, taskId)) continue;
@@ -431,19 +482,38 @@
     }
 
     /**
-     * One task → at most one outcome. Order matters: a task that was completed
-     * is completed even if it was also moved earlier in the week, and a closed
-     * task (discarded/cancelled) is reported as closed rather than as moved.
+     * One task → at most one outcome, with the FIXED priority D-078(b) locked:
+     * completed > discarded > cancelled > moved. Deliberately not ordered by
+     * timestamp, so the answer is stable and does not depend on the order
+     * events happened to arrive in.
+     *
+     * Each non-completed outcome additionally requires that its own event fell
+     * inside the window — UNLESS the task is in the frozen commitment, which
+     * is this week's commitment by definition and is therefore always judged
+     * (D-078, correction 1). `completed` keeps its own window test either way:
+     * §12 says "reached done within the window", so a committed task finished
+     * long ago is in the denominator without being in the numerator.
      */
     function classify(taskId) {
+      var isCommitted = committed[taskId] === true;
+
       var cs = currentState[taskId];
-      if (cs && cs.status === "done" && cs.statusChangedAt) {
-        var day = String(cs.statusChangedAt).slice(0, 10); // D-028
-        if (day >= window.start && day <= window.end) return "completed";
+      if (cs && cs.status === "done" && inWindow(cs.statusChangedAt)) return "completed";
+
+      var dis = discardMap[taskId];
+      if (dis && (isCommitted || inWindow(dis.timestamp))) return "discarded";
+
+      var can = cancelMap[taskId];
+      if (can && (isCommitted || inWindow(can.timestamp))) return "cancelled";
+
+      // A move is a decision taken THIS week. An old pin that happens to point
+      // at a far-off Monday is not a movement of this meeting, and counting it
+      // every week until it arrives is exactly the inflation this guards.
+      var pinEv = pinEventMap[taskId];
+      var pinValue = pinEv ? pinEv.value : pins[taskId];
+      if (pinValue && pinValue > window.mondayKey) {
+        if (isCommitted || (pinEv && inWindow(pinEv.timestamp))) return "moved";
       }
-      if (Object.prototype.hasOwnProperty.call(discardMap, taskId)) return "discarded";
-      if (Object.prototype.hasOwnProperty.call(cancelMap, taskId)) return "cancelled";
-      if (pins[taskId] && pins[taskId] > window.mondayKey) return "moved";
       return null;
     }
 

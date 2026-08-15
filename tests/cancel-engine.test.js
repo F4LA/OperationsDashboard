@@ -231,6 +231,48 @@ check("T3 is gone from the buckets once cancelled — inherited, not patched",
 check("the other tasks are still bucketed normally",
   bucketsContain(bucketsCancelled, "T2"), JSON.stringify(bucketsCancelled));
 
+/* ================= early-exit shape parity (D-078, correction 3) ============ */
+console.log("\n=== error returns carry the same shape as success returns ===\n");
+
+/* 2B reads .cancelledTasks.length off a liveMode result. Before this fix an
+   error result had no such field and the read threw, so the failure the user
+   saw was a TypeError rather than the engine's own error message. */
+var noSprint = OpsDashEngine.liveMode({ people: [], rocks: [] }, {}, TODAY);
+check("liveMode(no sprint.start) reports SPRINT_START_MISSING",
+  noSprint.ok === false && noSprint.errors[0].code === "SPRINT_START_MISSING",
+  JSON.stringify(noSprint.errors));
+check("...and still carries cancelledTasks, so .length is safe to read",
+  Array.isArray(noSprint.cancelledTasks) && noSprint.cancelledTasks.length === 0,
+  JSON.stringify(noSprint.cancelledTasks));
+check("...and stats.cancelled", noSprint.stats.cancelled === 0, JSON.stringify(noSprint.stats));
+
+var noToday = OpsDashEngine.liveMode(plan, currentState, null);
+check("liveMode(no todayISO) reports TODAY_MISSING",
+  noToday.ok === false && noToday.errors[0].code === "TODAY_MISSING",
+  JSON.stringify(noToday.errors));
+check("...and also carries cancelledTasks and stats.cancelled",
+  Array.isArray(noToday.cancelledTasks) && noToday.stats.cancelled === 0,
+  JSON.stringify({ c: noToday.cancelledTasks, s: noToday.stats }));
+
+/* Every key the success shape has for these two fields, the error shape has. */
+["cancelledTasks", "deferredTasks", "fixedTaskIds", "order", "tasks", "milestones", "rocks", "mode"]
+  .forEach(function (k) {
+    check("liveMode error shape has '" + k + "' like its success shape",
+      Object.prototype.hasOwnProperty.call(noToday, k), Object.keys(noToday).join(","));
+  });
+
+/* planMode's own asymmetry was `mode` and `stats.active`, NOT cancelledTasks —
+   planMode has no cancelledTasks on success either, because it never receives
+   a cancelled set by signature. */
+var planNoSprint = OpsDashEngine.planMode({ people: [], rocks: [] });
+check("planMode error return now carries mode, like its success return",
+  planNoSprint.mode === "plan", JSON.stringify(planNoSprint.mode));
+check("planMode error return now carries stats.active",
+  planNoSprint.stats.active === 0, JSON.stringify(planNoSprint.stats));
+check("planMode error return still has NO cancelledTasks — neither does its success return",
+  planNoSprint.cancelledTasks === undefined && planA.cancelledTasks === undefined,
+  JSON.stringify(planNoSprint.cancelledTasks));
+
 console.log("\n=== summary ===");
 console.log("  passed: " + passes);
 console.log("  failed: " + failures);

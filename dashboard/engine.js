@@ -315,11 +315,21 @@
     var i, j;
 
     if (!plan || !plan.sprint || !plan.sprint.start) {
+      // Shape parity with planMode's OWN success return (D-078, correction 3):
+      // that return carries `mode` and `stats.active`, which this one was
+      // missing. It deliberately does NOT gain cancelledTasks — planMode has
+      // no such field on success either, because it never receives a cancelled
+      // set by signature (D-076). Adding one here would invent an asymmetry
+      // rather than remove one.
+      //
+      // Invisible to the plan-mode fixture: this branch only fires when
+      // sprint.start is absent, and the fixture runs a real plan.
       return {
         ok: false,
         errors: [{ code: "SPRINT_START_MISSING", message: "sprint.start is required to run the engine." }],
+        mode: "plan",
         tasks: {}, milestones: {}, rocks: {}, order: [], deferredTasks: [],
-        stats: { scheduled: 0, deferred: 0 }
+        stats: { scheduled: 0, active: 0, deferred: 0 }
       };
     }
 
@@ -631,7 +641,8 @@
         ok: false,
         errors: [{ code: "SPRINT_START_MISSING", message: "sprint.start is required to run the engine." }],
         mode: "live", tasks: {}, milestones: {}, rocks: {}, order: [], fixedTaskIds: [],
-        deferredTasks: [], stats: { scheduled: 0, fixed: 0, deferred: 0 }
+        deferredTasks: [], cancelledTasks: [],
+        stats: { scheduled: 0, fixed: 0, deferred: 0, cancelled: 0 }
       };
     }
     if (!todayISO) {
@@ -639,7 +650,8 @@
         ok: false,
         errors: [{ code: "TODAY_MISSING", message: "liveMode requires an explicit todayISO parameter (never Date.now(), per D-027)." }],
         mode: "live", tasks: {}, milestones: {}, rocks: {}, order: [], fixedTaskIds: [],
-        deferredTasks: [], stats: { scheduled: 0, fixed: 0, deferred: 0 }
+        deferredTasks: [], cancelledTasks: [],
+        stats: { scheduled: 0, fixed: 0, deferred: 0, cancelled: 0 }
       };
     }
 

@@ -131,8 +131,18 @@ check("...while still counting the numerator, which is real either way",
 var emptyConfirmed = M.weeklyCompletion(base({ commitment: [] }));
 check("a week confirmed EMPTY has denominator 0, not null",
   emptyConfirmed.team.denominator === 0, JSON.stringify(emptyConfirmed.team));
-check("...and a real rate of 0, distinguishable from 'no rate'",
-  emptyConfirmed.team.rate === 0 && emptyConfirmed.team.rate !== null,
+
+/* EXPECTATION CHANGED by D-078 (correction 2). This previously asserted
+   `rate === 0 && rate !== null` — that a confirmed-empty week had a real rate
+   of zero. Dividing by zero is undefined, not zero, and showing 0% to someone
+   who completed work they picked up mid-week is the same lie as the silent
+   denominator D-070 exists to prevent. rate is now null here; `denominator`
+   remains the field that separates "unconfirmed" from "confirmed empty". */
+check("...and rate null, because a zero denominator makes the rate undefined",
+  emptyConfirmed.team.rate === null, JSON.stringify(emptyConfirmed.team));
+check("...while denominator 0 still distinguishes it from an unconfirmed week's null",
+  emptyConfirmed.team.denominator === 0 &&
+  M.weeklyCompletion(base({ commitment: null })).team.denominator === null,
   JSON.stringify(emptyConfirmed.team));
 
 /* §11.5: mid-week additions raise the numerator, never the denominator. */
@@ -191,6 +201,137 @@ var rockish = M.weeklyCompletion(base({
 check("a Rock task counts like any other (§12: they ARE the week's to-dos)",
   rockish.team.completed.indexOf("M2-t1") !== -1 && rockish.team.denominator === 2,
   JSON.stringify(rockish.team));
+
+/* ================= D-078 correction 1: every outcome is window-bounded ========= */
+console.log("\n=== the four outcomes are bounded to the window (D-078 c1) ===\n");
+
+var LAST_WEEK = { start: "2026-08-07", end: "2026-08-13", mondayKey: "2026-08-10" };
+
+/* One dataset, judged through TWO windows. The events are identical; only the
+   window moves. This is the defect the correction fixes: before it, the stale
+   outcomes below were re-counted every single week, for ever. */
+var stale = {
+  people: PEOPLE, taskOwners: TASK_OWNERS,
+  currentState: {
+    A1: { status: "done", statusChangedAt: "2026-08-10T10:00:00Z" }   // done LAST week
+  },
+  pins:      { A2: "2026-09-14" },                                     // pinned LAST week
+  pinEvents: { A2: { value: "2026-09-14", actor: "Ana", timestamp: "2026-08-10T11:00:00Z" } },
+  discards:  { A3: { note: "old", actor: "Ana", timestamp: "2026-08-10T12:00:00Z" } },
+  cancels:   { A4: { note: "old", actor: "Ana", timestamp: "2026-08-10T12:00:00Z" } },
+  commitment: []
+};
+
+function judge(win, over) {
+  var o = { window: win };
+  for (var k in stale) o[k] = stale[k];
+  for (var k2 in (over || {})) o[k2] = over[k2];
+  return M.weeklyCompletion(o);
+}
+
+var thisWeekStale = judge(WINDOW);
+check("a task DISCARDED last week is not counted as discarded this week",
+  thisWeekStale.team.discardedCount === 0, JSON.stringify(thisWeekStale.team.discarded));
+check("a task CANCELLED last week is not counted as cancelled this week",
+  thisWeekStale.team.cancelledCount === 0, JSON.stringify(thisWeekStale.team.cancelled));
+check("a task PINNED forward last week is not counted as moved this week",
+  thisWeekStale.team.movedCount === 0, JSON.stringify(thisWeekStale.team.moved));
+check("a task COMPLETED last week is not counted as completed this week",
+  thisWeekStale.team.completedCount === 0, JSON.stringify(thisWeekStale.team.completed));
+
+/* Same data, its own week: everything must be counted there. */
+var ownWeek = judge(LAST_WEEK);
+check("the SAME discard is counted in its own week", ownWeek.team.discarded.indexOf("A3") !== -1,
+  JSON.stringify(ownWeek.team.discarded));
+check("the SAME cancel is counted in its own week", ownWeek.team.cancelled.indexOf("A4") !== -1,
+  JSON.stringify(ownWeek.team.cancelled));
+check("the SAME pin is counted as moved in its own week", ownWeek.team.moved.indexOf("A2") !== -1,
+  JSON.stringify(ownWeek.team.moved));
+check("the SAME completion is counted in its own week",
+  ownWeek.team.completed.indexOf("A1") !== -1, JSON.stringify(ownWeek.team.completed));
+
+/* A committed task is judged even when its event fell outside the window —
+   the commitment IS this week's commitment by definition. */
+var committedStale = judge(WINDOW, { commitment: ["A3", "A4", "A2"] });
+check("a COMMITTED task discarded outside the window is still judged",
+  committedStale.team.discarded.indexOf("A3") !== -1,
+  JSON.stringify(committedStale.team.discarded));
+check("a COMMITTED task cancelled outside the window is still judged",
+  committedStale.team.cancelled.indexOf("A4") !== -1,
+  JSON.stringify(committedStale.team.cancelled));
+check("a COMMITTED task pinned forward outside the window is still judged as moved",
+  committedStale.team.moved.indexOf("A2") !== -1, JSON.stringify(committedStale.team.moved));
+
+/* An in-window event on an uncommitted task still counts (§11.5 / D-078c). */
+var freshDiscard = M.weeklyCompletion(base({
+  commitment: [],
+  discards: { A9: { note: "born and binned this week", actor: "Ana", timestamp: "2026-08-16T10:00:00Z" } },
+  taskOwners: { A9: ["Ana"] }
+}));
+check("a task born AND discarded inside the window counts as discarded (§12 noise signal)",
+  freshDiscard.team.discarded.indexOf("A9") !== -1, JSON.stringify(freshDiscard.team.discarded));
+
+/* Without pinEvents, a pin can only be judged via the commitment — asserted so
+   the optional-argument behaviour is pinned down rather than incidental. */
+var noPinEvents = M.weeklyCompletion(base({
+  commitment: [], pins: { A2: "2026-09-14" }
+}));
+check("with no pinEvents supplied, an uncommitted pin is not counted as moved",
+  noPinEvents.team.movedCount === 0, JSON.stringify(noPinEvents.team.moved));
+
+var noPinEventsCommitted = M.weeklyCompletion(base({
+  commitment: ["A2"], pins: { A2: "2026-09-14" }
+}));
+check("...but a COMMITTED one still is, with no timestamp needed",
+  noPinEventsCommitted.team.moved.indexOf("A2") !== -1,
+  JSON.stringify(noPinEventsCommitted.team.moved));
+
+/* The stale-history sweep is gone: currentState no longer drags in every task
+   that was ever touched. */
+var bigHistory = M.weeklyCompletion(base({
+  commitment: [],
+  currentState: {
+    H1: { status: "done", statusChangedAt: "2026-06-01T10:00:00Z" },
+    H2: { status: "in_progress", statusChangedAt: "2026-07-01T10:00:00Z" },
+    H3: { status: "open", statusChangedAt: "2026-07-15T10:00:00Z" }
+  },
+  taskOwners: { H1: ["Ana"], H2: ["Ana"], H3: ["Ana"] }
+}));
+check("months of unrelated status history produce no outcomes for this week",
+  bigHistory.team.completedCount === 0 && bigHistory.team.movedCount === 0 &&
+  bigHistory.team.discardedCount === 0 && bigHistory.team.cancelledCount === 0,
+  JSON.stringify(bigHistory.team));
+
+/* ================= D-078 correction 2: rate with an empty denominator ========= */
+console.log("\n=== an empty frozen denominator gives rate null, not 0 (D-078 c2) ===\n");
+
+var emptyDen = M.weeklyCompletion(base({
+  commitment: [],
+  currentState: {
+    A1: { status: "done", statusChangedAt: "2026-08-15T10:00:00Z" },
+    A2: { status: "done", statusChangedAt: "2026-08-16T10:00:00Z" },
+    A3: { status: "done", statusChangedAt: "2026-08-17T10:00:00Z" }
+  }
+}));
+check("three mid-week completions are all counted", emptyDen.team.completedCount === 3,
+  JSON.stringify(emptyDen.team.completed));
+check("denominator is 0 (the week WAS confirmed, with nothing in it)",
+  emptyDen.team.denominator === 0, emptyDen.team.denominator);
+check("rate is null — dividing by zero is undefined, not 0%",
+  emptyDen.team.rate === null, JSON.stringify(emptyDen.team.rate));
+check("nothing is clamped: the completions stand", emptyDen.team.completedCount === 3);
+
+/* Both nulls must remain distinguishable — 2B renders them differently. */
+var neverConfirmed = M.weeklyCompletion(base({ commitment: null }));
+check("an unconfirmed week also has rate null", neverConfirmed.team.rate === null);
+check("but denominator still tells the two apart: null vs 0",
+  neverConfirmed.team.denominator === null && emptyDen.team.denominator === 0,
+  JSON.stringify({ unconfirmed: neverConfirmed.team.denominator, empty: emptyDen.team.denominator }));
+
+check("a person with an empty personal denominator also gets rate null",
+  M.weeklyCompletion(base({ commitment: ["B1"] })).byPerson.Ana.rate === null &&
+  M.weeklyCompletion(base({ commitment: ["B1"] })).byPerson.Ana.denominator === 0,
+  JSON.stringify(M.weeklyCompletion(base({ commitment: ["B1"] })).byPerson.Ana));
 
 /* ================= §5.1: cancelled work-days (D-068d) ================= */
 console.log("\n=== progress(): cancelled work-days leave the denominator ===\n");

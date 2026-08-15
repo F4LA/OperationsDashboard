@@ -27,9 +27,13 @@
  *   OpsDashEvents.toCurrentState(input) → the D-027 map, exactly two keys per task
  *   OpsDashEvents.deliverables(input)   → { taskId: url }
  *   OpsDashEvents.pins(input)           → { taskId: isoMonday }
+ *   OpsDashEvents.pinEvents(input)      → { taskId: {value, actor, timestamp} }  (D-078)
  *   OpsDashEvents.discards(input)       → { taskId: {note, actor, timestamp} }  (D-067)
  *   OpsDashEvents.cancels(input)        → { taskId: {note, actor, timestamp} }  (D-068)
  *   OpsDashEvents.weekCommitment(input, mondayKey) → string[] | null            (D-070)
+ *   OpsDashEvents.fetchEvents()         → Promise<events[]> (full Events tab, Sheets API v4)
+ *   OpsDashEvents.postEvent(action, taskId, value, actor, note) → Promise<{ok, ...}>
+ *   OpsDashEvents.verifyEvent({taskId, action, value, actor})  → Promise<{ok, ...}>
  *
  * The v2 projections (discards, cancels, weekCommitment) add NO fold
  * machinery: the generic fold already indexes by (Task ID, Action) and keeps
@@ -40,9 +44,12 @@
  * discard, not two. None of this changes the currentState shape D-027 fixed,
  * which engine.js consumes and the Phase 2 fixture pins down; they are
  * separate maps alongside it.
- *   OpsDashEvents.fetchEvents()         → Promise<events[]> (full Events tab, Sheets API v4)
- *   OpsDashEvents.postEvent(action, taskId, value, actor, note) → Promise<{ok, ...}>
- *   OpsDashEvents.verifyEvent({taskId, action, value, actor})  → Promise<{ok, ...}>
+ *
+ * pinEvents() (D-078) is pins() plus the event's actor and timestamp. §12 has
+ * to tell a pin made THIS week from an older one that merely points forward,
+ * and only the timestamp separates them. pins() keeps its historical
+ * {taskId: isoMonday} shape and is projected from pinEvents, so the
+ * pin/unpin resolution exists once.
  *
  * postEvent / verifyEvent — Phase 4 write path (§3 "Write path", D-046, D-047)
  *
@@ -386,11 +393,20 @@
   }
 
   /**
-   * Current pin per task (§3, §6.3). pin sets the ISO Monday; unpin clears it.
-   * Because pin and unpin are separate actions, the fold keeps the latest of
-   * EACH — so the winner is whichever of the two happened most recently.
+   * Current pin per task WITH the pin event's own metadata (§3, §6.3).
+   *
+   * Added in the D-078 correction pass because §12 has to tell a pin made
+   * THIS week (a real move, decided in this meeting) from an old pin that
+   * merely happens to point at a future week — and only the timestamp can
+   * separate them.
+   *
+   * pins() below is defined in terms of this and keeps its historical
+   * {taskId: isoMonday} shape exactly, because board.js compares that value
+   * against a Monday string in five places. One fold, two views of it.
+   *
+   * @returns { taskId: {value, actor, timestamp} }
    */
-  function pins(input) {
+  function pinEvents(input) {
     var folded = input && input.byTask ? input : fold(input);
     var out = {};
 
@@ -411,9 +427,36 @@
         if (unpinWins) continue;
       }
 
-      if (trimStr(pinEv.value)) out[taskId] = trimStr(pinEv.value);
+      // The value check is part of the historical contract: a pin carrying a
+      // blank Monday is not a pin.
+      if (trimStr(pinEv.value)) {
+        out[taskId] = {
+          value: trimStr(pinEv.value),
+          actor: trimStr(pinEv.actor),
+          timestamp: canonicalIso(pinEv.timestamp)
+        };
+      }
     }
 
+    return out;
+  }
+
+  /**
+   * Current pin per task (§3, §6.3). pin sets the ISO Monday; unpin clears it.
+   * Because pin and unpin are separate actions, the fold keeps the latest of
+   * EACH — so the winner is whichever of the two happened most recently.
+   *
+   * Shape is UNCHANGED ({taskId: isoMonday}); it is now projected from
+   * pinEvents() so there is one implementation of the pin/unpin resolution
+   * rather than two that could drift.
+   */
+  function pins(input) {
+    var events = pinEvents(input);
+    var out = {};
+    for (var taskId in events) {
+      if (!Object.prototype.hasOwnProperty.call(events, taskId)) continue;
+      out[taskId] = events[taskId].value;
+    }
     return out;
   }
 
@@ -711,6 +754,7 @@
     toCurrentState: toCurrentState,
     deliverables: deliverables,
     pins: pins,
+    pinEvents: pinEvents,
     discards: discards,
     cancels: cancels,
     weekCommitment: weekCommitment,
