@@ -1,6 +1,6 @@
 # Project Brain — Operations Dashboard
 The current state in one page. Updated at the close of every chat via the push Code session.
-_Last updated: 2026-08-14 — Bernardo (D-078: cierra los vacíos del §12 y tres correcciones de la 2A)_
+_Last updated: 2026-08-14 — Bernardo (D-079: cierra la 2A; lista para la 2B)_
 
 > **Source of truth for WHAT to build** is the spec: `docs/spec.md` (v2.0.1).
 > **Source of truth for WHY** is `docs/decision-log.md`.
@@ -9,7 +9,7 @@ _Last updated: 2026-08-14 — Bernardo (D-078: cierra los vacíos del §12 y tre
 > Live: https://f4la.github.io/OperationsDashboard/ (Sprint Board + métricas, desde Fase 5 — commit 06b568d)
 
 ## Current phase
-Fase 8 parte 1 (backend) CERRADA y desplegada. createTask, discard/undiscard, cancel/uncancel y confirmWeek en producción en el Web App (Version 2, misma URL). Pestaña Tasks creada con el esquema de D-066. Próximo: parte 2, partida por D-076 en 2A (lógica: events.js, engine.js, thisweek.js, metrics.js) y 2B (vista: todos.js, retiro de renderTw*, bump de versión). Parte 2A construida y pusheada en c025459 (regresión 478 verde; 60/60 plan y 17/17 live sin cambios; scope verificado byte a byte contra e84f718). Pendiente un pase corto de correcciones por D-078 antes de abrir la 2B.
+Fase 8 parte 1 (backend) CERRADA y desplegada. createTask, discard/undiscard, cancel/uncancel y confirmWeek en producción en el Web App (Version 2, misma URL). Pestaña Tasks creada con el esquema de D-066. Próximo: parte 2, partida por D-076 en 2A (lógica: events.js, engine.js, thisweek.js, metrics.js) y 2B (vista: todos.js, retiro de renderTw*, bump de versión). Parte 2A construida y pusheada en c025459 (regresión 478 verde; 60/60 plan y 17/17 live sin cambios; scope verificado byte a byte contra e84f718). Pase de correcciones de D-078 hecho y verificado en 626557e (regresión 525 verde; 60/60 y 17/17 sin cambios; board.js, app.js e index.html byte a byte idénticos a e84f718; versión sin subir en 20260814b). Queda un solo cambio de una línea por D-079 y la 2A cierra.
 
 ## Status
 Fase 5 completa: la burn-up planned-vs-actual existe en dos scopes y la reproyección viva de §4.7 ahora se ve en pantalla en cada marca (antes se recalculaba en memoria pero solo se repintaba la fila marcada). Regresión 181/181. El tracking real arrancó el 2026-08-14 por backfill (D-058): las tareas completadas desde el 27 de julio se cargan con fecha de hoy, así que la curva "actual" tiene un salto vertical ese día por diseño, no por defecto.
@@ -65,7 +65,7 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 - Nada activo en código.
 
 ## Next up (per spec §9)
-- Fase 8 parte 2A (lógica): proyecciones de discard/cancel/confirmWeek en events.js — hoy NO existen, solo setStatus/setDeliverable/pins —, cancel por el camino de collectActive en liveMode, opsWeek con offset, contrato nuevo de availableToPull, matemática del §12.
+- Fase 8 parte 2A: CERRADA salvo el if de una línea de D-079 (isCommitted en la rama completed de classify).
 - Fase 8 parte 2B (vista): todos.js, retiro de los renderTw* de board.js, wiring en app.js, bump de versión (D-057).
 - Carga de los 3 Rocks faltantes.
 - Fase 6 diferida.
@@ -75,6 +75,7 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 - Los 3 Rocks faltantes del sprint no están cargados en el plan JSON. Hasta que estén, la Fase 6 sigue diferida per D-059 y el dashboard solo refleja R3.
 - Vigilar en 2A la regresión del motor (60/60 plan, 17/17 live): es la primera modificación a engine.js desde la Fase 2 (D-068c). El set de canceladas entra por collectActive y se pasa solo desde liveMode, así que plan mode debe quedar idéntico.
 - REDESPLIEGUE MANUAL DEL WEB APP pendiente: la Tarea 0 de la 2A cambió backend/Code.gs (D-075) y el despliegue vivo sigue en Version 2, que ya no coincide con el repo. Hasta redesplegar, una razón de más de 5000 caracteres llega a la celda sin rechazo nombrado y el smoke real no refleja el cambio. Lo hace Bernardo a mano en el editor de Apps Script.
+- La 2B DEBE pasarle pinEvents a weeklyCompletion. Sin ese parámetro opcional, un pin fuera del commitment no puede juzgarse como movimiento y los movimientos se subcuentan en silencio. pins() quedó con su shape intacto y ahora se reproyecta desde pinEvents(), que es la que trae el timestamp.
 
 ## Deferred (not being actively worked)
 - Vista 4 (auto-update from Rock Projects) — D-014.
