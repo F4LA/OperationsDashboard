@@ -301,6 +301,20 @@ async function verifyRow(expect) {
 /**
  * Confirms a REJECTED write left no trace in the log.
  *
+ * THE ID PASSED HERE MUST BE UNIQUE PER RUN. This function detects EXISTENCE,
+ * not NOVELTY: it scans the tail of Events for any row carrying that Task ID,
+ * with no notion of "before this call". Hand it a real task id — a plan id
+ * like M2-t1, or a T-NNNN the createTask happy paths just created — and it
+ * reports a failure against rows written weeks ago by an earlier phase, even
+ * though the rejection under test worked perfectly. Use nextTaskId(), which
+ * returns SMOKE-<millis>-<n> and is outside every namespace the server
+ * enforces.
+ *
+ * Where a test genuinely needs a namespaced id (discard/undiscard need a real
+ * T-NNNN shape, confirmWeek needs WEEK-<ISO Monday>), uniqueness per run is
+ * impossible by construction — those cases must NOT be given an opts.taskId,
+ * and so deliberately skip this check.
+ *
  * A read that fails is INCONCLUSIVE, never clean. Reporting an unreadable sheet
  * as "nothing was written" would turn every one of these into a check that
  * passes precisely when it can no longer see anything — the exact shape of a
@@ -842,33 +856,46 @@ async function main() {
   /* ---------------- v2 rejections: namespace rules (D-067, D-068) ---------------- */
   console.log("\n--- v2 rejections: discard / cancel namespace rules ---\n");
 
+  /* A generated SMOKE-<millis>-<n> id is outside the T-NNNN namespace, so it
+     exercises DISCARD_NOT_ADHOC exactly like a real plan id would — and unlike
+     a real plan id it is unique per run, which is what assertNoRow requires
+     (see its comment). */
+  t = nextTaskId();
   await rejection("discard on a PLAN task id (D-067 namespace rule)",
-    { action: "discard", taskId: "M2-t1", value: "", actor: ACTOR, note: "should be refused" },
-    "DISCARD_NOT_ADHOC", { taskId: "M2-t1" });
+    { action: "discard", taskId: t, value: "", actor: ACTOR, note: "should be refused" },
+    "DISCARD_NOT_ADHOC", { taskId: t });
 
+  t = nextTaskId();
   await rejection("undiscard on a plan task id",
-    { action: "undiscard", taskId: "M2-t1", value: "", actor: ACTOR },
-    "DISCARD_NOT_ADHOC");
+    { action: "undiscard", taskId: t, value: "", actor: ACTOR },
+    "DISCARD_NOT_ADHOC", { taskId: t });
+
+  /* These need an id INSIDE the T-NNNN namespace to exercise the rule at all,
+     so they cannot be made unique per run — the namespace is exactly 4 digits.
+     T-9999 is used as a sentinel rather than T-0001 (which is the first id
+     createTask actually assigns, and which this file's own happy paths create
+     for real). None of them passes an opts.taskId: they must skip assertNoRow,
+     for the reason documented on that function. */
+  var ADHOC_SENTINEL = "T-9999";
 
   await rejection("discard with no reason (D-067: the note is mandatory)",
-    { action: "discard", taskId: "T-0001", value: "", actor: ACTOR },
+    { action: "discard", taskId: ADHOC_SENTINEL, value: "", actor: ACTOR },
     "MISSING_DISCARD_REASON");
 
   await rejection("discard with a whitespace-only reason",
-    { action: "discard", taskId: "T-0001", value: "", actor: ACTOR, note: "   " },
+    { action: "discard", taskId: ADHOC_SENTINEL, value: "", actor: ACTOR, note: "   " },
     "MISSING_DISCARD_REASON");
 
   await rejection("discard carrying a value",
-    { action: "discard", taskId: "T-0001", value: "x", actor: ACTOR, note: "reason" },
+    { action: "discard", taskId: ADHOC_SENTINEL, value: "x", actor: ACTOR, note: "reason" },
     "BAD_VALUE_DISCARD");
 
-  t = nextTaskId();
   await rejection("cancel on an AD-HOC id (D-068, the mirror rule)",
-    { action: "cancel", taskId: "T-0001", value: "", actor: ACTOR, note: "should be refused" },
+    { action: "cancel", taskId: ADHOC_SENTINEL, value: "", actor: ACTOR, note: "should be refused" },
     "CANCEL_NOT_PLAN_TASK");
 
   await rejection("uncancel on an ad-hoc id",
-    { action: "uncancel", taskId: "T-0001", value: "", actor: ACTOR },
+    { action: "uncancel", taskId: ADHOC_SENTINEL, value: "", actor: ACTOR },
     "CANCEL_NOT_PLAN_TASK");
 
   t = nextTaskId();
@@ -896,8 +923,15 @@ async function main() {
   /* ---------------- v2 rejections: confirmWeek (D-070) ---------------- */
   console.log("\n--- v2 rejections: confirmWeek ---\n");
 
+  /* A WEEK- id is constrained to WEEK-<ISO Monday>, so it cannot be unique per
+     run either. These use a Monday the happy path never confirms, so they can
+     never collide with the real row it writes; like the ad-hoc sentinel above,
+     none of them passes an opts.taskId. */
+  var REJECT_WEEK = "2026-09-07";      // a Monday, deliberately not the happy path's
+  var REJECT_WEEK_ID = "WEEK-" + REJECT_WEEK;
+
   await rejection("confirmWeek whose Task ID date does not match its Value",
-    { action: "confirmWeek", taskId: "WEEK-2026-08-17", value: "2026-08-24",
+    { action: "confirmWeek", taskId: REJECT_WEEK_ID, value: "2026-08-24",
       actor: ACTOR, note: "[]" },
     "BAD_VALUE_CONFIRM_WEEK");
 
@@ -907,26 +941,26 @@ async function main() {
     "BAD_VALUE_CONFIRM_WEEK");
 
   await rejection("confirmWeek with a Task ID missing the WEEK- prefix",
-    { action: "confirmWeek", taskId: "2026-08-17", value: "2026-08-17",
+    { action: "confirmWeek", taskId: REJECT_WEEK, value: REJECT_WEEK,
       actor: ACTOR, note: "[]" },
     "BAD_VALUE_CONFIRM_WEEK");
 
   await rejection("confirmWeek with NO Note (never read as an empty denominator)",
-    { action: "confirmWeek", taskId: "WEEK-2026-08-17", value: "2026-08-17", actor: ACTOR },
+    { action: "confirmWeek", taskId: REJECT_WEEK_ID, value: REJECT_WEEK, actor: ACTOR },
     "BAD_VALUE_CONFIRM_WEEK");
 
   await rejection("confirmWeek whose Note is not JSON",
-    { action: "confirmWeek", taskId: "WEEK-2026-08-17", value: "2026-08-17",
+    { action: "confirmWeek", taskId: REJECT_WEEK_ID, value: REJECT_WEEK,
       actor: ACTOR, note: "M2-t1, M2-t2" },
     "BAD_VALUE_CONFIRM_WEEK");
 
   await rejection("confirmWeek whose Note is a JSON object, not an array",
-    { action: "confirmWeek", taskId: "WEEK-2026-08-17", value: "2026-08-17",
+    { action: "confirmWeek", taskId: REJECT_WEEK_ID, value: REJECT_WEEK,
       actor: ACTOR, note: '{"ids":[]}' },
     "BAD_VALUE_CONFIRM_WEEK");
 
   await rejection("confirmWeek whose Note array holds a non-string",
-    { action: "confirmWeek", taskId: "WEEK-2026-08-17", value: "2026-08-17",
+    { action: "confirmWeek", taskId: REJECT_WEEK_ID, value: REJECT_WEEK,
       actor: ACTOR, note: '["M2-t1", 42]' },
     "BAD_VALUE_CONFIRM_WEEK");
 
@@ -934,7 +968,7 @@ async function main() {
     return "M" + i + "-t1";
   }));
   await rejection("confirmWeek with an over-long Note (rejected, NEVER truncated — D-070)",
-    { action: "confirmWeek", taskId: "WEEK-2026-08-17", value: "2026-08-17",
+    { action: "confirmWeek", taskId: REJECT_WEEK_ID, value: REJECT_WEEK,
       actor: ACTOR, note: overLongNote },
     "NOTE_TOO_LONG");
 
