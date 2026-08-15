@@ -1,6 +1,6 @@
 # Project Brain — Operations Dashboard
 The current state in one page. Updated at the close of every chat via the push Code session.
-_Last updated: 2026-08-14 — Bernardo (Fase 8 parte 1 cerrada: backend en producción, smoke 155/0)_
+_Last updated: 2026-08-14 — Bernardo (D-075: tope de Note cerrado; Fase 8 parte 2 sin arrancar)_
 
 > **Source of truth for WHAT to build** is the spec: `docs/spec.md` (v2.0.1).
 > **Source of truth for WHY** is `docs/decision-log.md`.
@@ -91,7 +91,7 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 - D-063(e) queda superseded por D-071(b): availableToPull ahora debe devolver también las tareas bloqueadas, marcadas y nombrando su bloqueador.
 - D-068(f) (no cancelación masiva de milestone/proyecto) es revisable si pasa dos veces en un sprint real.
 - D-068(c) es la primera modificación a engine.js desde la Fase 2. Vigilar con especial atención la regresión del motor (60/60 plan, 17/17 live) cuando se implemente.
-- Tope de Note para discard/cancel (D-072): sin límite propio hoy, contra una celda de Sheets que corta a 50.000 caracteres. Se resuelve en la parte 2 (frontend), que va a limitar el input de todas formas.
+- Tope de Note: RESUELTO por D-075 — MAX_NOTE_LEN = 5000 aplica a todo Note, un solo número consumido por servidor y frontend. Cierra el punto que D-072 había dejado abierto.
 
 ## Key dates
 - No hard external deadline on the dashboard itself. Target: Views 1–3 usable in the first build week; This Week + pin + link layer (Fase 7) shipped before Gantt/Timeline (Fase 6, diferida por D-059). (Sprint being tracked, for reference: S3-2026, ends 2026-09-13.)
