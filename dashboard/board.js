@@ -297,6 +297,49 @@
     );
   }
 
+  /**
+   * D-087 (§5.3): a milestone's hard `deadline` compared against its CURRENT
+   * live projection — independent of the on-track chip and the burn-up,
+   * which measure advance against the frozen plan (D-087d, D-053). Returns
+   * "" when there is no deadline, no scheduled finish (deferred, or a
+   * deadlock elsewhere), or the projection still lands on/before it — a
+   * milestone that will make its deadline shows nothing, per D-087(c)/the
+   * build brief: only the problem is visible.
+   */
+  function deadlineChipHtml(milestoneId) {
+    var live = state.liveResult.milestones[milestoneId];
+    if (!live || !live.deadline || !live.plannedFinish) return "";
+
+    var parseISO = root.OpsDashEngine._internals.parseISO;
+    var deadlineMs = parseISO(live.deadline);
+    var finishMs = parseISO(live.plannedFinish);
+    if (finishMs <= deadlineMs) return "";
+
+    // Calendar days, per the build brief — not working days.
+    var days = Math.round((finishMs - deadlineMs) / 86400000);
+    var unit = days === 1 ? " day" : " days";
+    var title = "Deadline " + live.deadline + "; projected to finish " + live.plannedFinish +
+      " — " + days + unit + " late.";
+    return '<span class="deadline-chip" title="' + escapeAttr(title) + '">' +
+      days + unit + " past deadline</span>";
+  }
+
+  /** The Rock header's own "delator" (D-087c): true the moment ANY milestone
+   *  in the Rock is past its deadline, so it is visible without expanding.
+   *  Reuses deadlineChipHtml's own miss test rather than recomputing the
+   *  date diff a second time. */
+  function rockHasMissedDeadline(rockId) {
+    var rock = index_findRock(rockId);
+    if (!rock) return false;
+    for (var pi = 0; pi < rock.projects.length; pi++) {
+      var milestones = rock.projects[pi].milestones || [];
+      for (var mi = 0; mi < milestones.length; mi++) {
+        if (deadlineChipHtml(milestones[mi].id) !== "") return true;
+      }
+    }
+    return false;
+  }
+
   function onTrackLabel(color) {
     if (color === "green") return "On track";
     if (color === "amber") return "Slightly behind";
@@ -434,6 +477,12 @@
       ? '<span class="cuttable-badge" title="Informational only — cutting means regenerating the JSON without this Rock/Project (§7)">CUTTABLE</span>'
       : "";
 
+    // D-087(c): surfaced at the Rock header so a missed deadline is visible
+    // without expanding — which milestone it is shows once you do.
+    var deadlineMissedBadge = rockHasMissedDeadline(rockId)
+      ? '<span class="deadline-chip" title="At least one milestone in this Rock is past its deadline — expand to see which.">⚠ Deadline missed</span>'
+      : "";
+
     var rockIds = getRockIndex().rockTaskIds[rockId] || [];
     var series = computeBurnup(rockIds);
 
@@ -441,6 +490,7 @@
       '<div class="rock-title">' +
         "<h2>" + escapeHtml(rock.id) + " · " + escapeHtml(rock.name) + "</h2>" +
         cuttableBadge +
+        deadlineMissedBadge +
       "</div>" +
       '<div class="rock-metrics">' +
         '<div class="progress-bar-wrap">' +
@@ -613,6 +663,10 @@
     if (!deferred && live && live.plannedFinish) {
       finishHtml = '<span class="milestone-finish">→ ' + escapeHtml(live.plannedFinish) + "</span>";
       if (live.red) finishHtml += " " + overshootFlagHtml(live.plannedFinish, state.plan.sprint.end);
+      // Independent of live.red on purpose (D-087d): sprint-end overshoot and
+      // a missed external deadline are two different facts and can disagree
+      // in either direction.
+      finishHtml += deadlineChipHtml(milestoneId);
     }
     return (
       '<span class="milestone-name">' + escapeHtml(milestoneId) + " · " + escapeHtml(milestone.name) + "</span>" +

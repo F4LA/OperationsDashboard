@@ -618,6 +618,24 @@ main#main {
   border-radius: 4px;
   padding: 1px 5px;
 }
+
+/* ---------- Missed hard deadline (§5.3, D-087) ----------
+   Same tokens as .clamped-flag, same 5.87:1 contrast already verified for
+   --red on white/surface — a distinct class because this is a different
+   fact (an external constraint, not a status), never the on-track chip or
+   the progress bar, and never touched by anything that recomputes those. */
+.deadline-chip {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--red);
+  border: 1px solid var(--red);
+  border-radius: 4px;
+  padding: 1px 6px;
+  white-space: nowrap;
+  cursor: help;
+}
 .deferred-badge {
   font-size: 10px;
   font-weight: 700;

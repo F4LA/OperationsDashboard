@@ -596,7 +596,13 @@
         taskIds: memberIds.slice(),
         scheduledTaskIds: scheduledMembers,
         plannedFinish: maxFinishMs === null ? null : formatISO(maxFinishMs),
-        red: maxFinishMs !== null && sprintEndMs !== null && maxFinishMs > sprintEndMs
+        red: maxFinishMs !== null && sprintEndMs !== null && maxFinishMs > sprintEndMs,
+        // D-087: PASSIVE structural data, copied straight from the plan JSON.
+        // Never read by any comparator, never a factor in ordering ready
+        // tasks (§4.4) or resource assignment (§4.3) — this is the one line
+        // that lets it reach the view (§5.3) without scheduling ever seeing
+        // it. null when the milestone carries no deadline (the common case).
+        deadline: milestone.deadline !== undefined ? milestone.deadline : null
       };
     }
 

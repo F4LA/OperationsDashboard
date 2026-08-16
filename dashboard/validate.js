@@ -470,6 +470,28 @@
               "milestone.id is required, got " + describe(milestone.id) + ".");
           }
 
+          /* deadline is OPTIONAL on a milestone (§2, D-087): a hard external
+             constraint (a launch, a client commitment), never an estimate,
+             and never an input to the engine (D-087b) — §5.3 only compares it
+             against the computed finish for display. Same isIsoDate() used
+             for sprint.start/end/task.hardDeadline, so the severity matches
+             theirs exactly rather than a looser ad-hoc check. Named distinctly
+             from task-level hardDeadline (§4.4's priority tiebreak) — the two
+             fields look similar but do opposite things, so their codes must
+             never collide. */
+          if (milestone.deadline !== undefined) {
+            if (!isIsoDate(milestone.deadline)) {
+              addError(report, "BAD_MILESTONE_DEADLINE", milestone.id, milestonePath + ".deadline",
+                "deadline on milestone " + milestone.id + " must be an ISO date (YYYY-MM-DD), got " +
+                describe(milestone.deadline) + ".");
+            } else if (isPlainObject(sprint) && isIsoDate(sprint.start) && isIsoDate(sprint.end) &&
+              (milestone.deadline < sprint.start || milestone.deadline > sprint.end)) {
+              addWarning(report, "MILESTONE_DEADLINE_OUTSIDE_SPRINT", milestone.id, milestonePath + ".deadline",
+                "deadline on milestone " + milestone.id + " (" + milestone.deadline + ") falls outside " +
+                "the sprint window (" + sprint.start + " to " + sprint.end + "). Unusual but legitimate (§7).");
+            }
+          }
+
           var tasks = Array.isArray(milestone.tasks) ? milestone.tasks : [];
           if (!tasks.length) {
             addWarning(report, "MILESTONE_EMPTY", milestone.id, milestonePath + ".tasks",
