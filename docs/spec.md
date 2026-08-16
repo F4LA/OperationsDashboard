@@ -1,8 +1,10 @@
-# Operations Dashboard — Engineering Specification v2.0
+# Operations Dashboard — Engineering Specification v2.0.2
 
 > **v2.0 (2026-08-14)** — El producto se reencuadra: deja de ser un dashboard de Rocks y pasa a ser el dashboard de operaciones del leadership team, la herramienta con la que se corre el L10. El motor de Rocks (§2, §4, §5) queda intacto y pasa a ser un módulo. Se agregan: tareas ad-hoc y la vista de to-dos (§11), cierre semanal (§12) e issues (§13, por especificar). Las secciones §2, §4 y §5 NO cambiaron respecto de v1.1 — están construidas, probadas y referenciadas por el decision log. La numeración existente se conserva entera a propósito: el decision log referencia secciones por número 78 veces.
 
 > **v2.0.1 (2026-08-14)** — Enmiendas del diseño de la Fase 8, antes de construir: cancelación de tareas de Rock (§11.4, D-068), contrato de createTask (§3, D-066), eventos discard/cancel/confirmWeek y sus reversas (§3, D-067/D-068/D-069/D-070), y tratamiento de lo cancelado en métricas (§5.1, §5.2, §12). La numeración de secciones no cambia.
+
+> **v2.0.2 (2026-08-16)** — Un milestone acepta un `deadline` opcional (§2, §7), la restricción impuesta desde fuera, con su regla de despliegue en §5.3 y §6. D-087. La numeración de secciones no cambia.
 
 **Company:** Strong Standard
 **Author of spec:** design chat (Operating System project)
@@ -184,6 +186,9 @@ This is the file Bernardo (or, later, the Project Builder — see §8) produces 
               "id":        "M2",
               "name":      "Baselines locked + refund target % set",
               "dependsOn": ["M1"],
+              "deadline":  "2026-09-05",     // OPTIONAL — hard deadline imposed from outside
+                                             // (a launch, a client commitment). NEVER an estimate.
+                                             // The engine ignores it; §5.3 compares against it.
               "tasks": [
                 { "id": "M2-t1", "desc": "Pull satisfaction data → overwhelm baseline",
                   "owner": "Brent",    "type": "work", "workDays": 1, "waitDays": 0,
@@ -217,6 +222,8 @@ This is the file Bernardo (or, later, the Project Builder — see §8) produces 
 - `workDays` ≥ 0, `waitDays` ≥ 0, fractions allowed.
 - No dependency cycles.
 - `status` MUST NOT appear in this file. If present, the dashboard ignores it (status is Sheet-owned).
+- `deadline` is optional on a milestone. If present it must be a real ISO date (YYYY-MM-DD).
+- `deadline` is NOT an input to the engine. Scheduling never reads it; it is compared against the computed finish only for display (§5.3).
 
 ### Illustrative real fragments (from Rock 3), showing the concepts the engine must handle
 
@@ -440,6 +447,8 @@ The Rock is the primary unit for both metrics — this is what he checks mid-wee
 - On-track indicator (green/amber/red) + the current projected finish date vs. `sprint.end` (the red flag when it overshoots).
 - Optionally the small burn-up chart (planned vs. actual line).
 
+**Missed hard deadline.** If a milestone carries a `deadline` and its computed finish falls after it, the milestone shows a red chip stating how many days late. The Rock header surfaces that at least one milestone is past its deadline, so it is visible without expanding the Rock. This is independent of the progress bar and the on-track chip: those measure advance against the frozen plan, a deadline measures a constraint from outside, and a Rock can legitimately be on-track and still miss one.
+
 ---
 
 ## 6 · Views
@@ -496,6 +505,8 @@ A top-level strip: overall duration-weighted progress, and which Rocks are amber
 - Pin a still-blocked task: refused; the dashboard names the missing dependency and its owner rather than allowing an impossible move.
 - Postpone a task others depend on: allowed only after showing the downstream cascade and confirming.
 - Deliverable link: any pasted value is validated as a URL server-side; a malformed string is rejected, not silently stored.
+- A `deadline` that is present but not a valid ISO calendar date is a BLOCKING error — never silently ignored.
+- A `deadline` outside the sprint window (before `sprint.start` or after `sprint.end`) is a non-blocking warning; it is unusual but legitimate.
 
 ---
 

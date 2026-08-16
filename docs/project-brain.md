@@ -1,8 +1,8 @@
 # Project Brain — Operations Dashboard
 The current state in one page. Updated at the close of every chat via the push Code session.
-_Last updated: 2026-08-15 — Bernardo (redespliegue manual del Web App confirmado, Version 3 desplegada)_
+_Last updated: 2026-08-16 — Bernardo (D-087 deadline de milestone aprobado y pendiente de build; D-088 descarta la integración con Rock Projects; D-089 ataca la raíz del §8)_
 
-> **Source of truth for WHAT to build** is the spec: `docs/spec.md` (v2.0.1).
+> **Source of truth for WHAT to build** is the spec: `docs/spec.md` (v2.0.2).
 > **Source of truth for WHY** is `docs/decision-log.md`.
 > This Brain tracks WHERE the build stands.
 > Repo: `F4LA/OperationsDashboard` (public). Local clone: `~/Desktop/StrongStandard/OperationsDashboard`.
@@ -24,7 +24,7 @@ Nota de seguridad (consistente con el "no auth" del §3, no es un defecto): la U
 
 ## Done
 - Full design approved and captured (decision-log D-006 … D-015): data model, date engine logic, metrics, views, identity/backend, This Week + pin + deliverable link, and what's deferred.
-- Engineering spec written and approved — `docs/spec.md` (v1.1 en su momento, hoy en v2.0.1; hand-reformatted from the Word original; content complete, worth a diff against the original if byte-exactness ever matters).
+- Engineering spec written and approved — `docs/spec.md` (v1.1 en su momento, hoy en v2.0.2; hand-reformatted from the Word original; content complete, worth a diff against the original if byte-exactness ever matters).
 - Rock 3 seed written and validated — `data/rock3-seed.json` (6 projects, M1–M23, 47 tasks, 40.75 work-days, zero unresolved dependencies).
 - Repo `F4LA/OperationsDashboard` created (public), scaffolded, and pushed — commit `cdc249a` "Phase 0: repo scaffold, stub modules, and reference docs". Local and origin identical, clean tree.
 - GitHub Pages enabled and live (placeholder loads, 9 scripts load with zero console errors, unstyled as expected).
@@ -59,7 +59,7 @@ OperationsDashboard/
 │          appsscript-smoke.test.js   (real, D-037)
 │          thisweek.test.js   (real, D-061–D-064)
 ├── data/rock3-seed.json   (real, test fixture, per D-016)
-└── docs/  spec.md (real, v2.0.1) · decision-log.md · project-brain.md
+└── docs/  spec.md (real, v2.0.2) · decision-log.md · project-brain.md
 ```
 Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root — matching CoachPulse.
 
@@ -67,6 +67,7 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 - Nada activo en código.
 
 ## Next up (per spec §9)
+- Campo `deadline` de milestone (D-087, spec v2.0.2): construir ANTES de cargar R1 y R2, o el hard deadline del portal de afiliados de Miguel (5 de septiembre) se pierde en silencio al cargar.
 - Fase 8 CERRADA por completo (parte 1 + 2A + 2B). Próximo: carga de los 2 Rocks faltantes (Miguel, Setter de Emery) sobre los 3 del sprint (R3 ya adentro), único bloqueante real que queda para que el dashboard refleje el sprint entero — en espera de datos, no de diseño.
 - Fase 6 (Network / Timeline): CANCELADA por D-082. dashboard/network.js y su <script> se borran en el pase de la 2B. Prototipos de referencia si alguna vez se retoma: Rock3_Network_Graph.html (barras de espera punteadas, más simple) y Rock3_Interactive_Timeline.html (más avanzado, .deps vacío preparado); ninguno dibuja conectores de dependencia.
 
@@ -78,8 +79,9 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 - Las tres preguntas abiertas de la 2B quedaron cerradas por D-084/D-085/D-086, sin construir nada nuevo: "current" ratificado igual a "closing", el escenario del denominador resultó estructuralmente inalcanzable, y createTask no necesita re-verificación propia.
 
 ## Deferred (not being actively worked)
-- Vista 4 (auto-update from Rock Projects) — D-014.
-- Retire Asana, Project Builder emitting the JSON, Operating System producing Rock-3-level planning detail — all downstream, after the dashboard is built and proven (D-014).
+- Vista 4 (auto-update from Rock Projects) — D-014, superseded by D-088: no longer deferred, DISCARDED outright.
+- Retirar Asana y que el Project Builder emita el JSON siguen downstream (D-014). En cambio "Operating System producing Rock-3-level planning detail" YA NO está diferido: se atacó de raíz en D-089 (template nuevo con capa de tareas, Sprint Planning en tres bloques, proyecto Rock Planner para el bloque 2). Falta ejecutarlo fuera de este repo — reemplazar el template y reescribir el Sprint Planning Meeting Playbook en el proyecto Operating System, antes del próximo Sprint Planning (~13 de septiembre).
+- Integración dashboard ↔ Rock Projects: DESCARTADA por D-088, no diferida. No reabrir sin argumento nuevo.
 - Gantt/Network (Fase 6): CANCELADA por D-082, no diferida. Ver Next up para el detalle de qué se borra.
 - Prototipos de referencia de la Fase 6 cancelada, localizados el 2026-08-14 en el disco de Bernardo (fuera de este repo): Rock3_Network_Graph.html y Rock3_Interactive_Timeline.html. Hallazgos guardados por si algún día se retoma: las filas son por MILESTONE agrupadas por Project (no carriles por persona — lo "por persona" se resolvió con botones de filtro); el Interactive Timeline es la mejor base pero perdió las barras punteadas de espera que sí tiene el Network Graph; ninguno de los dos dibuja conectores de dependencia (los muestra como texto), aunque el CSS del Interactive dejó un `.deps` preparado y vacío.
 - Carga automática del documento de Rock al dashboard: hoy el §8 lo lista como "Project Builder emite el JSON", conveniencia downstream. Pedido explícito de Bernardo (2026-08-14) de dejarlo registrado.
