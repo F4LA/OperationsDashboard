@@ -18,26 +18,29 @@
  * board.js's render() calls OpsDashTodos.render() at that point, exactly
  * where it used to call its own renderThisWeekView().
  *
- * Week selector (§11.1, D-081c): THREE positions — closing (-1) / current
- * (0) / opening (+1) — computed fresh on every mount from today vs.
- * opsWeekStartDay, NEVER persisted (a Wednesday load must not reopen on a
- * week that closed days ago). Person and Origin filters are equally
- * unpersisted (D-081d), defaulting to Everyone / all every time.
+ * Week selector (§11.1, D-092): THREE positions, each showing its label AND
+ * its window — Closed (-1) / Current (0) / Next week (+1) — recomputed on
+ * every render from today vs. opsWeekStartDay, NEVER persisted (D-081c: a
+ * Wednesday load must not reopen on a week that closed days ago). Person and
+ * Origin filters are equally unpersisted (D-081d), defaulting to Everyone /
+ * all every time.
  *
- * Two templates, one per "mode" (a reading of §11.1/§11.4/§11.5 flagged as
- * an open question in the build report — the spec names distinct behavior
- * for "closing" and "opening" but never separately describes "current"):
- *   REVIEW  (closing, current) — §11.4: one mixed list per person, actions
- *           on unfinished rows only (D-078d), discard/cancel with a
- *           mandatory reason, an undo on anything already discarded/
- *           cancelled (D-081f), a move-count marker (§11.4).
- *   BUILD   (opening)          — §11.5: proposed Rock tasks with
- *           keep/remove, the availableToPull dropdown (now showing blocked
- *           tasks, D-071b), an add-ad-hoc form, a capacity warning
- *           (D-081b: 5 working days), and the single confirmWeek button
- *           (D-081a: Everyone only).
+ * THE MODE COMES FROM THE WEEK, NOT FROM THE SELECTOR (D-092). What you may
+ * do in a week is decided by whether that week is confirmed:
+ *   BUILD    not yet confirmed — add from Available, capacity counter,
+ *            confirm button (§11.5). The week opens EMPTY (D-091).
+ *   EXECUTE  confirmed — mark status, move, discard, cancel (§11.4).
+ *   REVIEW   the window has ended — read it, with the §12 summary.
  *
- * §12's summary renders only on the CLOSING week, per this file's own brief.
+ * The retired code derived this from the selector position (BUILD tied to
+ * offset +1), which is wrong on the one day that matters: the ops week runs
+ * Friday→Thursday and the L10 is Friday, so on Friday offset 0 IS the week
+ * being built and offset +1 is a week seven days further out. Anchoring to
+ * confirmWeek also makes advance loading safe — a week loaded Thursday night
+ * under "Next week" is the same unconfirmed, still-loadable week on Friday
+ * morning under "Current", with the identical window printed beside it.
+ *
+ * §12's summary renders only on a week that has ended.
  */
 (function (root) {
   "use strict";
@@ -59,7 +62,7 @@
     people: [],               // People tab [{name, active}]
     opsWeekStartDay: "Friday",
     folded: null,             // OpsDashEvents.fold() result — re-derived after every write
-    weekOffset: 0,            // -1 closing / 0 current / +1 opening — NOT persisted (D-081c)
+    weekOffset: 0,            // -1 Closed / 0 Current / +1 Next week — NOT persisted (D-081c)
     personFilter: "",         // "" = Everyone — NOT persisted (D-081d)
     originFilter: "all",      // all | rock | other — NOT persisted (D-081d)
     liveResult: null
@@ -170,18 +173,85 @@
   }
 
   function currentWindow() {
-    return getThisWeek().opsWeek(CFG().todayISO(), state.opsWeekStartDay, state.weekOffset);
+    return windowAt(state.weekOffset);
   }
 
-  /** §11.1 default: closing on the ops week's own start day, current any
-   *  other day. Computed by comparing today against the offset-0 window's
-   *  own start (which IS today exactly when today is the start day) rather
-   *  than re-deriving a day-of-week name — one fewer place that has to agree
-   *  with opsWeek's own day-name parsing. */
+  function windowAt(offset) {
+    return getThisWeek().opsWeek(CFG().todayISO(), state.opsWeekStartDay, offset);
+  }
+
+  /** §11.1 default: Closed on the ops week's own start day (the L10 is that
+   *  day and step 6 comes first), Current any other day. Computed by
+   *  comparing today against the offset-0 window's own start (which IS today
+   *  exactly when today is the start day) rather than re-deriving a
+   *  day-of-week name — one fewer place that has to agree with opsWeek's own
+   *  day-name parsing. Never persisted (D-081c). */
   function defaultWeekOffset() {
     var todayISO = CFG().todayISO();
     var cur = getThisWeek().opsWeek(todayISO, state.opsWeekStartDay, 0);
     return cur.start === todayISO ? -1 : 0;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Week mode (§11.1, D-092) — THE rule this pass exists to fix.
+   *
+   * What you can do in a week is decided by whether that week is CONFIRMED,
+   * never by the selector position and never by the weekday. The old code
+   * tied BUILD to offset +1, and that is wrong on the one day that matters:
+   * the ops week runs Friday→Thursday and the L10 is Friday, so on Friday
+   * offset 0 IS the week that opens that day — the one step 8 must build —
+   * while offset +1 is the week that opens the FOLLOWING Friday. Anchoring
+   * to confirmWeek removes the whole class of error: a week loaded Thursday
+   * night under "Next week" becomes "Current" the next morning, still
+   * unconfirmed, still loadable, same window printed beside the label.
+   * ------------------------------------------------------------------ */
+
+  /** True once the window has ended — a property of the WEEK (its own dates
+   *  against today), deliberately not of the selector position. */
+  function weekHasEnded(win) {
+    return win.end < CFG().todayISO();
+  }
+
+  function weekIsConfirmed(win) {
+    return getEvents().weekCommitment(state.folded, win.mondayKey) !== null;
+  }
+
+  /**
+   * @returns "review"  — the week has ended: read it, with the §12 summary
+   *          "execute" — confirmed: mark status, move, discard, cancel (§11.4)
+   *          "build"   — not yet confirmed: add tasks, capacity, confirm (§11.5)
+   */
+  function weekModeFor(win) {
+    if (weekHasEnded(win)) return "review";
+    return weekIsConfirmed(win) ? "execute" : "build";
+  }
+
+  /**
+   * "Aug 15–21" within one month, "Aug 29 – Sep 4" across two (§11.1's own
+   * examples). The date is not decoration: it is the anchor that lets someone
+   * load a week on Thursday night and recognise the same week on Friday when
+   * it has moved from "Next week" to "Current".
+   *
+   * Formatted through Intl rather than a hand-rolled month table, pinned to
+   * UTC because every date in this app is parsed as UTC midnight (engine.js's
+   * parseISO) — formatting in the viewer's local zone would shift the label
+   * by a day for anyone west of Greenwich.
+   */
+  function formatWindowRange(win) {
+    var parseISO = getEngine()._internals.parseISO;
+    var monthFmt = new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" });
+    var dayFmt = new Intl.DateTimeFormat("en-US", { day: "numeric", timeZone: "UTC" });
+
+    var startMs = parseISO(win.start);
+    var endMs = parseISO(win.end);
+    var startMonth = monthFmt.format(startMs);
+    var endMonth = monthFmt.format(endMs);
+    var startDay = dayFmt.format(startMs);
+    var endDay = dayFmt.format(endMs);
+
+    return startMonth === endMonth
+      ? startMonth + " " + startDay + "–" + endDay
+      : startMonth + " " + startDay + " – " + endMonth + " " + endDay;
   }
 
   function ownersOfPlain(owner) {
@@ -230,38 +300,40 @@
    * ------------------------------------------------------------------ */
 
   /**
-   * Rock-task bucket membership for a window, INCLUDING the D-063(c) pin
-   * override — re-expressed here (not thisweek.js) because it was always
-   * this layer's job: the override is presentation policy on top of
-   * buckets()'s pure math, exactly as board.js's retired applyPinOverride
-   * said of itself.
+   * Rock-task bucket membership for a window.
+   *
+   * D-091 changed what "in this week" MEANS for unstarted work: the week
+   * opens EMPTY and nothing is committed until a person puts it there, so
+   * `notStarted` is now derived from the PIN alone. It used to start from
+   * buckets()'s projection ("the tasks the engine places in this window")
+   * and then apply the D-063(c) pin override on top; the projection half is
+   * gone, and what it used to contribute is now the informative Available
+   * panel instead (§11.5).
+   *
+   * `done` and `workingOn` keep coming from buckets() untouched, and that
+   * asymmetry is deliberate: a task you actually FINISHED inside the window
+   * belongs on the week's record whether or not it was ever formally
+   * committed — which is exactly §12's rule that mid-week additions count
+   * toward the numerator. Only the not-yet-started list is a commitment,
+   * and only a commitment needs a person to have put it there.
    */
   function rockBucketsForWindow(win) {
     var b = getThisWeek().buckets(state.liveResult, state.currentState, win, state.plan.people);
     var pins = state.pins;
-    var person, list, kept, i, id;
 
-    for (person in b) {
+    for (var person in b) {
       if (!Object.prototype.hasOwnProperty.call(b, person)) continue;
-      list = b[person].notStarted;
-      kept = [];
-      for (i = 0; i < list.length; i++) {
-        id = list[i];
-        var pin = pins[id];
-        if (pin !== undefined && pin !== win.mondayKey) continue; // pinned elsewhere
-        kept.push(id);
-      }
-      b[person].notStarted = kept;
+      b[person].notStarted = [];
     }
 
     var tasks = state.liveResult.tasks;
     for (var taskId in tasks) {
       if (!Object.prototype.hasOwnProperty.call(tasks, taskId)) continue;
-      if (pins[taskId] !== win.mondayKey) continue;
+      if (pins[taskId] !== win.mondayKey) continue; // committed to THIS week, or not in it
       var t = tasks[taskId];
       var cs = state.currentState[taskId];
       var status = cs && cs.status ? cs.status : "open";
-      if (status !== "open") continue;
+      if (status !== "open") continue; // done/in_progress are handled by buckets() above
       var owners = t.owners || [t.owner];
       for (var j = 0; j < owners.length; j++) {
         var p = owners[j];
@@ -448,12 +520,21 @@
    * Controls (§11.2) — Week / Person / Origin, none persisted (D-081d)
    * ------------------------------------------------------------------ */
 
+  /** Label AND window, together, on every position (§11.1, D-092). "Next
+   *  week" is safe as a relative label precisely because it says what it is
+   *  relative TO, so it is honest that it becomes "Current" tomorrow;
+   *  "Opening" did not say that, which is why D-092 discards that name. */
+  var WEEK_POSITIONS = [
+    { offset: -1, label: "Closed" },
+    { offset: 0, label: "Current" },
+    { offset: 1, label: "Next week" }
+  ];
+
   function renderControls() {
-    var weekOptions = [
-      ["-1", "Closing"], ["0", "Current"], ["1", "Opening"]
-    ].map(function (pair) {
-      var sel = String(state.weekOffset) === pair[0] ? " selected" : "";
-      return '<option value="' + pair[0] + '"' + sel + ">" + pair[1] + "</option>";
+    var weekOptions = WEEK_POSITIONS.map(function (pos) {
+      var sel = state.weekOffset === pos.offset ? " selected" : "";
+      return '<option value="' + pos.offset + '"' + sel + ">" +
+        escapeHtml(pos.label + " · " + formatWindowRange(windowAt(pos.offset))) + "</option>";
     }).join("");
 
     var personOptions = ['<option value=""' + (state.personFilter === "" ? " selected" : "") + ">Everyone</option>"]
@@ -533,8 +614,13 @@
   /** D-078d: actions ONLY on unfinished rows. Discard/cancel with a
    *  mandatory reason and — for a Rock task — the cascade shown first
    *  (D-068b, same cascadeOf as postpone, D-063d), informative and
-   *  never blocking. */
-  function reviewActionsHtml(item) {
+   *  never blocking.
+   *
+   *  Suppressed entirely in BUILD mode: D-092 scopes an unconfirmed week to
+   *  add / count / confirm, and mark-move-discard-cancel to a confirmed one.
+   *  Nothing is committed yet, so there is nothing to move out of or close. */
+  function reviewActionsHtml(item, mode) {
+    if (mode === "build") return "";
     if (item.status === "done") return "";
     if (item.discarded || item.cancelled) return ""; // already closed — Undo covers it
 
@@ -549,10 +635,13 @@
     return '<div class="todo-row-actions">' + moveBtn + closeBtn + "</div>";
   }
 
-  function reviewRowHtml(item) {
+  function reviewRowHtml(item, mode) {
     return (
       '<div class="todo-row" data-task-id="' + escapeAttr(item.id) + '" data-origin="' + item.origin + '">' +
-        '<div class="todo-row-status">' + statusCtrlHtml(item.id, item.status, item.desc) + "</div>" +
+        // Status becomes markable only once the week is confirmed (D-092).
+        (mode === "build"
+          ? ""
+          : '<div class="todo-row-status">' + statusCtrlHtml(item.id, item.status, item.desc) + "</div>") +
         '<div class="todo-row-main">' +
           '<div class="todo-row-top">' +
             originMarkerHtml(item) +
@@ -567,85 +656,144 @@
               : "") +
           "</div>" +
         "</div>" +
-        reviewActionsHtml(item) +
+        reviewActionsHtml(item, mode) +
         closedBadgeHtml(item) +
         '<div class="todo-reason-panel hidden" data-task-id="' + escapeAttr(item.id) + '" aria-live="polite"></div>' +
       "</div>"
     );
   }
 
-  function reviewSectionHtml(title, items) {
+  function reviewSectionHtml(title, items, mode, emptyText) {
     if (!items.length) {
-      return '<div class="todo-section"><h4>' + escapeHtml(title) + '</h4><p class="todo-section-empty">Nothing here.</p></div>';
+      return '<div class="todo-section"><h4>' + escapeHtml(title) + "</h4>" +
+        '<p class="todo-section-empty">' + escapeHtml(emptyText || "Nothing here.") + "</p></div>";
     }
     var sorted = items.slice().sort(function (a, b) { return a.id < b.id ? -1 : a.id > b.id ? 1 : 0; });
     return '<div class="todo-section"><h4>' + escapeHtml(title) + " (" + items.length + ")</h4>" +
-      sorted.map(reviewRowHtml).join("") + "</div>";
+      sorted.map(function (it) { return reviewRowHtml(it, mode); }).join("") + "</div>";
   }
 
-  function reviewCardBody(person, win) {
+  function reviewCardBody(person, win, mode) {
     var items = reviewItemsForPerson(person, win).filter(originPasses);
     var byKind = { done: [], workingOn: [], notStarted: [] };
     items.forEach(function (it) { byKind[it.bucketKind].push(it); });
 
+    // D-091: a week being built starts with an empty commitment, and the
+    // empty state should say so rather than read as if something is missing.
+    var committedEmpty = mode === "build"
+      ? "Nothing committed yet \u2014 add from Available, or create a to-do below."
+      : "Nothing here.";
+
     return (
-      reviewSectionHtml("Done this week", byKind.done) +
-      reviewSectionHtml("Working on", byKind.workingOn) +
-      reviewSectionHtml("Not started", byKind.notStarted)
+      reviewSectionHtml("Done this week", byKind.done, mode) +
+      reviewSectionHtml("Working on", byKind.workingOn, mode) +
+      reviewSectionHtml("Committed", byKind.notStarted, mode, committedEmpty)
     );
   }
 
   /* ------------------------------------------------------------------ *
-   * BUILD mode (opening, §11.5)
+   * Commitment + the Available panel (§11.5, D-091)
+   *
+   * The week opens EMPTY. Nothing is committed until a person puts it
+   * there — so a person's committed set for a window is exactly what is
+   * pinned to that window's Monday key, Rock and ad-hoc alike. The old
+   * buildProposedForPerson (projection-derived pre-fill) is gone, and with
+   * it the "take out of this week" action, which only existed because work
+   * used to arrive uninvited: if nothing enters on its own, there is
+   * nothing to take out (D-091b).
    * ------------------------------------------------------------------ */
 
-  function buildProposedForPerson(person, win) {
-    var rb = rockBucketsForWindow(win)[person] || { notStarted: [] };
-    return rb.notStarted.slice().sort();
+  /** Every task id this person has COMMITTED to this window — pin-based,
+   *  Rock and ad-hoc together. One definition, used by both the capacity
+   *  counter and confirmWeek's frozen list, so those two can never disagree
+   *  about what the week actually contains. */
+  function committedIdsForPerson(person, win) {
+    var out = [];
+    var pins = state.pins;
+
+    var tasks = state.liveResult.tasks;
+    for (var taskId in tasks) {
+      if (!Object.prototype.hasOwnProperty.call(tasks, taskId)) continue;
+      if (pins[taskId] !== win.mondayKey) continue;
+      var owners = tasks[taskId].owners || [tasks[taskId].owner];
+      if (owners.indexOf(person) !== -1) out.push(taskId);
+    }
+
+    for (var aid in state.tasksAdHoc) {
+      if (!Object.prototype.hasOwnProperty.call(state.tasksAdHoc, aid)) continue;
+      if (state.tasksAdHoc[aid].owner !== person) continue;
+      if (pins[aid] !== win.mondayKey) continue;
+      out.push(aid);
+    }
+
+    return out.sort();
   }
 
-  function buildProposedRowHtml(taskId, win) {
-    var t = state.index.tasks[taskId];
-    var pinned = state.pins[taskId] === win.mondayKey;
-    return (
-      '<div class="todo-row" data-task-id="' + escapeAttr(taskId) + '" data-origin="rock">' +
-        '<div class="todo-row-main">' +
-          '<div class="todo-row-top">' +
-            '<span class="todo-origin-marker">' + escapeHtml(findRockOfMilestone(state.index.milestoneOfTask[taskId]) || "") +
-              " \u00b7 " + escapeHtml(taskId) + "</span>" +
-            '<span class="todo-row-desc">' + escapeHtml(t ? t.desc : taskId) + "</span>" +
-            (pinned ? '<span class="pin-marker" title="Manually confirmed for this week">\ud83d\udccc</span>' : "") +
-          "</div>" +
-          '<div class="todo-row-meta"><span class="duration">' +
-            escapeHtml(t ? (t.workDays === 1 ? "1 day" : t.workDays + " days") : "") + "</span></div>" +
-        "</div>" +
-        '<div class="todo-row-actions">' +
-          '<button type="button" class="todo-action-btn" data-action="todo-remove-proposed" ' +
-            'data-task-id="' + escapeAttr(taskId) + '">Take out of this week</button>' +
-        "</div>" +
-      "</div>"
-    );
-  }
-
-  function buildPullDropdownHtml(person, win) {
+  /**
+   * The Available panel (§11.5, D-091a): informative, never auto-committed.
+   * Everything this person could pull in — including the tasks the live
+   * projection places in this very window, which is exactly what used to be
+   * pre-filled — and it SHOWS blocked tasks, flagged, naming the blocker and
+   * its owner. D-071(b) is preserved whole: hiding blocked tasks hides the
+   * coordination that naming them is there to produce.
+   *
+   * Already-committed tasks drop out (they are in the list beside this one),
+   * and the projection's own picks sort first, since those are the ones the
+   * engine expects this week.
+   */
+  function availablePanelHtml(person, win) {
+    var committed = committedIdsForPerson(person, win);
     var candidates = getThisWeek().availableToPull(state.plan, state.currentState, cancelledIds())
-      .filter(function (t) { return ownersOfPlain(t.owner).indexOf(person) !== -1; });
+      .filter(function (t) {
+        return ownersOfPlain(t.owner).indexOf(person) !== -1 && committed.indexOf(t.id) === -1;
+      });
 
-    var options = ['<option value="">+ pull a task into this week\u2026</option>'].concat(
-      candidates.map(function (t) {
-        var label = t.id + " \u2014 " + t.desc;
-        if (t.blocked) {
-          label += " (blocked by " + t.blockedBy.map(function (b) {
-            return b.id + "/" + b.owner;
-          }).join(", ") + ")";
-        }
-        return '<option value="' + escapeAttr(t.id) + '"' + (t.blocked ? " data-blocked=\"1\"" : "") + ">" +
-          escapeHtml(label) + "</option>";
-      })
-    ).join("");
+    // "projected here" = the live projection overlaps this window, the same
+    // overlap test thisweek.js's buckets() uses for its notStarted bucket.
+    var live = state.liveResult.tasks;
+    candidates.forEach(function (t) {
+      var lt = live[t.id];
+      t._projectedHere = !!(lt && lt.plannedStart && lt.plannedFinish &&
+        lt.plannedStart <= win.end && lt.plannedFinish >= win.start);
+    });
+    candidates.sort(function (a, b) {
+      if (a._projectedHere !== b._projectedHere) return a._projectedHere ? -1 : 1;
+      return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+    });
 
-    return '<select class="todo-pull-select" data-action="todo-pull" data-person="' + escapeAttr(person) +
-      '" aria-label="Pull a task into ' + escapeAttr(person) + '\u2019s week">' + options + "</select>";
+    if (!candidates.length) {
+      return '<div class="todo-available"><h4>Available</h4>' +
+        '<p class="todo-section-empty">Nothing left to pull in.</p></div>';
+    }
+
+    var rows = candidates.map(function (t) {
+      var blockedHtml = t.blocked
+        ? '<div class="todo-blocked-note">Blocked by ' +
+            t.blockedBy.map(function (b) {
+              return escapeHtml(b.id) + " (" + escapeHtml(b.owner || "unassigned") + ")";
+            }).join(", ") + "</div>"
+        : "";
+      var rockLabel = (findRockOfMilestone(state.index.milestoneOfTask[t.id]) || "") + " · " + t.id;
+      return (
+        '<div class="todo-available-row" data-task-id="' + escapeAttr(t.id) + '">' +
+          '<div class="todo-row-main">' +
+            '<div class="todo-row-top">' +
+              '<span class="todo-origin-marker">' + escapeHtml(rockLabel) + "</span>" +
+              '<span class="todo-row-desc">' + escapeHtml(t.desc) + "</span>" +
+              (t._projectedHere
+                ? '<span class="todo-projected-marker" title="The live projection places this task in this window.">projected here</span>'
+                : "") +
+            "</div>" +
+            blockedHtml +
+          "</div>" +
+          '<button type="button" class="todo-action-btn" data-action="todo-pull" ' +
+            'data-task-id="' + escapeAttr(t.id) + '" data-person="' + escapeAttr(person) + '">' +
+            "Add to week</button>" +
+        "</div>"
+      );
+    }).join("");
+
+    return '<div class="todo-available"><h4>Available (' + candidates.length + ")</h4>" + rows + "</div>";
   }
 
   function buildAdHocFormHtml(person) {
@@ -669,17 +817,19 @@
     );
   }
 
+  /** D-081b, and MORE load-bearing since D-091: with nothing pre-filled, this
+   *  counter is the only thing telling a person they are overcommitting (or
+   *  undercommitting) as they add by hand. Counts the same pin-based
+   *  commitment the confirm button freezes, so the number on screen and the
+   *  number that gets frozen are the same number. */
   function personWeekWorkDays(person, win) {
     var total = 0;
-    buildProposedForPerson(person, win).forEach(function (id) {
-      var t = state.index.tasks[id];
-      if (t) total += t.workDays || 0;
+    committedIdsForPerson(person, win).forEach(function (id) {
+      var rockTask = state.index.tasks[id];
+      if (rockTask) { total += rockTask.workDays || 0; return; }
+      var adHoc = state.tasksAdHoc[id];
+      if (adHoc) total += adHoc.workDays || 0;
     });
-    for (var aid in state.tasksAdHoc) {
-      if (!Object.prototype.hasOwnProperty.call(state.tasksAdHoc, aid)) continue;
-      var at = state.tasksAdHoc[aid];
-      if (at.owner === person && state.pins[aid] === win.mondayKey) total += at.workDays || 0;
-    }
     return total;
   }
 
@@ -690,32 +840,34 @@
       " work-days against a " + CAPACITY_WORKDAYS + "-day week. Input to the conversation, not a block (\u00a711.5).</p>";
   }
 
-  function buildCardBody(person, win) {
-    var proposed = buildProposedForPerson(person, win);
-    return (
-      '<div class="todo-section"><h4>Proposed (' + proposed.length + ")</h4>" +
-        (proposed.length
-          ? proposed.map(function (id) { return buildProposedRowHtml(id, win); }).join("")
-          : '<p class="todo-section-empty">Nothing proposed.</p>') +
-      "</div>" +
-      '<div class="todo-section">' + buildPullDropdownHtml(person, win) + "</div>" +
-      '<div class="todo-section"><h4>Add a to-do</h4>' + buildAdHocFormHtml(person) + "</div>" +
-      capacityWarningHtml(person, win)
-    );
+  /** The capacity line always renders while a week is live (build/execute) —
+   *  it reads "N of 5 work-days" even when under, because D-091(d) makes it
+   *  the only signal of under- OR over-commitment now that nothing is
+   *  pre-filled. Over the limit it turns into the warning. */
+  function capacityLineHtml(person, win) {
+    var total = personWeekWorkDays(person, win);
+    if (total > CAPACITY_WORKDAYS) return capacityWarningHtml(person, win);
+    return '<p class="todo-capacity-line">' + total + " of " + CAPACITY_WORKDAYS +
+      " work-days committed.</p>";
   }
 
+  /**
+   * Only ever rendered in BUILD mode, so the week being confirmed is by
+   * definition not yet confirmed — hence no "re-confirm" branch any more.
+   * That is a consequence of D-092's own mode list (confirm belongs to
+   * build; execution is mark/move/discard/cancel) reinforced by §11.5's
+   * denominator guarantee: re-confirming mid-week would fold work added
+   * after the fact into the frozen denominator, which is exactly what
+   * "anything added mid-week never inflates the denominator" forbids.
+   */
   function confirmWeekButtonHtml(win) {
     // D-081a: shown ONLY with the person filter on Everyone.
     if (state.personFilter !== "") return "";
-    var commitment = getEvents().weekCommitment(state.folded, win.mondayKey);
-    var already = commitment !== null;
     return (
       '<div class="todo-confirm-week">' +
         '<button type="button" class="btn btn-secondary" data-action="todo-confirm-week" ' +
-          'data-monday="' + escapeAttr(win.mondayKey) + '">' +
-          (already ? "Re-confirm this week" : "Confirm this week") +
-        "</button>" +
-        (already ? '<span class="todo-confirm-note">Already confirmed \u2014 re-confirming replaces the frozen list.</span>' : "") +
+          'data-monday="' + escapeAttr(win.mondayKey) + '">Confirm this week</button>' +
+        '<span class="todo-confirm-note">Freezes what is committed now as this week\u2019s denominator (\u00a712).</span>' +
       "</div>"
     );
   }
@@ -724,16 +876,40 @@
    * Cards + full render
    * ------------------------------------------------------------------ */
 
+  /**
+   * One card body for all three modes, because the CONTENT of a week never
+   * changes with the mode \u2014 only what you may do with it (\u00a711.1: "the same
+   * week never changes meaning, only which box it sits in"). The committed
+   * list is always the pin-based commitment; what varies is whether the
+   * Available panel and the capacity line are shown (live weeks only) and
+   * whether rows carry actions (D-092: build is add/count/confirm, execution
+   * is mark/move/discard/cancel).
+   */
   function cardHtml(person, win, mode) {
     var rateHtml = "";
     if (mode === "review" && win === state._closingWindowForRate && state._weeklyResult) {
       var t = state._weeklyResult.byPerson[person];
       if (t) rateHtml = '<span class="todo-card-rate">' + escapeHtml(rateText(t)) + "</span>";
     }
+
+    var isLive = mode !== "review";
+    var body =
+      '<div class="todo-card-cols">' +
+        '<div class="todo-card-committed">' +
+          reviewCardBody(person, win, mode) +
+          (isLive ? capacityLineHtml(person, win) : "") +
+        "</div>" +
+        (isLive ? '<div class="todo-card-available">' + availablePanelHtml(person, win) + "</div>" : "") +
+      "</div>" +
+      // D-091c: adding an ad-hoc task is no longer tied to build mode \u2014
+      // unplanned work arrives on a Tuesday, so the form is available in
+      // every week and every confirmation state.
+      '<div class="todo-section"><h4>Add a to-do</h4>' + buildAdHocFormHtml(person) + "</div>";
+
     return (
       '<div class="todo-card" data-person="' + escapeAttr(person) + '">' +
         '<div class="todo-card-header"><h3>' + escapeHtml(person) + "</h3>" + rateHtml + "</div>" +
-        (mode === "review" ? reviewCardBody(person, win) : buildCardBody(person, win)) +
+        body +
       "</div>"
     );
   }
@@ -744,11 +920,13 @@
     if (!dom.mainEl) return;
 
     var win = currentWindow();
-    var mode = state.weekOffset === 1 ? "build" : "review";
+    // D-092: the mode comes from the WEEK (ended? confirmed?), never from the
+    // selector position and never from the weekday.
+    var mode = weekModeFor(win);
     var people = state.personFilter ? [state.personFilter] : state.people.map(function (p) { return p.name; });
 
     var summaryHtml = "";
-    if (mode === "review" && state.weekOffset === -1) {
+    if (mode === "review") {
       state._closingWindowForRate = win;
       summaryHtml = renderSummary(win);
     } else {
@@ -758,10 +936,27 @@
     var cardsHtml = people.map(function (p) { return cardHtml(p, win, mode); }).join("");
     var confirmHtml = mode === "build" ? confirmWeekButtonHtml(win) : "";
 
+    // The heading states the selected week's label, its window and what the
+    // week's confirmation state permits \u2014 so the mode is never something the
+    // person has to infer from which controls happen to be on screen.
+    var positionLabel = (WEEK_POSITIONS.filter(function (pos) {
+      return pos.offset === state.weekOffset;
+    })[0] || { label: "" }).label;
+    var MODE_NOTE = {
+      build: "Not confirmed yet \u2014 being built",
+      execute: "Confirmed \u2014 in progress",
+      review: "Closed"
+    };
+
     dom.mainEl.innerHTML =
       '<div class="todo-header">' +
         "<h2>To-dos</h2>" +
-        '<span class="todo-window">' + escapeHtml(win.start) + " \u2013 " + escapeHtml(win.end) + "</span>" +
+        '<span class="todo-window">' + escapeHtml(positionLabel + " \u00b7 " + formatWindowRange(win)) + "</span>" +
+        // aria-live: changing the Week select swaps the mode and the whole
+        // card region underneath with no focus move, so a screen-reader user
+        // otherwise gets no signal that what they can do just changed.
+        '<span class="todo-mode-note" role="status" aria-live="polite">' +
+          escapeHtml(MODE_NOTE[mode]) + "</span>" +
       "</div>" +
       renderControls() +
       summaryHtml +
@@ -864,12 +1059,6 @@
   function onPostpone(taskId) {
     var win = currentWindow();
     postAndRefresh("pin", taskId, nextMondayKey(win.mondayKey), "", "Moved " + taskId + " to next week.");
-  }
-
-  function onRemoveProposed(taskId) {
-    var win = currentWindow();
-    postAndRefresh("pin", taskId, nextMondayKey(win.mondayKey), "",
-      "Took " + taskId + " out of this week.");
   }
 
   function onUndo(taskId, origin) {
@@ -1042,13 +1231,13 @@
     if (!actor) return;
 
     var win = currentWindow();
+    // The frozen denominator is exactly what people COMMITTED to this week
+    // (D-091: nothing arrives on its own), read through the same
+    // committedIdsForPerson the capacity counter uses, so the number shown
+    // on screen and the number frozen here can never disagree.
     var ids = {};
     state.people.forEach(function (p) {
-      buildProposedForPerson(p.name, win).forEach(function (id) { ids[id] = true; });
-      for (var aid in state.tasksAdHoc) {
-        if (!Object.prototype.hasOwnProperty.call(state.tasksAdHoc, aid)) continue;
-        if (state.tasksAdHoc[aid].owner === p.name && state.pins[aid] === win.mondayKey) ids[aid] = true;
-      }
+      committedIdsForPerson(p.name, win).forEach(function (id) { ids[id] = true; });
     });
     var frozen = Object.keys(ids).sort();
     var note = JSON.stringify(frozen);
@@ -1091,7 +1280,7 @@
     var taskId = el.getAttribute("data-task-id");
 
     if (action === "todo-postpone") onPostpone(taskId);
-    else if (action === "todo-remove-proposed") onRemoveProposed(taskId);
+    else if (action === "todo-pull") onPull(taskId, el.getAttribute("data-person"));
     else if (action === "todo-undo") onUndo(taskId, el.getAttribute("data-origin"));
     else if (action === "todo-discard-open") openReasonPanel(taskId, "discard");
     else if (action === "todo-cancel-open") openReasonPanel(taskId, "cancel");
@@ -1120,12 +1309,6 @@
     } else if (action === "todo-origin") {
       state.originFilter = el.value;
       render();
-    } else if (action === "todo-pull") {
-      var taskId = el.value;
-      var person = el.getAttribute("data-person");
-      if (!taskId) return;
-      onPull(taskId, person);
-      el.value = "";
     }
   }
 
@@ -1173,7 +1356,18 @@
     render: render,
     _internals: {
       getState: function () { return state; },
-      recompute: recompute
+      recompute: recompute,
+      // Exposed for tests (D-022 plain-Node harness): these are the pure
+      // decisions D-092 turns on — which mode a week is in, and how a
+      // position is labelled — so they can be verified without a DOM.
+      weekModeFor: weekModeFor,
+      weekHasEnded: weekHasEnded,
+      weekIsConfirmed: weekIsConfirmed,
+      formatWindowRange: formatWindowRange,
+      defaultWeekOffset: defaultWeekOffset,
+      windowAt: windowAt,
+      committedIdsForPerson: committedIdsForPerson,
+      WEEK_POSITIONS: WEEK_POSITIONS
     }
   };
 })(typeof window !== "undefined" ? window : this);
