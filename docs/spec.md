@@ -1,10 +1,12 @@
-# Operations Dashboard — Engineering Specification v2.0.2
+# Operations Dashboard — Engineering Specification v2.0.3
 
 > **v2.0 (2026-08-14)** — El producto se reencuadra: deja de ser un dashboard de Rocks y pasa a ser el dashboard de operaciones del leadership team, la herramienta con la que se corre el L10. El motor de Rocks (§2, §4, §5) queda intacto y pasa a ser un módulo. Se agregan: tareas ad-hoc y la vista de to-dos (§11), cierre semanal (§12) e issues (§13, por especificar). Las secciones §2, §4 y §5 NO cambiaron respecto de v1.1 — están construidas, probadas y referenciadas por el decision log. La numeración existente se conserva entera a propósito: el decision log referencia secciones por número 78 veces.
 
 > **v2.0.1 (2026-08-14)** — Enmiendas del diseño de la Fase 8, antes de construir: cancelación de tareas de Rock (§11.4, D-068), contrato de createTask (§3, D-066), eventos discard/cancel/confirmWeek y sus reversas (§3, D-067/D-068/D-069/D-070), y tratamiento de lo cancelado en métricas (§5.1, §5.2, §12). La numeración de secciones no cambia.
 
 > **v2.0.2 (2026-08-16)** — Un milestone acepta un `deadline` opcional (§2, §7), la restricción impuesta desde fuera, con su regla de despliegue en §5.3 y §6. D-087. La numeración de secciones no cambia.
+
+> **v2.0.3 (2026-08-16)** — El §11.1 y el §11.5 se reescriben: selector de tres posiciones con etiqueta y fecha (Closed / Current / Next week), el modo de una semana lo decide su confirmación y no la posición ni el día (corrige un error de una semana en el paso 8), la semana que se arma abre vacía, el pre-llenado automático se elimina y pasa a ser un panel de disponibles, y agregar una tarea ad-hoc queda disponible cualquier día. D-090, D-091, D-092. La numeración de secciones no cambia.
 
 **Company:** Strong Standard
 **Author of spec:** design chat (Operating System project)
@@ -558,15 +560,29 @@ Model Sprint→Rock→Project→Milestone→Task; atomic task with owner/type/wo
 
 ### 11.1 · Why the week selector exists
 
-The ops week runs Friday → Thursday and the L10 is on Friday. So at the moment of the meeting one week is closing and another is opening. The L10's step 6 reviews the closing week; step 8 builds the opening one. Those are not two views — they are one movement: saying "I didn't finish this, it moves" in step 6 IS what fills step 8.
+The ops week runs Friday → Thursday and the L10 is on Friday. At the moment of the meeting one week has just closed and another has just opened. The L10's step 6 reviews the closed one; step 8 builds the one that opened. Those are not two views — they are one movement: saying "I didn't finish this, it moves" in step 6 IS what fills step 8.
 
-The view therefore has a **week selector** with three positions: **closing**, **current**, **opening**. Default: on the ops week's start day it opens on *closing*; on any other day it opens on *current*.
+The view has a **week selector** with three positions, each showing its label AND its window, because the label alone is ambiguous and the date is the anchor that makes advance loading safe:
+
+- **Closed** — the ops week that has already ended. On Wednesday the 27th: Aug 15–21. On Friday the 29th: Aug 22–28.
+- **Current** — the ops week containing today. On Wednesday the 27th: Aug 22–28. On Friday the 29th: Aug 29–Sep 4.
+- **Next week** — the one after Current. Its whole purpose is advance loading: someone who knows they won't have time on Friday morning loads it on Thursday night.
+
+Default on open: *Closed* on the ops week's start day (the L10 is that day and step 6 comes first), *Current* on any other day. Never persisted (D-081c).
+
+**What you can do in a week is decided by whether that week is confirmed — not by the selector position and not by the day.** This is the rule that keeps the meaning stable:
+
+- **Not yet confirmed** → the week is being built: add tasks, the capacity counter, and the confirm button (§11.5).
+- **Confirmed** → the week is being executed: mark status, move, discard, cancel (§11.4).
+- **Closed** → review, with the §12 completion summary.
+
+Anchoring the mode to `confirmWeek` rather than to the calendar is what removes an entire class of error. A week loaded on Thursday night under *Next week* becomes *Current* the next morning, still unconfirmed, still loadable, with the identical window printed beside the label so the person recognises it instantly. The same week never changes meaning, only which box it sits in.
 
 ### 11.2 · Controls
 
 Three selectors, nothing else:
 
-- **Week** — closing / current / opening.
+- **Week** — Closed / Current / Next week (§11.1).
 - **Person** — "Everyone" first, then each person from the People tab. This REPLACES the "Only my tasks" checkbox, which is removed.
 - **Origin** — all / Rock only / other only. Default: all.
 
@@ -599,15 +615,15 @@ A Rock task that keeps being moved while the engine still projects it for this w
 
 ### 11.5 · The opening week (L10 step 8)
 
-This is where the week gets built. The system proposes, the people confirm.
+This is where the week gets built.
 
-**Proposed automatically:** Rock tasks the live projection (§4.7) places in that window. This already works.
+**The week opens empty.** Nothing is committed until a person puts it there. The system does not propose work: a pre-filled week invites blanket agreement to tasks nobody thought about, and the projection only knows arithmetic — it does not know what that person is doing this week or what they need to pull forward for a reason only they hold. That thinking happens before the meeting, each owner with their own Rock Project (D-088, D-091). The people commit; the system counts.
 
-**Confirm or remove:** each proposed Rock task can be kept or taken out of the week. Taking it out is a `pin` to a later week — the projection does not change (D-063c), only the commitment does.
+**Available panel.** Alongside, the tasks the live projection places in that window, plus everything else pullable — informative, never auto-committed. It SHOWS blocked tasks, flagged, naming what blocks them and who owns the blocker (D-071b): hiding blocked tasks hides the coordination.
 
-**Pull others in:** the existing "add to this week" dropdown, with one change from §6.3. Today it hides blocked tasks. It must now SHOW them, flagged, naming what blocks them and who owns the blocker. That flag is the whole point: it produces the conversation "this depends on something of Emery's — Emery, can you get it done this week?" and, when the answer is yes, both commitments land in the same week where they can be seen. Hiding blocked tasks hides the coordination.
+**Pull others in.** Pulling a task from the Available panel into the week is the mechanism behind "this depends on something of Emery's — Emery, can you get it done this week?": seeing a blocked task named, with its blocker and owner, is what produces that conversation, and when the answer is yes, both commitments land in the same week where they can be seen.
 
-**Add ad-hoc tasks:** description, owner (exactly one person — "Both" is not valid), estimated workDays, optional deadline.
+**Add ad-hoc tasks:** description, owner (exactly one person — "Both" is not valid), estimated workDays, optional deadline. Adding an ad-hoc task is available on any day, in any week, regardless of confirmation state — unplanned work arrives on a Tuesday, not only while the week is being built.
 
 **Capacity warning:** sum the workDays of everything in that person's week, Rock and ad-hoc alike, and warn when it exceeds the working days available. The warning is an input to the conversation, not a verdict — the person decides whether to drop something or absorb it.
 
