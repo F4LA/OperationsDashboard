@@ -616,11 +616,20 @@
    *  (D-068b, same cascadeOf as postpone, D-063d), informative and
    *  never blocking.
    *
-   *  Suppressed entirely in BUILD mode: D-092 scopes an unconfirmed week to
-   *  add / count / confirm, and mark-move-discard-cancel to a confirmed one.
-   *  Nothing is committed yet, so there is nothing to move out of or close. */
-  function reviewActionsHtml(item, mode) {
-    if (mode === "build") return "";
+   *  BUILD mode does not get mark/move/discard/cancel (D-092: nothing is
+   *  committed yet, so there is nothing to close). It gets a DIFFERENT
+   *  action instead — Remove, restored by D-095 — but only on a row that
+   *  is actually pinned to this window: this excludes a workingOn row that
+   *  D-063a shows in every window unconditionally (in-progress status, no
+   *  window filter) but that this build week never committed. */
+  function reviewActionsHtml(item, mode, win) {
+    if (mode === "build") {
+      if (state.pins[item.id] !== win.mondayKey) return "";
+      return '<div class="todo-row-actions">' +
+        '<button type="button" class="todo-action-btn" data-action="todo-unpin-build" ' +
+          'data-task-id="' + escapeAttr(item.id) + '">Remove — undo this addition</button>' +
+        "</div>";
+    }
     if (item.status === "done") return "";
     if (item.discarded || item.cancelled) return ""; // already closed — Undo covers it
 
@@ -635,7 +644,7 @@
     return '<div class="todo-row-actions">' + moveBtn + closeBtn + "</div>";
   }
 
-  function reviewRowHtml(item, mode) {
+  function reviewRowHtml(item, mode, win) {
     return (
       '<div class="todo-row" data-task-id="' + escapeAttr(item.id) + '" data-origin="' + item.origin + '">' +
         // Status becomes markable only once the week is confirmed (D-092).
@@ -656,21 +665,21 @@
               : "") +
           "</div>" +
         "</div>" +
-        reviewActionsHtml(item, mode) +
+        reviewActionsHtml(item, mode, win) +
         closedBadgeHtml(item) +
         '<div class="todo-reason-panel hidden" data-task-id="' + escapeAttr(item.id) + '" aria-live="polite"></div>' +
       "</div>"
     );
   }
 
-  function reviewSectionHtml(title, items, mode, emptyText) {
+  function reviewSectionHtml(title, items, mode, win, emptyText) {
     if (!items.length) {
       return '<div class="todo-section"><h4>' + escapeHtml(title) + "</h4>" +
         '<p class="todo-section-empty">' + escapeHtml(emptyText || "Nothing here.") + "</p></div>";
     }
     var sorted = items.slice().sort(function (a, b) { return a.id < b.id ? -1 : a.id > b.id ? 1 : 0; });
     return '<div class="todo-section"><h4>' + escapeHtml(title) + " (" + items.length + ")</h4>" +
-      sorted.map(function (it) { return reviewRowHtml(it, mode); }).join("") + "</div>";
+      sorted.map(function (it) { return reviewRowHtml(it, mode, win); }).join("") + "</div>";
   }
 
   function reviewCardBody(person, win, mode) {
@@ -685,9 +694,9 @@
       : "Nothing here.";
 
     return (
-      reviewSectionHtml("Done this week", byKind.done, mode) +
-      reviewSectionHtml("Working on", byKind.workingOn, mode) +
-      reviewSectionHtml("Committed", byKind.notStarted, mode, committedEmpty)
+      reviewSectionHtml("Done this week", byKind.done, mode, win) +
+      reviewSectionHtml("Working on", byKind.workingOn, mode, win) +
+      reviewSectionHtml("Committed", byKind.notStarted, mode, win, committedEmpty)
     );
   }
 
@@ -697,10 +706,17 @@
    * The week opens EMPTY. Nothing is committed until a person puts it
    * there — so a person's committed set for a window is exactly what is
    * pinned to that window's Monday key, Rock and ad-hoc alike. The old
-   * buildProposedForPerson (projection-derived pre-fill) is gone, and with
-   * it the "take out of this week" action, which only existed because work
-   * used to arrive uninvited: if nothing enters on its own, there is
-   * nothing to take out (D-091b).
+   * buildProposedForPerson (projection-derived pre-fill) is gone.
+   *
+   * D-091(b) originally reasoned that removing the pre-fill also removed
+   * the need for a "take it out" action — "if nothing enters on its own,
+   * there is nothing to take out." That was wrong and D-095 corrects it: an
+   * empty-start week makes adding by hand the ONLY way to build the week,
+   * so a mis-click on a shared screen during step 8 became MORE likely, not
+   * less. The action is back as reviewActionsHtml's build-mode branch —
+   * undoing your own addition, not "rejecting a system proposal" (nothing
+   * is proposed any more) — mechanically the same unpin, reached from a
+   * different row.
    * ------------------------------------------------------------------ */
 
   /** Every task id this person has COMMITTED to this window — pin-based,
@@ -901,10 +917,11 @@
         "</div>" +
         (isLive ? '<div class="todo-card-available">' + availablePanelHtml(person, win) + "</div>" : "") +
       "</div>" +
-      // D-091c: adding an ad-hoc task is no longer tied to build mode \u2014
-      // unplanned work arrives on a Tuesday, so the form is available in
-      // every week and every confirmation state.
-      '<div class="todo-section"><h4>Add a to-do</h4>' + buildAdHocFormHtml(person) + "</div>";
+      // D-094: ad-hoc creation is un-gated from build mode specifically \u2014
+      // unplanned work arrives on a Tuesday, with the week already confirmed
+      // and running \u2014 but a CLOSED week is read-only: creating there would
+      // pin a brand-new task into a window that has already ended.
+      (isLive ? '<div class="todo-section"><h4>Add a to-do</h4>' + buildAdHocFormHtml(person) + "</div>" : "");
 
     return (
       '<div class="todo-card" data-person="' + escapeAttr(person) + '">' +
@@ -1069,6 +1086,13 @@
   function onPull(taskId, person) {
     var win = currentWindow();
     postAndRefresh("pin", taskId, win.mondayKey, "", "Pulled " + taskId + " into " + person + "\u2019s week.");
+  }
+
+  /** D-095: undo your own addition, build mode only. No reason \u2014 unlike
+   *  discard/cancel (\u00a711.4), this corrects something that never became a
+   *  commitment, so there is nothing to explain. Plain unpin, no value. */
+  function onUnpinBuild(taskId) {
+    postAndRefresh("unpin", taskId, "", "", "Removed " + taskId + " from this week.");
   }
 
   /** Opens the inline reason panel for discard/cancel — the cascade (for a
@@ -1281,6 +1305,7 @@
 
     if (action === "todo-postpone") onPostpone(taskId);
     else if (action === "todo-pull") onPull(taskId, el.getAttribute("data-person"));
+    else if (action === "todo-unpin-build") onUnpinBuild(taskId);
     else if (action === "todo-undo") onUndo(taskId, el.getAttribute("data-origin"));
     else if (action === "todo-discard-open") openReasonPanel(taskId, "discard");
     else if (action === "todo-cancel-open") openReasonPanel(taskId, "cancel");
@@ -1357,6 +1382,7 @@
     _internals: {
       getState: function () { return state; },
       recompute: recompute,
+      cardHtml: cardHtml,
       // Exposed for tests (D-022 plain-Node harness): these are the pure
       // decisions D-092 turns on — which mode a week is in, and how a
       // position is labelled — so they can be verified without a DOM.

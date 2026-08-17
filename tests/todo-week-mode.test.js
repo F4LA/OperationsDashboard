@@ -144,7 +144,11 @@ function snapshot(todayISO, confirmedMondays, pins) {
     defaultOffset: I.defaultWeekOffset(),
     positions: I.WEEK_POSITIONS,
     committed: function (person, o) { return I.committedIdsForPerson(person, wins[String(o)]); },
-    liveTasks: Object.keys(I.getState().liveResult.tasks)
+    liveTasks: Object.keys(I.getState().liveResult.tasks),
+    card: function (person, o) {
+      var win = wins[String(o)];
+      return I.cardHtml(person, win, I.weekModeFor(win));
+    }
   };
 }
 
@@ -270,6 +274,52 @@ check("the engine does project the tasks (so the emptiness is not an empty plan)
 check("...yet the committed set is still empty — projection no longer pre-fills",
   wed.committed("Ana", 0).length === 0 && wed.committed("Beto", 0).length === 0,
   JSON.stringify(wed.committed("Ana", 0)));
+
+/* ================= remove-your-own-addition (D-095) ================= */
+console.log("\n=== build mode restores 'remove' as undo-your-own-addition (D-095) ===\n");
+
+var openingKey = wed.win(1).mondayKey;
+var withPin = snapshot(WED, [], [{ taskId: "T1", monday: openingKey }]);
+
+check("a task pinned in the unconfirmed (build) week shows the Remove action",
+  withPin.card("Ana", 1).indexOf('data-action="todo-unpin-build"') !== -1,
+  withPin.card("Ana", 1));
+check("its label reads as undoing an addition, not rejecting a system proposal",
+  withPin.card("Ana", 1).indexOf("undo this addition") !== -1);
+check("a person with nothing pinned there gets no Remove button",
+  withPin.card("Beto", 1).indexOf('data-action="todo-unpin-build"') === -1,
+  withPin.card("Beto", 1));
+
+var curKey = wed.win(0).mondayKey;
+var confirmedWithPin = snapshot(WED, [curKey], [{ taskId: "T1", monday: curKey }]);
+check("once the week is CONFIRMED (execute mode), Remove is gone",
+  confirmedWithPin.card("Ana", 0).indexOf('data-action="todo-unpin-build"') === -1,
+  confirmedWithPin.card("Ana", 0));
+check("...move/discard/cancel are the way to change a confirmed commitment instead",
+  confirmedWithPin.card("Ana", 0).indexOf('data-action="todo-postpone"') !== -1);
+
+var endedKey = wed.win(-1).mondayKey;
+var closedWithPin = snapshot(WED, [], [{ taskId: "T1", monday: endedKey }]);
+check("a CLOSED week (ended, never confirmed) also has no Remove — it is review, not build",
+  closedWithPin.card("Ana", -1).indexOf('data-action="todo-unpin-build"') === -1,
+  closedWithPin.card("Ana", -1));
+
+check("no reason/mandatory-note UI is attached to the Remove action itself",
+  withPin.card("Ana", 1).indexOf('data-action="todo-discard-open"') === -1 &&
+  withPin.card("Ana", 1).indexOf('data-action="todo-cancel-open"') === -1);
+
+/* ================= ad-hoc form limited to non-closed weeks (D-094) ================= */
+console.log("\n=== ad-hoc creation is un-gated from build, but NOT offered on a closed week (D-094) ===\n");
+
+check("build mode (unconfirmed, running week) offers the ad-hoc form",
+  withPin.card("Ana", 1).indexOf("todo-adhoc-form") !== -1);
+check("execute mode (confirmed, running week) ALSO offers it — unplanned work on a Tuesday",
+  confirmedWithPin.card("Ana", 0).indexOf("todo-adhoc-form") !== -1);
+check("review mode (a week that has ENDED) does NOT offer it",
+  closedWithPin.card("Ana", -1).indexOf("todo-adhoc-form") === -1,
+  closedWithPin.card("Ana", -1));
+check("...even when that closed week was never confirmed",
+  wed.mode(-1) === "review" && wed.card("Ana", -1).indexOf("todo-adhoc-form") === -1);
 
 console.log("\n=== summary ===");
 console.log("  passed: " + passes);
