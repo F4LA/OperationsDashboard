@@ -1,4 +1,4 @@
-# Operations Dashboard — Engineering Specification v2.0.3
+# Operations Dashboard — Engineering Specification v2.0.4
 
 > **v2.0 (2026-08-14)** — El producto se reencuadra: deja de ser un dashboard de Rocks y pasa a ser el dashboard de operaciones del leadership team, la herramienta con la que se corre el L10. El motor de Rocks (§2, §4, §5) queda intacto y pasa a ser un módulo. Se agregan: tareas ad-hoc y la vista de to-dos (§11), cierre semanal (§12) e issues (§13, por especificar). Las secciones §2, §4 y §5 NO cambiaron respecto de v1.1 — están construidas, probadas y referenciadas por el decision log. La numeración existente se conserva entera a propósito: el decision log referencia secciones por número 78 veces.
 
@@ -7,6 +7,8 @@
 > **v2.0.2 (2026-08-16)** — Un milestone acepta un `deadline` opcional (§2, §7), la restricción impuesta desde fuera, con su regla de despliegue en §5.3 y §6. D-087. La numeración de secciones no cambia.
 
 > **v2.0.3 (2026-08-16)** — El §11.1 y el §11.5 se reescriben: selector de tres posiciones con etiqueta y fecha (Closed / Current / Next week), el modo de una semana lo decide su confirmación y no la posición ni el día (corrige un error de una semana en el paso 8), la semana que se arma abre vacía, el pre-llenado automático se elimina y pasa a ser un panel de disponibles, y agregar una tarea ad-hoc queda disponible cualquier día. D-090, D-091, D-092. La numeración de secciones no cambia.
+
+> **v2.0.4 (2026-08-16)** — Correcciones al §11.5: se restituye quitar una tarea de la semana como deshacer de la propia adición, solo mientras la semana no está confirmada; agregar una ad-hoc se limita a semanas no cerradas. Se ratifica que en modo armado no se marca estado y que no se re-confirma una semana. D-093, D-094, D-095. La numeración de secciones no cambia.
 
 **Company:** Strong Standard
 **Author of spec:** design chat (Operating System project)
@@ -572,7 +574,7 @@ Default on open: *Closed* on the ops week's start day (the L10 is that day and s
 
 **What you can do in a week is decided by whether that week is confirmed — not by the selector position and not by the day.** This is the rule that keeps the meaning stable:
 
-- **Not yet confirmed** → the week is being built: add tasks, the capacity counter, and the confirm button (§11.5).
+- **Not yet confirmed** → the week is being built: add tasks, remove a task you added by mistake, the capacity counter, and the confirm button (§11.5). No status marking and no row actions here: with no confirmation there is no frozen denominator, so a task marked done in an unconfirmed week would have nowhere to count (D-093).
 - **Confirmed** → the week is being executed: mark status, move, discard, cancel (§11.4).
 - **Closed** → review, with the §12 completion summary.
 
@@ -621,9 +623,11 @@ This is where the week gets built.
 
 **Available panel.** Alongside, the tasks the live projection places in that window, plus everything else pullable — informative, never auto-committed. It SHOWS blocked tasks, flagged, naming what blocks them and who owns the blocker (D-071b): hiding blocked tasks hides the coordination.
 
+**Remove a task you just added.** While the week is unconfirmed, every committed row offers a plain remove — it undoes your own addition, mechanically the `unpin`. This is not "rejecting a system proposal" (nothing is proposed any more): it is the recovery path for a mis-click on a shared screen during step 8, the same reason D-069 built reversal pairs for discard and cancel. Once the week is confirmed, remove is gone: taking work out is no longer a correction but a change of commitment, and that goes through move, discard or cancel with a reason (§11.4).
+
 **Pull others in.** Pulling a task from the Available panel into the week is the mechanism behind "this depends on something of Emery's — Emery, can you get it done this week?": seeing a blocked task named, with its blocker and owner, is what produces that conversation, and when the answer is yes, both commitments land in the same week where they can be seen.
 
-**Add ad-hoc tasks:** description, owner (exactly one person — "Both" is not valid), estimated workDays, optional deadline. Adding an ad-hoc task is available on any day, in any week, regardless of confirmation state — unplanned work arrives on a Tuesday, not only while the week is being built.
+**Add ad-hoc tasks:** description, owner (exactly one person — "Both" is not valid), estimated workDays, optional deadline. Adding an ad-hoc task is available on any day, in any week that has not closed — unplanned work arrives on a Tuesday, with the week already confirmed and running. A closed week does not accept new tasks: work that appeared after the week ended belongs to the week in progress, not to the one that passed (D-094).
 
 **Capacity warning:** sum the workDays of everything in that person's week, Rock and ad-hoc alike, and warn when it exceeds the working days available. The warning is an input to the conversation, not a verdict — the person decides whether to drop something or absorb it.
 
