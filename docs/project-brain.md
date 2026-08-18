@@ -1,8 +1,8 @@
 # Project Brain — Operations Dashboard
 The current state in one page. Updated at the close of every chat via the push Code session.
-_Last updated: 2026-08-16 — Bernardo (reapertura de la 2B cerrada en a18e536, 610 tests verdes; D-093/094/095 ejecutadas)_
+_Last updated: 2026-08-16 — Bernardo (§13 Issues especificado por D-096, spec v2.1; próximo: construirlo antes del primer L10)_
 
-> **Source of truth for WHAT to build** is the spec: `docs/spec.md` (v2.0.4).
+> **Source of truth for WHAT to build** is the spec: `docs/spec.md` (v2.1).
 > **Source of truth for WHY** is `docs/decision-log.md`.
 > This Brain tracks WHERE the build stands.
 > Repo: `F4LA/OperationsDashboard` (public). Local clone: `~/Desktop/StrongStandard/OperationsDashboard`.
@@ -24,7 +24,7 @@ Nota de seguridad (consistente con el "no auth" del §3, no es un defecto): la U
 
 ## Done
 - Full design approved and captured (decision-log D-006 … D-015): data model, date engine logic, metrics, views, identity/backend, This Week + pin + deliverable link, and what's deferred.
-- Engineering spec written and approved — `docs/spec.md` (v1.1 en su momento, hoy en v2.0.4; hand-reformatted from the Word original; content complete, worth a diff against the original if byte-exactness ever matters).
+- Engineering spec written and approved — `docs/spec.md` (v1.1 en su momento, hoy en v2.1; hand-reformatted from the Word original; content complete, worth a diff against the original if byte-exactness ever matters).
 - Rock 3 seed written and validated — `data/rock3-seed.json` (6 projects, M1–M23, 47 tasks, 40.75 work-days, zero unresolved dependencies).
 - Repo `F4LA/OperationsDashboard` created (public), scaffolded, and pushed — commit `cdc249a` "Phase 0: repo scaffold, stub modules, and reference docs". Local and origin identical, clean tree.
 - GitHub Pages enabled and live (placeholder loads, 9 scripts load with zero console errors, unstyled as expected).
@@ -60,7 +60,7 @@ OperationsDashboard/
 │          appsscript-smoke.test.js   (real, D-037)
 │          thisweek.test.js   (real, D-061–D-064)
 ├── data/rock3-seed.json   (real, test fixture, per D-016)
-└── docs/  spec.md (real, v2.0.4) · decision-log.md · project-brain.md
+└── docs/  spec.md (real, v2.1) · decision-log.md · project-brain.md
 ```
 Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root — matching CoachPulse.
 
@@ -68,6 +68,7 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 - Nada activo en código.
 
 ## Next up (per spec §9)
+- §13 ISSUES (D-096, spec v2.1): pestaña Issues, RPC createIssue, acciones resolveIssue/unresolveIssue, validación de sourceIssueId, lector en el cliente y la vista con su tercer segmento. Tiene que estar antes del primer L10 real (~viernes 21 de agosto).
 - Fase 8 CERRADA de nuevo, ahora con el diseño de D-091/D-092 corregido por D-093/094/095, en a18e536 con 610 tests verdes. Sin preguntas abiertas. Próximo bloqueante real: la carga de R1 y R2, esperando los datos de duración de Miguel y Emery.
 - Fase 6 (Network / Timeline): CANCELADA por D-082. dashboard/network.js y su `<script>` ya se borraron (D-082b, confirmado 404). Prototipos de referencia si alguna vez se retoma: Rock3_Network_Graph.html (barras de espera punteadas, más simple) y Rock3_Interactive_Timeline.html (más avanzado, .deps vacío preparado); ninguno dibuja conectores de dependencia.
 
@@ -85,7 +86,7 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 - Gantt/Network (Fase 6): CANCELADA por D-082, no diferida. Ver Next up para el detalle de qué se borra.
 - Prototipos de referencia de la Fase 6 cancelada, localizados el 2026-08-14 en el disco de Bernardo (fuera de este repo): Rock3_Network_Graph.html y Rock3_Interactive_Timeline.html. Hallazgos guardados por si algún día se retoma: las filas son por MILESTONE agrupadas por Project (no carriles por persona — lo "por persona" se resolvió con botones de filtro); el Interactive Timeline es la mejor base pero perdió las barras punteadas de espera que sí tiene el Network Graph; ninguno de los dos dibuja conectores de dependencia (los muestra como texto), aunque el CSS del Interactive dejó un `.deps` preparado y vacío.
 - Carga automática del documento de Rock al dashboard: hoy el §8 lo lista como "Project Builder emite el JSON", conveniencia downstream. Pedido explícito de Bernardo (2026-08-14) de dejarlo registrado.
-- Pulido menor de This Week: el dropdown "+ add to this week" lista también tareas que ya se muestran en la columna de esa persona, así que aparecen duplicadas. Inofensivo. Revisar después de una semana de uso real.
+- (Retirado) El pulido de duplicados del dropdown de This Week ya no aplica: esa vista se retiró entera en la 2B (§11 supersede al §6.3, renderTw* borrados) y el panel de disponibles que la reemplazó se construyó de cero.
 - Borrar la burn-up se evaluó el 2026-08-14 y se descartó (D-071d): el pie numérico ya da el veredicto, la curva agrega cuándo empezó el desvío a costo cero.
 
 ## Open decisions

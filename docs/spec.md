@@ -1,4 +1,4 @@
-# Operations Dashboard — Engineering Specification v2.0.4
+# Operations Dashboard — Engineering Specification v2.1
 
 > **v2.0 (2026-08-14)** — El producto se reencuadra: deja de ser un dashboard de Rocks y pasa a ser el dashboard de operaciones del leadership team, la herramienta con la que se corre el L10. El motor de Rocks (§2, §4, §5) queda intacto y pasa a ser un módulo. Se agregan: tareas ad-hoc y la vista de to-dos (§11), cierre semanal (§12) e issues (§13, por especificar). Las secciones §2, §4 y §5 NO cambiaron respecto de v1.1 — están construidas, probadas y referenciadas por el decision log. La numeración existente se conserva entera a propósito: el decision log referencia secciones por número 78 veces.
 
@@ -9,6 +9,8 @@
 > **v2.0.3 (2026-08-16)** — El §11.1 y el §11.5 se reescriben: selector de tres posiciones con etiqueta y fecha (Closed / Current / Next week), el modo de una semana lo decide su confirmación y no la posición ni el día (corrige un error de una semana en el paso 8), la semana que se arma abre vacía, el pre-llenado automático se elimina y pasa a ser un panel de disponibles, y agregar una tarea ad-hoc queda disponible cualquier día. D-090, D-091, D-092. La numeración de secciones no cambia.
 
 > **v2.0.4 (2026-08-16)** — Correcciones al §11.5: se restituye quitar una tarea de la semana como deshacer de la propia adición, solo mientras la semana no está confirmada; agregar una ad-hoc se limita a semanas no cerradas. Se ratifica que en modo armado no se marca estado y que no se re-confirma una semana. D-093, D-094, D-095. La numeración de secciones no cambia.
+
+> **v2.1 (2026-08-16)** — Se especifica el §13 (Issues), que v2.0 había dejado como "por especificar": pantalla propia, pestaña Issues, dos RPC y dos acciones de evento nuevas, crear to-dos desde un issue, resolución obligatoria al cerrar, y el seguimiento del to-do generado que sigue abierto. D-096. La numeración de secciones no cambia.
 
 **Company:** Strong Standard
 **Author of spec:** design chat (Operating System project)
@@ -535,7 +537,7 @@ These are consequences of v1, made after the dashboard is built and proven, and 
 - Network/Timeline (View 2) fed by engine dates.
 - "This Week" view (§6.3) + manual pin (drop-down, engine-validated) + deliverable link box. Built last on purpose: if the week tightens, this is the natural cut line without breaking anything earlier.
 - **Fase 8 — La vista de to-dos (§11) + cierre semanal (§12).** Reemplaza el §6.3. Requiere que la pestaña People tenga a las cinco personas de leadership antes de construir.
-- **Fase 9 — Issues (§13).** Se especifica después de correr al menos un L10 con la Fase 8 en uso.
+- **Fase 9 — Issues (§13).** Especificado en D-096, antes del primer L10 real: pestaña Issues, RPC createIssue, acciones resolveIssue/unresolveIssue, validación de sourceIssueId, y la vista de tercer segmento.
 
 Build order rationale: the engine is the heaviest and highest-risk piece and everything depends on it, so it goes first and gets validated against real Rock 3 data before any UI investment.
 
@@ -655,3 +657,65 @@ Read from the event log for the closing week, per person and for the team:
 Both numbers are shown: the team's rate at the top, each person's beside their name. No ranking, no ordering by performance.
 
 The discard rate is worth watching on its own over a sprint. A high one means the L10 is generating noise rather than work, and that is a fact about the meeting, not about the people in it.
+
+---
+
+## 13 · Issues (L10 step 7 — IDS)
+
+The L10's IDS step produces two things: issues that get talked through and closed, and issues that generate work. Today both disappear into the meeting. This view is where they live.
+
+Issues are raised **during the week**, not only in the meeting, so this view stands on its own — it is the third segment alongside Sprint board and To-dos, not a panel inside the week.
+
+### 13.1 Storage
+
+A fourth Sheet tab, following the Tasks precedent (D-066, D-080): the row holds what is structural, the Events log holds what changes.
+
+| Tab | Columns |
+|---|---|
+| **Issues** | `id \| sprintId \| title \| desc \| raisedBy \| raisedAt` |
+
+- `id` is server-assigned in the `I-NNNN` namespace and never reused, exactly as `T-NNNN` works for ad-hoc tasks.
+- `sprintId` is stamped at creation so sprint-end counting ("how many issues closed with no action versus how many produced work") is answerable without inferring it from timestamps.
+- `raisedBy` and `raisedAt` are server-generated. The client never sends either (§3).
+- `status` and `resolution` are NOT columns. They are state, and state lives in the event log — same rule that keeps a task's status out of the Tasks row.
+
+### 13.2 Write path
+
+One new RPC, a sibling of `createTask` (D-066) — not a fifth event action, because it creates an object rather than changing one:
+
+- **`createIssue`** — payload `title`, `desc`. Server assigns `id`, stamps `sprintId`, `raisedBy` (from the actor), `raisedAt`. Write-then-verify and the same `verified` contract as `createTask` (D-066e). Length caps loud, never silent (D-075).
+
+Two new event actions, as a reversal pair (D-069):
+
+- **`resolveIssue`** — Task ID column carries the issue id; `Value` carries the resolution and is MANDATORY, one of `discussed_no_action` or `todo_created`. A resolve without a valid resolution is rejected, not defaulted.
+- **`unresolveIssue`** — reopens. The pair exists for the same reason every other pair does: a mis-click on a shared screen during a live meeting.
+
+The `Note` field stays free text and optional, as everywhere else.
+
+`createTask` already accepts `sourceIssueId` and already writes it; it stops being passed through unvalidated and starts being checked against a real issue id.
+
+### 13.3 The view
+
+**The open list.** Every unresolved issue, oldest first, each showing title, who raised it, and **how long it has been open in days**. Oldest-first is the whole ordering rule: an issue sitting for three weeks belongs at the top of the conversation, and nothing is gained by letting people re-rank a short list by hand (D-096c).
+
+Expanding an issue shows its description and any to-dos already created from it, with their current status.
+
+**Raise an issue.** Title and description, available from this view at any time — not gated to the meeting, not gated to a week.
+
+**Create a to-do from an issue.** Opens the ad-hoc form of §11.5 with `sourceIssueId` pre-filled and locked. Owner, workDays and the optional deadline are filled normally. One issue may produce several to-dos; each is created separately.
+
+**Resolve an issue.** Requires choosing how it closed — `discussed_no_action` or `todo_created` — before the button enables. This single constraint is what makes IDS measurable at sprint end. Creating a to-do does NOT resolve the issue: they are separate acts (D-096b), because an issue may still have more work to produce.
+
+**Resolved issues** stay visible in their own section with their resolution and an Undo, following D-069's rule that a closed thing does not vanish.
+
+### 13.4 Follow-through — the case that disappears today
+
+A resolved issue is not finished work. An issue closed as `todo_created` whose generated to-dos are not all done is flagged in the resolved section, stating how many weeks ago it was resolved and how many of its to-dos are still open.
+
+This is the entire reason `sourceIssueId` exists (§2). Without it the field would be written by the server and read by nobody — the defect D-080 found with the Tasks tab, repeated.
+
+### 13.5 What this view does NOT do
+
+- It does not rank or prioritise issues beyond age.
+- It does not assign an owner to an issue. Issues are the team's; the to-do that comes out of one has an owner.
+- It does not schedule. An issue never enters the engine — only the to-dos it produces do, as ad-hoc tasks (§11).
