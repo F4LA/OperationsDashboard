@@ -774,8 +774,50 @@
    * Full render
    * ------------------------------------------------------------------ */
 
+  /** This module's own #main listeners, on the same terms it imposes on the
+   *  other two views. Remove-before-add, so calling it repeatedly (render()
+   *  does) can never stack duplicates. */
+  function setBoardMainListeners(active) {
+    if (!dom.mainEl) return;
+    dom.mainEl.removeEventListener("click", onMainClick);
+    dom.mainEl.removeEventListener("change", onMainChange);
+    dom.mainEl.removeEventListener("keydown", onMainKeydown);
+    if (active) {
+      dom.mainEl.addEventListener("click", onMainClick);
+      dom.mainEl.addEventListener("change", onMainChange);
+      dom.mainEl.addEventListener("keydown", onMainKeydown);
+    }
+  }
+
+  /**
+   * THE INVARIANT: #main has exactly one view listening to it — the visible
+   * one. Enforced in one place, structurally, rather than by every handler
+   * checking whether its view happens to be on screen.
+   *
+   * That distinction is the whole point. A per-branch "is my view active?"
+   * test would fix the action that broke and leave the next shared action
+   * to break the same way — and there WILL be a next one, because issues.js
+   * deliberately reuses §11.5's ad-hoc form, and reusing markup means
+   * reusing its data-action. Here, a view that is not visible cannot
+   * respond to anything, whatever it is named.
+   *
+   * Called from render(), which already runs on every view switch and every
+   * refresh; the setters are idempotent so the repetition is free and also
+   * self-healing if anything ever attaches out of band.
+   */
+  function setActiveViewListeners() {
+    setBoardMainListeners(state.view === "board");
+    if (root.OpsDashTodos && root.OpsDashTodos.setActive) {
+      root.OpsDashTodos.setActive(state.view === "todos");
+    }
+    if (root.OpsDashIssues && root.OpsDashIssues.setActive) {
+      root.OpsDashIssues.setActive(state.view === "issues");
+    }
+  }
+
   function render() {
     renderTopbarRight();
+    setActiveViewListeners();
 
     if (state.view === "todos") {
       // Sprint-wide progress/burn-up belong to the Sprint Board (§6 View 1);
@@ -1064,9 +1106,9 @@
     dom.mainEl = document.getElementById("main");
     dom.toastContainer = document.getElementById("toast-container");
 
-    dom.mainEl.addEventListener("click", onMainClick);
-    dom.mainEl.addEventListener("change", onMainChange);
-    dom.mainEl.addEventListener("keydown", onMainKeydown);
+    // Listeners are attached by setActiveViewListeners() below, from render(),
+    // not here — this module is one of THREE that render into #main, and only
+    // the visible one may be listening to it.
 
     recompute();
     render();

@@ -1398,17 +1398,45 @@
 
     dom.mainEl = document.getElementById("main");
     dom.toastContainer = document.getElementById("toast-container");
-    if (dom.mainEl) {
+    // Listeners are NOT attached here — see setActive(). board.js owns which
+    // view is live and turns exactly one of us on.
+    recompute();
+  }
+
+  /**
+   * Attach this view's #main listeners only while it is the visible view.
+   *
+   * #main is SHARED by board.js, todos.js and issues.js. When more than one
+   * of them has a listener on it, a single click runs every matching handler:
+   * that shipped as a double-write, because issues.js reuses this module's
+   * ad-hoc form and therefore its "todo-add-adhoc" action, so one Add click
+   * posted two createTask calls (T-0008 and T-0009, three seconds apart —
+   * the gap is the server's LockService serialising them, not two clicks).
+   *
+   * The existing in-flight guard cannot catch that: both listeners were
+   * already dispatched for the same event before the first one disabled the
+   * form. Disabling a control does not cancel handlers already queued for an
+   * event in flight. So the fix has to be that the second listener is not
+   * there at all.
+   *
+   * Idempotent by construction — remove before add — so a double activate()
+   * cannot reintroduce the very duplication this exists to prevent.
+   */
+  function setActive(active) {
+    if (!dom.mainEl) dom.mainEl = document.getElementById("main");
+    if (!dom.mainEl) return;
+    dom.mainEl.removeEventListener("click", onClick);
+    dom.mainEl.removeEventListener("change", onChange);
+    if (active) {
       dom.mainEl.addEventListener("click", onClick);
       dom.mainEl.addEventListener("change", onChange);
     }
-
-    recompute();
   }
 
   root.OpsDashTodos = {
     mount: mount,
     render: render,
+    setActive: setActive,
 
     /**
      * The §11.5 ad-hoc form, exported so §13.3 can open "the ad-hoc form of

@@ -791,7 +791,20 @@
 
     dom.mainEl = document.getElementById("main");
     dom.toastContainer = document.getElementById("toast-container");
-    if (dom.mainEl) {
+    // Listeners are NOT attached here — see setActive(). This module adding
+    // a second listener to the shared #main at mount time is what caused the
+    // double createTask; the full reasoning is in todos.js's setActive().
+  }
+
+  /** Attach this view's #main listeners only while it is the visible view.
+   *  Same contract and same reasoning as todos.js's setActive(), including
+   *  the remove-before-add idempotence. */
+  function setActive(active) {
+    if (!dom.mainEl) dom.mainEl = document.getElementById("main");
+    if (!dom.mainEl) return;
+    dom.mainEl.removeEventListener("click", onClick);
+    dom.mainEl.removeEventListener("change", onChange);
+    if (active) {
       dom.mainEl.addEventListener("click", onClick);
       dom.mainEl.addEventListener("change", onChange);
     }
@@ -800,6 +813,7 @@
   root.OpsDashIssues = {
     mount: mount,
     render: render,
+    setActive: setActive,
     _internals: {
       getState: function () { return state; },
       openIssuesOldestFirst: openIssuesOldestFirst,
