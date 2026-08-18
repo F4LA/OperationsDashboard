@@ -151,6 +151,15 @@ function freshSheets(opts) {
     ["Event ID", "Sprint ID", "Task ID", "Action", "Value", "Actor", "Timestamp", "Note"];
   var tasksHeader = opts.tasksHeader ||
     ["id", "desc", "owner", "workDays", "deadline", "sourceIssueId", "createdBy", "createdAt"];
+  var issuesHeader = opts.issuesHeader ||
+    ["id", "sprintId", "title", "desc", "raisedBy", "raisedAt"];
+  // I-0007 is seeded because several pre-existing createTask cases pass it as
+  // a sourceIssueId. Before §13 that id was a placeholder against a tab that
+  // did not exist; D-096 makes it a real reference, so the fixture now
+  // supplies the row it always implied.
+  var issueRows = opts.issueRows === undefined
+    ? [["I-0007", "S3-2026", "Seeded issue", "For sourceIssueId cases", "Bernardo", "2026-08-10T09:00:00-04:00"]]
+    : opts.issueRows;
   return {
     People: new FakeSheet("People", [
       peopleHeader,
@@ -160,7 +169,8 @@ function freshSheets(opts) {
       ["NoFlag", "noflag@example.com", ""]
     ]),
     Events: new FakeSheet("Events", [eventsHeader]),
-    Tasks: new FakeSheet("Tasks", [tasksHeader].concat(opts.taskRows || []))
+    Tasks: new FakeSheet("Tasks", [tasksHeader].concat(opts.taskRows || [])),
+    Issues: new FakeSheet("Issues", [issuesHeader].concat(issueRows))
   };
 }
 
@@ -426,8 +436,11 @@ r = post({ action: "createTask", desc: "With everything", owner: "Bernardo", wor
 check("second createTask gets T-0002", r.id === "T-0002", r.id);
 check("optional deadline stored", ctSheets.Tasks.rows[2][4] === "2026-08-20",
   JSON.stringify(ctSheets.Tasks.rows[2]));
-check("optional sourceIssueId stored unvalidated", ctSheets.Tasks.rows[2][5] === "I-0007",
-  JSON.stringify(ctSheets.Tasks.rows[2]));
+// Was "stored unvalidated" before §13 existed. D-096 explicitly ends that:
+// the id is still stored in the same column, but only after it is confirmed
+// to name a real Issues row (the seeded I-0007 above).
+check("sourceIssueId stored, now that it names a real issue",
+  ctSheets.Tasks.rows[2][5] === "I-0007", JSON.stringify(ctSheets.Tasks.rows[2]));
 check("fractional workDays preserved as a number", ctSheets.Tasks.rows[1][3] === 0.5,
   JSON.stringify(ctSheets.Tasks.rows[1]));
 
@@ -798,6 +811,216 @@ check("pin on an ad-hoc id is accepted (that IS how a task gets its week)",
 r = post({ action: "setStatus", taskId: "T-0001", value: "done", actor: "Bernardo" });
 check("setStatus on an ad-hoc id accepted — one status mechanism for both origins (§3)",
   r.ok === true, JSON.stringify(r));
+
+/* ================= §13: createIssue (D-096) ================= */
+console.log("\n=== createIssue — happy path (§13.2) ===\n");
+
+var ciSheets = freshSheets({ issueRows: [] });
+r = post({ action: "createIssue", sprintId: "S3-2026", title: "Intake form is too long",
+           desc: "Leads drop at question 9.", actor: "Bernardo" }, ciSheets);
+check("createIssue accepted", r.ok === true, JSON.stringify(r));
+check("first id is I-0001", r.id === "I-0001", r.id);
+check("Issues row appended", ciSheets.Issues.rows.length === 2, ciSheets.Issues.rows.length);
+
+var issueRow = ciSheets.Issues.rows[1];
+check("Issues row matches the §13.1 column order",
+  issueRow[0] === "I-0001" && issueRow[1] === "S3-2026" &&
+  issueRow[2] === "Intake form is too long" && issueRow[3] === "Leads drop at question 9." &&
+  issueRow[4] === "Bernardo" && issueRow[5] === r.raisedAt, JSON.stringify(issueRow));
+check("raisedAt cell forced to text format", ciSheets.Issues.formats["2,6"] === "@",
+  JSON.stringify(ciSheets.Issues.formats));
+check("server-side write-then-verify found the row", r.verified === true, JSON.stringify(r));
+check("no Events row is written — an issue is not an event (§13.1)",
+  ciSheets.Events.rows.length === 1, ciSheets.Events.rows.length);
+
+// §13.1: raisedBy and raisedAt are SERVER-generated. A client that tries to
+// supply them must not be able to forge either.
+var forged = freshSheets({ issueRows: [] });
+r = post({ action: "createIssue", title: "Forged", actor: "Brent",
+           raisedBy: "Bernardo", raisedAt: "1999-01-01T00:00:00-05:00",
+           id: "I-9999" }, forged);
+check("client-supplied raisedBy is ignored; the ACTOR is recorded",
+  forged.Issues.rows[1][4] === "Brent", JSON.stringify(forged.Issues.rows[1]));
+check("client-supplied raisedAt is ignored; the server stamps it",
+  forged.Issues.rows[1][5] !== "1999-01-01T00:00:00-05:00", forged.Issues.rows[1][5]);
+check("client-supplied id is ignored; the server assigns it",
+  forged.Issues.rows[1][0] === "I-0001", forged.Issues.rows[1][0]);
+
+check("desc is optional — a one-line issue raised mid-week is still an issue",
+  post({ action: "createIssue", title: "Just a title", actor: "Bernardo" },
+       freshSheets({ issueRows: [] })).ok === true);
+
+r = post({ action: "createIssue", desc: "no title", actor: "Bernardo" },
+         freshSheets({ issueRows: [] }));
+check("a missing title is rejected", r.ok === false && r.code === "MISSING_TITLE", JSON.stringify(r));
+
+r = post({ action: "createIssue", title: "Who am I", actor: "Nobody" },
+         freshSheets({ issueRows: [] }));
+check("an unknown actor is rejected, same People enforcement as every write",
+  r.ok === false && r.code === "ACTOR_UNKNOWN", JSON.stringify(r));
+
+r = post({ action: "createIssue", title: "x".repeat(5001), actor: "Bernardo" },
+         freshSheets({ issueRows: [] }));
+check("an over-cap title is REJECTED, never truncated (D-075)",
+  r.ok === false && r.code === "TITLE_TOO_LONG", JSON.stringify(r));
+
+r = post({ action: "createIssue", title: "ok", desc: "x".repeat(5001), actor: "Bernardo" },
+         freshSheets({ issueRows: [] }));
+check("an over-cap desc is REJECTED too",
+  r.ok === false && r.code === "DESC_TOO_LONG", JSON.stringify(r));
+
+/* ---- I-NNNN assignment: MAX+1, never reused (§13.1) ---- */
+console.log("\n--- issue id assignment ---\n");
+
+r = post({ action: "createIssue", title: "next", actor: "Bernardo" }, freshSheets({ issueRows: [
+  ["I-0001", "S", "a", "", "Bernardo", "x"],
+  ["I-0009", "S", "b", "", "Bernardo", "x"],
+  ["I-0004", "S", "c", "", "Bernardo", "x"]   // out of order on purpose
+] }));
+check("issue id is MAX+1, not lastRow+1", r.id === "I-0010", r.id);
+
+r = post({ action: "createIssue", title: "next", actor: "Bernardo" }, freshSheets({ issueRows: [
+  ["I-0001", "S", "a", "", "Bernardo", "x"],
+  ["I-0003", "S", "c", "", "Bernardo", "x"]   // I-0002 deleted by hand
+] }));
+check("a hand-deleted issue row does not free its id for reuse", r.id === "I-0004", r.id);
+
+r = post({ action: "createIssue", title: "next", actor: "Bernardo" }, freshSheets({ issueRows: [
+  ["not-an-id", "S", "junk", "", "Bernardo", "x"],
+  ["T-0002", "S", "a task id, not an issue", "", "Bernardo", "x"],
+  ["I-0002", "S", "b", "", "Bernardo", "x"]
+] }));
+check("non-conforming ids (including T-NNNN) are ignored by the issue max scan",
+  r.id === "I-0003", r.id);
+
+r = post({ action: "createIssue", title: "next", actor: "Bernardo" }, freshSheets({ issueRows: [
+  ["I-0999", "S", "a", "", "Bernardo", "x"]
+] }));
+check("padding is correct rolling past 999", r.id === "I-1000", r.id);
+
+/* ================= §13: resolveIssue / unresolveIssue ================= */
+console.log("\n=== resolveIssue / unresolveIssue (§13.2, D-069 pair) ===\n");
+
+r = post({ action: "resolveIssue", taskId: "I-0007", value: "discussed_no_action",
+           actor: "Bernardo" });
+check("resolveIssue with discussed_no_action accepted", r.ok === true, JSON.stringify(r));
+
+r = post({ action: "resolveIssue", taskId: "I-0007", value: "todo_created", actor: "Bernardo" });
+check("resolveIssue with todo_created accepted", r.ok === true, JSON.stringify(r));
+
+var resolved = freshSheets();
+post({ action: "resolveIssue", taskId: "I-0007", value: "todo_created",
+       actor: "Bernardo", note: "three to-dos came out of this" }, resolved);
+var rIssueRow = resolved.Events.rows[1];
+check("the issue id goes in the Task ID column (the D-070 generic use)",
+  rIssueRow[2] === "I-0007", JSON.stringify(rIssueRow));
+check("the resolution goes in the Value column", rIssueRow[4] === "todo_created",
+  JSON.stringify(rIssueRow));
+check("the note rides along as free text", rIssueRow[7] === "three to-dos came out of this",
+  JSON.stringify(rIssueRow));
+
+// THE constraint of §13.2: no resolution, no resolve. Never defaulted.
+r = post({ action: "resolveIssue", taskId: "I-0007", actor: "Bernardo" });
+check("resolveIssue with NO resolution is REJECTED, not defaulted",
+  r.ok === false && r.code === "BAD_VALUE_RESOLUTION", JSON.stringify(r));
+
+r = post({ action: "resolveIssue", taskId: "I-0007", value: "", actor: "Bernardo" });
+check("...an explicitly blank resolution is rejected too",
+  r.ok === false && r.code === "BAD_VALUE_RESOLUTION", JSON.stringify(r));
+
+r = post({ action: "resolveIssue", taskId: "I-0007", value: "done", actor: "Bernardo" });
+check("a resolution outside the enum is rejected",
+  r.ok === false && r.code === "BAD_VALUE_RESOLUTION", JSON.stringify(r));
+
+r = post({ action: "resolveIssue", taskId: "I-0007", value: "todo created", actor: "Bernardo" });
+check("a near-miss spelling is rejected — the enum is exact",
+  r.ok === false && r.code === "BAD_VALUE_RESOLUTION", JSON.stringify(r));
+
+r = post({ action: "unresolveIssue", taskId: "I-0007", actor: "Bernardo" });
+check("unresolveIssue needs no value (it is the reversal, D-069)",
+  r.ok === true, JSON.stringify(r));
+
+r = post({ action: "unresolveIssue", taskId: "I-0007", value: "todo_created", actor: "Bernardo" });
+check("unresolveIssue with a value is rejected",
+  r.ok === false && r.code === "BAD_VALUE_UNRESOLVE_ISSUE", JSON.stringify(r));
+
+/* ---- namespace: the issue actions are I-NNNN only ---- */
+r = post({ action: "resolveIssue", taskId: "T-0001", value: "todo_created", actor: "Bernardo" });
+check("resolveIssue on an ad-hoc task id is rejected",
+  r.ok === false && r.code === "NOT_AN_ISSUE_ID", JSON.stringify(r));
+
+r = post({ action: "resolveIssue", taskId: "M5-t1", value: "todo_created", actor: "Bernardo" });
+check("resolveIssue on a plan task id is rejected",
+  r.ok === false && r.code === "NOT_AN_ISSUE_ID", JSON.stringify(r));
+
+r = post({ action: "discard", taskId: "I-0007", actor: "Bernardo", note: "nope" });
+check("conversely, discard on an ISSUE id is still rejected (D-067 unchanged)",
+  r.ok === false && r.code === "DISCARD_NOT_ADHOC", JSON.stringify(r));
+
+r = post({ action: "cancel", taskId: "I-0007", actor: "Bernardo", note: "nope" });
+check("cancel on an issue id is accepted by the namespace rule — a known, " +
+  "documented consequence of D-068 defining plan tasks as 'not T-NNNN'",
+  r.ok === true, JSON.stringify(r));
+
+/* ================= §13: sourceIssueId is now validated ================= */
+console.log("\n=== createTask sourceIssueId validation (§13.2 — D-096 ends the pass-through) ===\n");
+
+r = post({ action: "createTask", desc: "From the issue", owner: "Brent", workDays: 1,
+           week: "2026-08-17", sourceIssueId: "I-0007", actor: "Bernardo" });
+check("a sourceIssueId naming a REAL issue is accepted", r.ok === true, JSON.stringify(r));
+
+r = post({ action: "createTask", desc: "From nowhere", owner: "Brent", workDays: 1,
+           week: "2026-08-17", sourceIssueId: "I-4242", actor: "Bernardo" });
+check("a well-formed but NON-EXISTENT issue id is rejected",
+  r.ok === false && r.code === "SOURCE_ISSUE_NOT_FOUND", JSON.stringify(r));
+
+r = post({ action: "createTask", desc: "Malformed", owner: "Brent", workDays: 1,
+           week: "2026-08-17", sourceIssueId: "nonsense", actor: "Bernardo" });
+check("a malformed sourceIssueId is rejected on shape, before any sheet read",
+  r.ok === false && r.code === "BAD_VALUE_SOURCE_ISSUE", JSON.stringify(r));
+
+r = post({ action: "createTask", desc: "Plain ad-hoc", owner: "Brent", workDays: 1,
+           week: "2026-08-17", actor: "Bernardo" });
+check("a BLANK sourceIssueId stays legal — most ad-hoc work comes from nowhere",
+  r.ok === true, JSON.stringify(r));
+
+// A deployment that has no Issues tab must keep serving ordinary ad-hoc
+// creation; only the issue-linked path may depend on the tab.
+var noIssuesTab = freshSheets();
+delete noIssuesTab.Issues;
+r = post({ action: "createTask", desc: "Plain ad-hoc", owner: "Brent", workDays: 1,
+           week: "2026-08-17", actor: "Bernardo" }, noIssuesTab);
+check("with NO Issues tab, an unlinked createTask still works", r.ok === true, JSON.stringify(r));
+
+noIssuesTab = freshSheets();
+delete noIssuesTab.Issues;
+r = post({ action: "createTask", desc: "Linked", owner: "Brent", workDays: 1,
+           week: "2026-08-17", sourceIssueId: "I-0007", actor: "Bernardo" }, noIssuesTab);
+check("...but a LINKED one names the missing tab rather than silently storing it",
+  r.ok === false && r.code === "MISSING_TAB", JSON.stringify(r));
+
+/* ---- header guard reaches the new tab too (D-033) ---- */
+r = post({ action: "createIssue", title: "x", actor: "Bernardo" },
+         freshSheets({ issuesHeader: ["id", "title", "desc", "raisedBy", "raisedAt"], issueRows: [] }));
+check("a drifted Issues header blocks the write (D-033)",
+  r.ok === false && r.code === "HEADER_DRIFT", JSON.stringify(r));
+
+r = post({ action: "createIssue", title: "x", actor: "Bernardo" },
+         (function () { var s = freshSheets({ issueRows: [] }); delete s.Issues; return s; })());
+check("a missing Issues tab is named, not crashed on",
+  r.ok === false && r.code === "MISSING_TAB", JSON.stringify(r));
+
+/* ---- the new RPC does not disturb the old ones ---- */
+r = post({ action: "appendEvent", eventAction: "resolveIssue", taskId: "I-0007",
+           value: "discussed_no_action", actor: "Bernardo" });
+check("the appendEvent envelope works for the issue actions too", r.ok === true, JSON.stringify(r));
+
+r = post({ action: "createTask", sprintId: "S3-2026", desc: "still fine", owner: "Brent",
+           workDays: 1, week: "2026-08-17", actor: "Bernardo" });
+check("createTask is unaffected by the new sibling RPC", r.ok === true, JSON.stringify(r));
+
+r = post({ action: "setStatus", taskId: "T-0001", value: "done", actor: "Bernardo" });
+check("setStatus is unaffected", r.ok === true, JSON.stringify(r));
 
 console.log("\n=== summary ===");
 console.log("  passed: " + passes);

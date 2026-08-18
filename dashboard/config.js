@@ -24,12 +24,14 @@
     API_KEY: "AIzaSyBEVkTpgPdKMkvx5Bp4EuExWsPqRiTvLJc",
     WEB_APP_URL: "https://script.google.com/macros/s/AKfycbz_t2Z5jDc15oaXyYXA-JirD31EBEgqPJrv0HRRn33_TTNqMWPRgA0sTFojKd4v1HFR3Q/exec",
 
-    /* ---------- Sheet tabs (D-033 schema; Tasks added D-066/D-080) ---------- */
+    /* ---------- Sheet tabs (D-033 schema; Tasks added D-066/D-080;
+                   Issues added §13/D-096) ---------- */
     TABS: {
       PEOPLE: "People",
       EVENTS: "Events",
       SETTINGS: "Settings",
-      TASKS: "Tasks"
+      TASKS: "Tasks",
+      ISSUES: "Issues"
     },
 
     /* ---------- Identity persistence (§3 "Option B") ---------- */

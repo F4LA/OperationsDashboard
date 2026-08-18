@@ -105,6 +105,40 @@
     return out;
   }
 
+  /**
+   * Issues tab (§13.1, D-096) — one row per issue. Same D-080 discipline as
+   * parseTasks above, and for the same reason: the row carries what is
+   * STRUCTURAL and nothing that changes.
+   *   id | sprintId | title | desc | raisedBy | raisedAt
+   *
+   * `status` and `resolution` are deliberately absent. An issue's open/
+   * resolved state and HOW it resolved come from folding the Events log
+   * (resolveIssue/unresolveIssue), exactly like a task's status — one source
+   * of state, never two. That is also why the tab has no resolvedBy/
+   * resolvedAt: the resolving event already carries its own actor and
+   * timestamp, server-generated, and §13.4 reads the weeks-since-resolved
+   * straight off it.
+   *
+   * @returns { [id]: {id, sprintId, title, desc, raisedBy, raisedAt} }
+   */
+  function parseIssues(rows) {
+    var out = {};
+    for (var i = 1; i < rows.length; i++) {
+      var r = rows[i] || [];
+      var id = trimStr(r[0]);
+      if (!id) continue;
+      out[id] = {
+        id: id,
+        sprintId: trimStr(r[1]),
+        title: trimStr(r[2]),
+        desc: trimStr(r[3]),
+        raisedBy: trimStr(r[4]),
+        raisedAt: trimStr(r[5])
+      };
+    }
+    return out;
+  }
+
   function fetchSheetValues(cfg, tabName) {
     return fetch(cfg.sheetUrl(tabName)).then(function (response) {
       return response.text().then(function (text) {
@@ -159,12 +193,14 @@
           fetchSheetValues(cfg, cfg.TABS.PEOPLE),
           fetchSheetValues(cfg, cfg.TABS.SETTINGS),
           root.OpsDashEvents.fetchEvents(),
-          fetchSheetValues(cfg, cfg.TABS.TASKS)
+          fetchSheetValues(cfg, cfg.TABS.TASKS),
+          fetchSheetValues(cfg, cfg.TABS.ISSUES)
         ]).then(function (results) {
           var people = parsePeople(results[0]);
           var settings = parseSettings(results[1]);
           var events = results[2];
-          var tasks = parseTasks(results[3]); // D-080
+          var tasks = parseTasks(results[3]);   // D-080
+          var issues = parseIssues(results[4]); // §13.1, D-096
 
           var band = Number(settings.onTrackBandWorkDays);
           if (!(band >= 0)) band = 1; // fallback documented at the call site, never silently NaN
@@ -223,6 +259,18 @@
               folded: folded
             });
           }
+
+          if (root.OpsDashIssues) {
+            root.OpsDashIssues.mount({
+              issues: issues,
+              tasks: tasks,            // the §13.4 join is on sourceIssueId
+              currentState: currentState,
+              resolutions: root.OpsDashEvents.issueResolutions(folded),
+              people: people,
+              opsWeekStartDay: opsWeekStartDay,
+              folded: folded
+            });
+          }
         });
       })
       .catch(function (err) {
@@ -230,6 +278,26 @@
         if (root.console) root.console.error("[OpsDash]", err);
       });
   }
+
+  /**
+   * The bootstrap's two Sheet readers, exported for ONE caller: the Issues
+   * view (§13), which after raising an issue or creating a to-do has to
+   * re-read the Issues and Tasks tabs. Both writes append a ROW, which no
+   * amount of Events folding would reveal — refreshFromServer() in todos.js
+   * re-folds events and would show neither.
+   *
+   * Exported rather than copied so there is one definition of "how a tab is
+   * read and parsed". parseIssues/parseTasks in particular encode the D-080
+   * rule that the row carries structure and never state; a second copy is
+   * exactly where that rule would quietly rot.
+   */
+  root.OpsDashApp = {
+    fetchSheetValues: fetchSheetValues,
+    parseIssues: parseIssues,
+    parseTasks: parseTasks,
+    parsePeople: parsePeople,
+    parseSettings: parseSettings
+  };
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init);

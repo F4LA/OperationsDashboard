@@ -812,14 +812,27 @@
     return '<div class="todo-available"><h4>Available (' + candidates.length + ")</h4>" + rows + "</div>";
   }
 
-  function buildAdHocFormHtml(person) {
+  function buildAdHocFormHtml(person, opts) {
     var ownerOptions = state.people.map(function (p) {
       return '<option value="' + escapeAttr(p.name) + '"' + (p.name === person ? " selected" : "") + ">" +
         escapeHtml(p.name) + "</option>";
     }).join("");
 
+    // \u00a713.3 reuses this exact form from the Issues view, with the issue id
+    // pre-filled and LOCKED \u2014 hence the optional sourceIssueId. It rides as a
+    // data attribute rather than a disabled input because a disabled field is
+    // still a field someone can try to argue with; there is nothing here to
+    // edit, only a fact about where this to-do came from. The Issues view
+    // renders the human-readable version of that fact beside the form.
+    var sourceIssueId = opts && opts.sourceIssueId ? opts.sourceIssueId : "";
+    var weekAttr = opts && opts.week
+      ? ' data-week="' + escapeAttr(opts.week) + '"'
+      : "";
+
     return (
-      '<div class="todo-adhoc-form" data-person="' + escapeAttr(person) + '">' +
+      '<div class="todo-adhoc-form" data-person="' + escapeAttr(person) + '"' +
+        (sourceIssueId ? ' data-source-issue-id="' + escapeAttr(sourceIssueId) + '"' : "") +
+        weekAttr + ">" +
         '<input type="text" class="todo-adhoc-desc" placeholder="New to-do\u2026" ' +
           'aria-label="Description" autocomplete="off" />' +
         '<select class="todo-adhoc-owner" aria-label="Owner">' + ownerOptions + "</select>" +
@@ -1202,7 +1215,7 @@
       });
   }
 
-  function onAddAdHoc(person, wrap) {
+  function onAddAdHoc(person, wrap, opts) {
     var actor = requireActor();
     if (!actor) return;
 
@@ -1228,17 +1241,30 @@
     inputs.forEach(function (el) { el.disabled = true; });
     if (addBtn) addBtn.textContent = "Adding…";
 
-    var win = currentWindow();
+    // Both read off the form element, so the SAME handler serves the §11.5
+    // form (no attributes — the selected week, no issue) and §13.3's reuse of
+    // it from the Issues view (an explicit week, a locked issue id). One
+    // write path, one set of validations, one in-flight guard.
+    var formWeek = wrap.getAttribute("data-week");
+    var sourceIssueId = wrap.getAttribute("data-source-issue-id") || undefined;
+    var week = formWeek || currentWindow().mondayKey;
+
     postCreateTask({
       sprintId: (root.OpsDashConfig && root.OpsDashConfig.SPRINT_ID) || "",
-      desc: desc, owner: owner, workDays: workDays, week: win.mondayKey,
-      deadline: deadline || undefined, actor: actor
+      desc: desc, owner: owner, workDays: workDays, week: week,
+      deadline: deadline || undefined, sourceIssueId: sourceIssueId, actor: actor
     }).then(function (result) {
       if (!result.ok) {
         toast(describeWriteError(result), "error");
         inputs.forEach(function (el) { el.disabled = false; });
         if (addBtn) addBtn.textContent = "Add";
         return;
+      }
+      // The Issues view owns its own refresh (it has to re-read the Tasks tab
+      // to recount §13.4), so it passes a callback instead of letting this
+      // module's refreshFromServer run against a view that is not on screen.
+      if (opts && typeof opts.onCreated === "function") {
+        return opts.onCreated(result);
       }
       return refreshFromServer().then(function () {
         toast("Added " + result.id + ".", "success");
@@ -1379,6 +1405,23 @@
   root.OpsDashTodos = {
     mount: mount,
     render: render,
+
+    /**
+     * The §11.5 ad-hoc form, exported so §13.3 can open "the ad-hoc form of
+     * §11.5 with sourceIssueId pre-filled and locked" — its words — instead
+     * of a second form that would drift from this one. The Issues view
+     * renders adHocFormHtml() into its own markup and calls submitAdHoc()
+     * from its own click handler; validation, the in-flight disable and the
+     * createTask call all stay here.
+     *
+     * @param opts.sourceIssueId  locked onto the created task (§13.3)
+     * @param opts.week           the ISO Monday to create into. REQUIRED from
+     *        the Issues view, which has no week selector of its own — see
+     *        the note in issues.js on which week it picks and why.
+     * @param opts.onCreated      called instead of this module's refresh
+     */
+    adHocFormHtml: buildAdHocFormHtml,
+    submitAdHoc: onAddAdHoc,
     _internals: {
       getState: function () { return state; },
       recompute: recompute,

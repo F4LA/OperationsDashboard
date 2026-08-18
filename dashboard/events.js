@@ -470,11 +470,19 @@
    * rowIndex — for an append-only log the later write wins, the same rule
    * fold() itself uses.
    *
-   * @returns { taskId: {note, actor, timestamp} }. Absence from the map means
-   *          "not discarded" / "not cancelled": the negative member REMOVES
+   * @param includeValue  opt-in, added for §13's resolveIssue (D-096): that
+   *          pair's positive member carries a MANDATORY enum in Value (the
+   *          resolution), and §13.4 cannot be computed without it. Opt-in
+   *          rather than always-on so discards() and cancels() keep their
+   *          exact existing shape — for those two the Value column is blank
+   *          by server rule, so a `value` key there would only ever be "".
+   *
+   * @returns { taskId: {note, actor, timestamp} }, plus `value` when
+   *          includeValue is set. Absence from the map means "not discarded" /
+   *          "not cancelled" / "not resolved": the negative member REMOVES
    *          the key rather than recording a false entry.
    */
-  function foldPositiveNegativePair(input, positiveAction, negativeAction) {
+  function foldPositiveNegativePair(input, positiveAction, negativeAction, includeValue) {
     var folded = input && input.byTask ? input : fold(input);
     var out = {};
 
@@ -494,11 +502,13 @@
         if (offWins) continue;
       }
 
-      out[taskId] = {
+      var entry = {
         note: trimStr(onEv.note),
         actor: trimStr(onEv.actor),
         timestamp: canonicalIso(onEv.timestamp)
       };
+      if (includeValue) entry.value = trimStr(onEv.value);
+      out[taskId] = entry;
     }
 
     return out;
@@ -520,6 +530,29 @@
    */
   function cancels(input) {
     return foldPositiveNegativePair(input, "cancel", "uncancel");
+  }
+
+  /**
+   * Current resolution state per ISSUE (§13.2, D-096, D-069 pair). Third
+   * user of the same folder, with one difference that matters: `value` comes
+   * back too, carrying the resolution (`discussed_no_action` or
+   * `todo_created`).
+   *
+   * That is not a convenience. §13.4's whole question — "was this closed as
+   * todo_created, and are its to-dos actually done?" — is unanswerable from
+   * the boolean alone, and the resolution is the field that makes the IDS
+   * measurable at sprint end (§2). The `timestamp` on the same entry is what
+   * "resolved N weeks ago" is measured from, so both halves of §13.4 read off
+   * this one map.
+   *
+   * Absence from the map = the issue is OPEN, whether it was never resolved
+   * or was resolved and then reopened — the negative member removes the key,
+   * exactly like undiscard and uncancel.
+   *
+   * @returns { issueId: {value, note, actor, timestamp} }
+   */
+  function issueResolutions(input) {
+    return foldPositiveNegativePair(input, "resolveIssue", "unresolveIssue", true);
   }
 
   /**
@@ -757,6 +790,7 @@
     pinEvents: pinEvents,
     discards: discards,
     cancels: cancels,
+    issueResolutions: issueResolutions,
     weekCommitment: weekCommitment,
     fetchEvents: fetchEvents,
     postEvent: postEvent,

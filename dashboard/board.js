@@ -210,9 +210,15 @@
    * Rendering — topbar (actor / refresh) and summary bar (sprint progress)
    * ------------------------------------------------------------------ */
 
-  /** Two-segment view toggle (D-062) — "the chosen option IS the write" in
-   *  spirit, just for view state instead of a Sheet write: click sets state
-   *  + localStorage, then a plain render() with no refetch (§6.3, D-062). */
+  /** Three-segment view toggle (D-062; Issues added by D-096a) — "the chosen
+   *  option IS the write" in spirit, just for view state instead of a Sheet
+   *  write: click sets state + localStorage, then a plain render() with no
+   *  refetch (§6.3, D-062).
+   *
+   *  Issues is a SEGMENT, not a panel inside To-dos: §13 says issues are
+   *  raised during the week and not only in the meeting, so the view has to
+   *  stand on its own, and the L10's IDS step is a different step from the
+   *  to-dos one (D-096a). */
   function viewSwitchHtml() {
     function btn(view, label) {
       var active = state.view === view;
@@ -223,6 +229,7 @@
       '<div class="view-switch" role="group" aria-label="View">' +
         btn("board", "Sprint board") +
         btn("todos", "To-dos") +
+        btn("issues", "Issues") +
       "</div>"
     );
   }
@@ -779,6 +786,16 @@
       return;
     }
 
+    if (state.view === "issues") {
+      // Same reasoning as To-dos: the sprint burn-up is the Sprint Board's.
+      // An issue never enters the engine at all (§13.5), so there is nothing
+      // sprint-shaped to show above this one.
+      dom.summaryBar.classList.add("hidden");
+      dom.burnupPanel.classList.add("hidden");
+      if (root.OpsDashIssues) root.OpsDashIssues.render();
+      return;
+    }
+
     dom.summaryBar.classList.remove("hidden");
     dom.burnupPanel.classList.remove("hidden");
     renderSummaryBar();
@@ -1038,7 +1055,8 @@
     if (urlActor && isKnownActive) localStorage.setItem(cfg.ACTOR_STORAGE_KEY, urlActor);
 
     var storedView = localStorage.getItem(cfg.VIEW_STORAGE_KEY);
-    state.view = (storedView === "board" || storedView === "todos") ? storedView : "board"; // D-062 default
+    state.view = (storedView === "board" || storedView === "todos" || storedView === "issues")
+      ? storedView : "board"; // D-062 default
 
     dom.topbarRight = document.getElementById("board-topbar-right");
     dom.summaryBar = document.getElementById("board-summary-bar");
