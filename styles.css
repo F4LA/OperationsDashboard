@@ -125,12 +125,42 @@ a { color: var(--steel-600); }
   white-space: nowrap;
 }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/**
+ * FOR THE DARK TOP BAR ONLY. White text on a translucent white fill only
+ * resolves against a dark ground; over the light page body it composites to
+ * roughly #F6F8FB and the label lands at 1.06:1 — the button is still there
+ * and still works, it is simply invisible. That shipped once (the "Raise
+ * issue" button in §13, found by eye, not by the accessibility pass, which
+ * had audited the new markup rather than the surface it rendered on).
+ *
+ * Use .btn-primary below for a primary action in the page body.
+ */
 .btn-secondary {
   background: rgba(255,255,255,0.08);
   color: #fff;
   border-color: rgba(255,255,255,0.2);
 }
 .btn-secondary:hover:not(:disabled) { background: rgba(255,255,255,0.16); }
+
+/**
+ * Primary action in the LIGHT page body — the counterpart .btn-secondary
+ * never had, which is why a dark-bar class got reached for instead.
+ *
+ * Filled --steel-700 with white text: 6.89:1 for the label, and the block
+ * itself sits at 6.42:1 against --bg, so the button's own edge clears the
+ * 3:1 a non-text boundary needs without relying on the border. Reuses the
+ * brand accent already carrying links and active states; no new colour.
+ */
+.btn-primary {
+  background: var(--steel-700);
+  color: #fff;
+  border-color: var(--steel-700);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--steel-600);
+  border-color: var(--steel-600);
+}
 
 /* ---------- Loading / error states ---------- */
 .status {

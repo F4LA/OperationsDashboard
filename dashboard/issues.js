@@ -503,7 +503,9 @@
         '<textarea class="issue-raise-desc" rows="2" ' +
           'placeholder="Context needed to discuss it later (optional)" ' +
           'aria-label="Issue description"></textarea>' +
-        '<button type="button" class="btn btn-secondary" data-action="issue-raise">' +
+        // .btn-primary, NOT .btn-secondary: the latter is scoped to the dark
+        // top bar and renders white-on-white here (1.06:1 — invisible).
+        '<button type="button" class="btn btn-primary" data-action="issue-raise">' +
           "Raise issue</button>" +
       "</div>"
     );

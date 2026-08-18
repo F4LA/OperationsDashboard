@@ -894,7 +894,11 @@
     if (state.personFilter !== "") return "";
     return (
       '<div class="todo-confirm-week">' +
-        '<button type="button" class="btn btn-secondary" data-action="todo-confirm-week" ' +
+        // .btn-primary, NOT .btn-secondary — same dark-bar class on the same
+        // light body, so this button was invisible too. Found by the sweep
+        // the Issues bug prompted; §11.5's confirm is step 8's only action,
+        // so it is the worst possible one to leave unreadable.
+        '<button type="button" class="btn btn-primary" data-action="todo-confirm-week" ' +
           'data-monday="' + escapeAttr(win.mondayKey) + '">Confirm this week</button>' +
         '<span class="todo-confirm-note">Freezes what is committed now as this week\u2019s denominator (\u00a712).</span>' +
       "</div>"
