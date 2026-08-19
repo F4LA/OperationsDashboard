@@ -481,7 +481,7 @@
     }
 
     var cuttableBadge = rock.cuttable
-      ? '<span class="cuttable-badge" title="Informational only — cutting means regenerating the JSON without this Rock/Project (§7)">CUTTABLE</span>'
+      ? '<span class="cuttable-badge" title="Informational only — cutting means regenerating the plan without this Rock/Project">CUTTABLE</span>'
       : "";
 
     // D-087(c): surfaced at the Rock header so a missed deadline is visible
@@ -546,7 +546,7 @@
 
   function taskDatesHtml(taskId, task) {
     if (task.deferred) {
-      return '<span class="deferred-badge" title="Deferred: excluded from scheduling and progress (§4.2, §5.1)">DEFERRED</span>';
+      return '<span class="deferred-badge" title="Deferred: excluded from scheduling and progress">DEFERRED</span>';
     }
     var live = state.liveResult.tasks[taskId];
     if (!live) {
@@ -556,7 +556,7 @@
     }
     var html = '<span class="finish-date">→ ' + escapeHtml(live.plannedFinish) + "</span>";
     if (live.clamped) {
-      html += ' <span class="clamped-flag" title="This task\u2019s original ETA already passed; it is clamped to today because it is still in progress (D-029)">overdue</span>';
+      html += ' <span class="clamped-flag" title="This task\u2019s original ETA already passed; it is clamped to today because it is still in progress">overdue</span>';
     }
     return html;
   }
@@ -717,7 +717,7 @@
    */
   function renderProjectDivider(project) {
     var badge = project.cuttable
-      ? '<span class="cuttable-badge" title="Informational only — cutting means regenerating the JSON without this Rock/Project (§7)">CUTTABLE</span>'
+      ? '<span class="cuttable-badge" title="Informational only — cutting means regenerating the plan without this Rock/Project">CUTTABLE</span>'
       : "";
     return (
       '<div class="project-divider">' +

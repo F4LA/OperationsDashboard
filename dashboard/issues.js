@@ -389,7 +389,7 @@
         '<p class="issue-create-note">Creating a to-do from <strong>' +
           escapeHtml(issue.id) + "</strong>, into the week of " +
           escapeHtml(win.start) + " \u2013 " + escapeHtml(win.end) + ". " +
-          "Creating a to-do does not resolve the issue (D-096b).</p>" +
+          "Creating a to-do does not resolve the issue.</p>" +
         formHtml +
         '<button type="button" class="todo-action-btn" ' +
           'data-action="issue-create-todo-close" data-issue-id="' + escapeAttr(issue.id) + '">' +
@@ -529,8 +529,8 @@
     dom.mainEl.innerHTML =
       '<div class="issue-header">' +
         "<h2>Issues</h2>" +
-        '<span class="issue-header-note">Oldest first \u2014 age is the whole ' +
-          "ordering rule (\u00a713.3).</span>" +
+        '<span class="issue-header-note">Oldest first \u2014 the ones open ' +
+          "longest come first.</span>" +
       "</div>" +
       raiseFormHtml() +
       '<div class="issue-section">' +

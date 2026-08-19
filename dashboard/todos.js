@@ -866,7 +866,7 @@
     var total = personWeekWorkDays(person, win);
     if (total <= CAPACITY_WORKDAYS) return "";
     return '<p class="todo-capacity-warning">\u26a0 ' + escapeHtml(person) + " is at " + total +
-      " work-days against a " + CAPACITY_WORKDAYS + "-day week. Input to the conversation, not a block (\u00a711.5).</p>";
+      " work-days against a " + CAPACITY_WORKDAYS + "-day week. Input to the conversation, not a block.</p>";
   }
 
   /** The capacity line always renders while a week is live (build/execute) —
@@ -900,7 +900,7 @@
         // so it is the worst possible one to leave unreadable.
         '<button type="button" class="btn btn-primary" data-action="todo-confirm-week" ' +
           'data-monday="' + escapeAttr(win.mondayKey) + '">Confirm this week</button>' +
-        '<span class="todo-confirm-note">Freezes what is committed now as this week\u2019s denominator (\u00a712).</span>' +
+        '<span class="todo-confirm-note">Freezes what is committed now as this week\u2019s denominator.</span>' +
       "</div>"
     );
   }
@@ -1127,7 +1127,7 @@
       cascadeHtml = cascade.length
         ? '<p class="todo-cascade">Also cancels the schedule for: ' +
           cascade.map(function (c) { return escapeHtml(c.id + " (" + c.owner + ")"); }).join(", ") +
-          ". Informational \u2014 cancelling is not blocked (\u00a711.4, D-068b).</p>"
+          ". Informational \u2014 cancelling is not blocked.</p>"
         : '<p class="todo-cascade">Nothing else depends on this task.</p>';
     }
 
