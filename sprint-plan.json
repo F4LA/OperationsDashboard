@@ -7,12 +7,388 @@
     "end": "2026-09-13",
     "goLive": "2026-09-14"
   },
-  "people": ["Brent", "Bernardo"],
+  "people": [
+    "Brent",
+    "Bernardo",
+    "Miguel"
+  ],
   "rocks": [
+    {
+      "id": "R1",
+      "name": "Grow the September Challenge to 75 members",
+      "owners": [
+        "Miguel"
+      ],
+      "cuttable": false,
+      "projects": [
+        {
+          "id": "R1-P1",
+          "name": "Ads Strategy and Analytics",
+          "objective": "Diagnose current ad economics, cut underperformers, lock the 3x earnings/CAC target before scaling to 75.",
+          "owner": "Miguel",
+          "milestones": [
+            {
+              "id": "R1-M1",
+              "name": "Current CAC calculated and 3x target ratio locked (spend ceiling clear)",
+              "dependsOn": [],
+              "tasks": [
+                {
+                  "id": "R1-M1-t1",
+                  "desc": "Identify highest-CAC ad sets; determine which to turn off",
+                  "owner": "Miguel",
+                  "type": "work",
+                  "workDays": 0.25,
+                  "waitDays": 0,
+                  "dependsOn": [],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "R1-M1-t2",
+                  "desc": "Calculate avg earnings per challenger (incl. commission + coach payout); confirm ratio",
+                  "owner": "Miguel",
+                  "type": "work",
+                  "workDays": 0.25,
+                  "waitDays": 0,
+                  "dependsOn": [],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "R1-M1-t3",
+                  "desc": "Lock the 3x target ratio; flag ad sets/channels not meeting it",
+                  "owner": "Miguel",
+                  "type": "work",
+                  "workDays": 0.25,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R1-M1-t1",
+                    "R1-M1-t2"
+                  ],
+                  "crossDependsOn": []
+                }
+              ]
+            },
+            {
+              "id": "R1-M2",
+              "name": "Underperforming ads identified and turned off in Meta Ads Manager",
+              "dependsOn": [
+                "R1-M1"
+              ],
+              "tasks": [
+                {
+                  "id": "R1-M2-t1",
+                  "desc": "Decide + execute ad turn-off in Meta Ads Manager",
+                  "owner": "Miguel",
+                  "type": "work",
+                  "workDays": 0.25,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R1-M1"
+                  ],
+                  "crossDependsOn": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "R1-P2",
+          "name": "Creatives Production and Process Standardization",
+          "objective": "Ship the next wave of creatives; turn ad creation into a documented, repeatable playbook.",
+          "owner": "Miguel",
+          "milestones": [
+            {
+              "id": "R1-M3",
+              "name": "New creatives shipped (pipics video tests + 5 static ads, ready and running)",
+              "dependsOn": [],
+              "tasks": [
+                {
+                  "id": "R1-M3-t1",
+                  "desc": "Test new pipics video ads; set up readable test structure",
+                  "owner": "Miguel",
+                  "type": "work",
+                  "workDays": 0.25,
+                  "waitDays": 0,
+                  "dependsOn": [],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "R1-M3-t2",
+                  "desc": "Create at least 5 new static ads on the challenge promise",
+                  "owner": "Miguel",
+                  "type": "work",
+                  "workDays": 0.25,
+                  "waitDays": 0,
+                  "dependsOn": [],
+                  "crossDependsOn": []
+                }
+              ]
+            },
+            {
+              "id": "R1-M4",
+              "name": "Campaign decision-making process documented and standardized as a playbook",
+              "dependsOn": [],
+              "tasks": [
+                {
+                  "id": "R1-M4-t1",
+                  "desc": "Write the process doc (what to review before, during, and after a decision)",
+                  "owner": "Miguel",
+                  "type": "work",
+                  "workDays": 0.25,
+                  "waitDays": 0,
+                  "dependsOn": [],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "R1-M4-t2",
+                  "desc": "Standardize into the reference playbook (criteria and thresholds, not just description)",
+                  "owner": "Miguel",
+                  "type": "work",
+                  "workDays": 0.25,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R1-M4-t1"
+                  ],
+                  "crossDependsOn": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "R1-P3",
+          "name": "Client Referrals (Voucher Program)",
+          "objective": "Launch a referral mechanic for challenge signups - 10 vouchers to strong clients to bring friends in.",
+          "owner": "Miguel",
+          "milestones": [
+            {
+              "id": "R1-M5",
+              "name": "Voucher mechanic designed (what it entitles, issuance, redemption, tracking)",
+              "dependsOn": [],
+              "tasks": [
+                {
+                  "id": "R1-M5-t1",
+                  "desc": "Design entitlement, issuance, redemption, and attribution tracking",
+                  "owner": "Miguel",
+                  "type": "work",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [],
+                  "crossDependsOn": []
+                }
+              ]
+            },
+            {
+              "id": "R1-M6",
+              "name": "Mechanic built end-to-end (form, tracking, integrations)",
+              "dependsOn": [
+                "R1-M5"
+              ],
+              "tasks": [
+                {
+                  "id": "R1-M6-t1",
+                  "desc": "Build form, tracking, and the integrations needed",
+                  "owner": "Miguel",
+                  "type": "work",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R1-M5-t1"
+                  ],
+                  "crossDependsOn": []
+                }
+              ]
+            },
+            {
+              "id": "R1-M7",
+              "name": "Review AI agent live (or manual fallback with ICP checklist)",
+              "dependsOn": [
+                "R1-M6"
+              ],
+              "tasks": [
+                {
+                  "id": "R1-M7-t1",
+                  "desc": "Build AI agent scoring applicants vs ICP; define the ICP criteria",
+                  "owner": "Miguel",
+                  "type": "work",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R1-M6-t1"
+                  ],
+                  "crossDependsOn": []
+                }
+              ]
+            },
+            {
+              "id": "R1-M8",
+              "name": "Program launched: post published, Brent's outreach done, 10 vouchers assigned",
+              "dependsOn": [
+                "R1-M7"
+              ],
+              "tasks": [
+                {
+                  "id": "R1-M8-t1",
+                  "desc": "Draft the community post announcing the voucher program",
+                  "owner": "Miguel",
+                  "type": "work",
+                  "workDays": 0.25,
+                  "waitDays": 0,
+                  "dependsOn": [],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "R1-M8-t2",
+                  "desc": "Publish the community post on the right channels",
+                  "owner": "Miguel",
+                  "type": "work",
+                  "workDays": 0.25,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R1-M8-t1"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "R1-M8-t3",
+                  "desc": "Brent's personal outreach to a curated client list (Miguel provides list + messaging)",
+                  "owner": "Brent",
+                  "type": "work",
+                  "workDays": 0.5,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R1-M8-t1"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "R1-M8-t4",
+                  "desc": "Review applications with the agent's scoring; assign the 10 vouchers",
+                  "owner": "Miguel",
+                  "type": "work",
+                  "workDays": 0.25,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R1-M7-t1"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "R1-M8-t5",
+                  "desc": "Track voucher redemption through to challenge signup",
+                  "owner": "Miguel",
+                  "type": "work",
+                  "workDays": 0.25,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R1-M8-t4"
+                  ],
+                  "crossDependsOn": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "R1-P4",
+          "name": "Affiliates Launch for the September Challenge",
+          "objective": "Stand up the affiliate channel for the September challenge - MVP scope, hard-deadlined to the launch.",
+          "owner": "Miguel",
+          "milestones": [
+            {
+              "id": "R1-M9",
+              "name": "List of 10 qualified affiliates + outreach process ready",
+              "dependsOn": [],
+              "tasks": [
+                {
+                  "id": "R1-M9-t1",
+                  "desc": "Create a list of 10 qualified affiliates (ICP audience overlap, warm relationship, real capacity)",
+                  "owner": "Miguel",
+                  "type": "work",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "R1-M9-t2",
+                  "desc": "Design the outreach process (templates, sequence, incentives, yes/no handling)",
+                  "owner": "Miguel",
+                  "type": "work",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [],
+                  "crossDependsOn": []
+                }
+              ]
+            },
+            {
+              "id": "R1-M10",
+              "name": "Outreach executed and affiliates confirmed",
+              "dependsOn": [
+                "R1-M9"
+              ],
+              "tasks": [
+                {
+                  "id": "R1-M10-t1",
+                  "desc": "Execute outreach to the 10 affiliates; track responses and confirmations",
+                  "owner": "Miguel",
+                  "type": "work",
+                  "workDays": 0.5,
+                  "waitDays": 3,
+                  "dependsOn": [
+                    "R1-M9-t1",
+                    "R1-M9-t2"
+                  ],
+                  "crossDependsOn": []
+                }
+              ]
+            },
+            {
+              "id": "R1-M11",
+              "name": "Affiliate portal MVP live, all confirmed with access before Sep 7",
+              "dependsOn": [
+                "R1-M10"
+              ],
+              "deadline": "2026-09-05",
+              "tasks": [
+                {
+                  "id": "R1-M11-t1",
+                  "desc": "Build the affiliate portal MVP (login, email templates, resource videos, promo experience)",
+                  "owner": "Miguel",
+                  "type": "work",
+                  "workDays": 3,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R1-M10"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "R1-M11-t2",
+                  "desc": "Confirm every affiliate has access, templates, and knows the launch date and window",
+                  "owner": "Miguel",
+                  "type": "work",
+                  "workDays": 0.25,
+                  "waitDays": 1,
+                  "dependsOn": [
+                    "R1-M10-t1",
+                    "R1-M11-t1"
+                  ],
+                  "crossDependsOn": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
     {
       "id": "R3",
       "name": "Improve the onboarding experience",
-      "owners": ["Brent", "Bernardo"],
+      "owners": [
+        "Brent",
+        "Bernardo"
+      ],
       "cuttable": false,
       "projects": [
         {
@@ -26,35 +402,127 @@
               "name": "Historical satisfaction data validated as usable",
               "dependsOn": [],
               "tasks": [
-                { "id": "M1-t1", "desc": "Analyze whether historical onboarding satisfaction data is usable; check for bias; confirm trustworthy as baseline", "owner": "Brent", "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": [], "crossDependsOn": [] }
+                {
+                  "id": "M1-t1",
+                  "desc": "Analyze whether historical onboarding satisfaction data is usable; check for bias; confirm trustworthy as baseline",
+                  "owner": "Brent",
+                  "type": "work",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [],
+                  "crossDependsOn": []
+                }
               ]
             },
             {
               "id": "M2",
               "name": "Baselines locked + refund target % set in the KPI",
-              "dependsOn": ["M1"],
+              "dependsOn": [
+                "M1"
+              ],
               "tasks": [
-                { "id": "M2-t1", "desc": "Pull historical satisfaction data to compute the overwhelm score baseline (6+ months)", "owner": "Brent", "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": ["M1"], "crossDependsOn": [] },
-                { "id": "M2-t2", "desc": "Pull historical refund rate post-kickoff; compute baseline, set target %", "owner": "Bernardo", "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": ["M1"], "crossDependsOn": [] },
-                { "id": "M2-t3", "desc": "Pull historical first end-of-meso extension rate; compute baseline", "owner": "Bernardo", "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": ["M1"], "crossDependsOn": [] },
-                { "id": "M2-t4", "desc": "Validate the overwhelm questionnaire item is measuring what we think; adjust phrasing if needed", "owner": "Brent", "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": ["M1"], "crossDependsOn": [] },
-                { "id": "M2-t5", "desc": "Lock the refund rate target % into the Rock KPI section", "owner": "Both", "type": "work", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M2-t2"], "crossDependsOn": [] }
+                {
+                  "id": "M2-t1",
+                  "desc": "Pull historical satisfaction data to compute the overwhelm score baseline (6+ months)",
+                  "owner": "Brent",
+                  "type": "work",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M1"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "M2-t2",
+                  "desc": "Pull historical refund rate post-kickoff; compute baseline, set target %",
+                  "owner": "Bernardo",
+                  "type": "work",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M1"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "M2-t3",
+                  "desc": "Pull historical first end-of-meso extension rate; compute baseline",
+                  "owner": "Bernardo",
+                  "type": "work",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M1"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "M2-t4",
+                  "desc": "Validate the overwhelm questionnaire item is measuring what we think; adjust phrasing if needed",
+                  "owner": "Brent",
+                  "type": "work",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M1"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "M2-t5",
+                  "desc": "Lock the refund rate target % into the Rock KPI section",
+                  "owner": "Both",
+                  "type": "work",
+                  "workDays": 0.5,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M2-t2"
+                  ],
+                  "crossDependsOn": []
+                }
               ]
             },
             {
               "id": "M3",
               "name": "Targeted feedback collected from last 10 post-kickoff clients",
-              "dependsOn": ["M2"],
+              "dependsOn": [
+                "M2"
+              ],
               "tasks": [
-                { "id": "M3-t1", "desc": "Reach out to last 10 post-kickoff clients with closed-ended hypothesis-testing questions; then wait for replies", "owner": "Brent", "type": "work", "workDays": 0.5, "waitDays": 4, "dependsOn": ["M2"], "crossDependsOn": [] }
+                {
+                  "id": "M3-t1",
+                  "desc": "Reach out to last 10 post-kickoff clients with closed-ended hypothesis-testing questions; then wait for replies",
+                  "owner": "Brent",
+                  "type": "work",
+                  "workDays": 0.5,
+                  "waitDays": 4,
+                  "dependsOn": [
+                    "M2"
+                  ],
+                  "crossDependsOn": []
+                }
               ]
             },
             {
               "id": "M4",
               "name": "Ongoing measurement cadence defined and running",
-              "dependsOn": ["M3"],
+              "dependsOn": [
+                "M3"
+              ],
               "tasks": [
-                { "id": "M4-t1", "desc": "Define ongoing cadence (overwhelm question, refund rate per client, extension rate); document where each metric lives", "owner": "Both", "type": "meeting", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M3"], "crossDependsOn": [] }
+                {
+                  "id": "M4-t1",
+                  "desc": "Define ongoing cadence (overwhelm question, refund rate per client, extension rate); document where each metric lives",
+                  "owner": "Both",
+                  "type": "meeting",
+                  "workDays": 0.5,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M3"
+                  ],
+                  "crossDependsOn": []
+                }
               ]
             }
           ]
@@ -70,30 +538,143 @@
               "name": "Intake audited (KEEP/SIMPLIFY/CUT) and structural decisions locked",
               "dependsOn": [],
               "tasks": [
-                { "id": "M5-t1", "desc": "Audit current intake question by question (CRUCIAL / KEEP-BUT-SIMPLIFY / CUT); each audits on their own first", "owner": "Both", "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": [], "crossDependsOn": [] },
-                { "id": "M5-t2", "desc": "Design the struggles section as a check-box list with ranking, replacing the open-ended narrative", "owner": "Brent", "type": "work", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M5-t1"], "crossDependsOn": [] },
-                { "id": "M5-t3", "desc": "Add lifestyle-phase pre-personalization data (hobbies, activities enjoyed, activities no longer possible)", "owner": "Bernardo", "type": "work", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M5-t1"], "crossDependsOn": [] },
-                { "id": "M5-t4", "desc": "Exchange Looms of each audit; resolve differences by message (escalate to a call only if real disagreement)", "owner": "Both", "type": "meeting", "workDays": 0.5, "waitDays": 1, "dependsOn": ["M5-t2", "M5-t3"], "crossDependsOn": [] }
+                {
+                  "id": "M5-t1",
+                  "desc": "Audit current intake question by question (CRUCIAL / KEEP-BUT-SIMPLIFY / CUT); each audits on their own first",
+                  "owner": "Both",
+                  "type": "work",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "M5-t2",
+                  "desc": "Design the struggles section as a check-box list with ranking, replacing the open-ended narrative",
+                  "owner": "Brent",
+                  "type": "work",
+                  "workDays": 0.5,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M5-t1"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "M5-t3",
+                  "desc": "Add lifestyle-phase pre-personalization data (hobbies, activities enjoyed, activities no longer possible)",
+                  "owner": "Bernardo",
+                  "type": "work",
+                  "workDays": 0.5,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M5-t1"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "M5-t4",
+                  "desc": "Exchange Looms of each audit; resolve differences by message (escalate to a call only if real disagreement)",
+                  "owner": "Both",
+                  "type": "meeting",
+                  "workDays": 0.5,
+                  "waitDays": 1,
+                  "dependsOn": [
+                    "M5-t2",
+                    "M5-t3"
+                  ],
+                  "crossDependsOn": []
+                }
               ]
             },
             {
               "id": "M6",
               "name": "New intake questionnaire built on Google Form (forward-compatible schema)",
-              "dependsOn": ["M5"],
+              "dependsOn": [
+                "M5"
+              ],
               "tasks": [
-                { "id": "M6-t1", "desc": "Build the new questionnaire on Google Form (needs Miguel if infra)", "owner": "Bernardo", "type": "work", "workDays": 0.25, "waitDays": 0, "dependsOn": ["M5"], "crossDependsOn": [] },
-                { "id": "M6-t2", "desc": "Design the storage schema forward-compatible with the future unified client + coach dashboard", "owner": "Bernardo", "type": "work", "workDays": 0.25, "waitDays": 0, "dependsOn": ["M5"], "crossDependsOn": [] },
-                { "id": "M6-t3", "desc": "Keep the ADDRESS field in the new form (the t-shirt shipment dashboard in Project 5 depends on this)", "owner": "Bernardo", "type": "work", "workDays": 0.25, "waitDays": 0, "dependsOn": ["M6-t1"], "crossDependsOn": [] }
+                {
+                  "id": "M6-t1",
+                  "desc": "Build the new questionnaire on Google Form (needs Miguel if infra)",
+                  "owner": "Bernardo",
+                  "type": "work",
+                  "workDays": 0.25,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M5"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "M6-t2",
+                  "desc": "Design the storage schema forward-compatible with the future unified client + coach dashboard",
+                  "owner": "Bernardo",
+                  "type": "work",
+                  "workDays": 0.25,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M5"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "M6-t3",
+                  "desc": "Keep the ADDRESS field in the new form (the t-shirt shipment dashboard in Project 5 depends on this)",
+                  "owner": "Bernardo",
+                  "type": "work",
+                  "workDays": 0.25,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M6-t1"
+                  ],
+                  "crossDependsOn": []
+                }
               ]
             },
             {
               "id": "M7",
               "name": "Welcome email restructured to single entry + sales script updated + 24h rule",
-              "dependsOn": ["M5"],
+              "dependsOn": [
+                "M5"
+              ],
               "tasks": [
-                { "id": "M7-t1", "desc": "Investigate whether Everfit's automatic welcome email can be turned off; fire the question early, then wait for reply", "owner": "Bernardo", "type": "approval", "workDays": 0.25, "waitDays": 3, "dependsOn": ["M5"], "crossDependsOn": [] },
-                { "id": "M7-t2", "desc": "Restructure to ONE welcome email: intake link + next steps in order (intake → schedule kickoff → app)", "owner": "Bernardo", "type": "work", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M5"], "crossDependsOn": [] },
-                { "id": "M7-t3", "desc": "Update the sales call closing script for the new flow; coordinate with Emery/the closer", "owner": "Bernardo", "type": "work", "workDays": 0.25, "waitDays": 0, "dependsOn": ["M7-t2"], "crossDependsOn": [] }
+                {
+                  "id": "M7-t1",
+                  "desc": "Investigate whether Everfit's automatic welcome email can be turned off; fire the question early, then wait for reply",
+                  "owner": "Bernardo",
+                  "type": "approval",
+                  "workDays": 0.25,
+                  "waitDays": 3,
+                  "dependsOn": [
+                    "M5"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "M7-t2",
+                  "desc": "Restructure to ONE welcome email: intake link + next steps in order (intake \u2192 schedule kickoff \u2192 app)",
+                  "owner": "Bernardo",
+                  "type": "work",
+                  "workDays": 0.5,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M5"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "M7-t3",
+                  "desc": "Update the sales call closing script for the new flow; coordinate with Emery/the closer",
+                  "owner": "Bernardo",
+                  "type": "work",
+                  "workDays": 0.25,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M7-t2"
+                  ],
+                  "crossDependsOn": []
+                }
               ]
             }
           ]
@@ -109,35 +690,127 @@
               "name": "Kickoff call audited (KEEP/IMPROVE/DELETE) and structural decisions locked",
               "dependsOn": [],
               "tasks": [
-                { "id": "M8-t1", "desc": "Audit the kickoff presentation and process end-to-end (KEEP/IMPROVE/DELETE); each audits on their own first", "owner": "Both", "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": [], "crossDependsOn": [] },
-                { "id": "M8-t2", "desc": "Decide structural changes (LIVE MEETING): condense roadmap to one compact overview by phase; lock timeframe, detail vs preview, sequencing", "owner": "Both", "type": "meeting", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M8-t1"], "crossDependsOn": [] },
-                { "id": "M8-t3", "desc": "Include case studies before the extension conversation; Brent builds 4–6 avatars, Bernardo picks case studies per avatar", "owner": "Both", "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": ["M8-t2"], "crossDependsOn": [] }
+                {
+                  "id": "M8-t1",
+                  "desc": "Audit the kickoff presentation and process end-to-end (KEEP/IMPROVE/DELETE); each audits on their own first",
+                  "owner": "Both",
+                  "type": "work",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "M8-t2",
+                  "desc": "Decide structural changes (LIVE MEETING): condense roadmap to one compact overview by phase; lock timeframe, detail vs preview, sequencing",
+                  "owner": "Both",
+                  "type": "meeting",
+                  "workDays": 0.5,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M8-t1"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "M8-t3",
+                  "desc": "Include case studies before the extension conversation; Brent builds 4\u20136 avatars, Bernardo picks case studies per avatar",
+                  "owner": "Both",
+                  "type": "work",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M8-t2"
+                  ],
+                  "crossDependsOn": []
+                }
               ]
             },
             {
               "id": "M9",
               "name": "Format decided (Slides vs HTML) and new presentation template built",
-              "dependsOn": ["M8"],
+              "dependsOn": [
+                "M8"
+              ],
               "tasks": [
-                { "id": "M9-t1", "desc": "Evaluate Google Slides vs interactive HTML; investigate feasibility, then decide", "owner": "Both", "type": "meeting", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M8"], "crossDependsOn": [] },
-                { "id": "M9-t2", "desc": "Build the new presentation template in the chosen format (also feeds Project 4)", "owner": "Bernardo", "type": "work", "workDays": 1.5, "waitDays": 0, "dependsOn": ["M9-t1"], "crossDependsOn": [] }
+                {
+                  "id": "M9-t1",
+                  "desc": "Evaluate Google Slides vs interactive HTML; investigate feasibility, then decide",
+                  "owner": "Both",
+                  "type": "meeting",
+                  "workDays": 0.5,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M8"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "M9-t2",
+                  "desc": "Build the new presentation template in the chosen format (also feeds Project 4)",
+                  "owner": "Bernardo",
+                  "type": "work",
+                  "workDays": 1.5,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M9-t1"
+                  ],
+                  "crossDependsOn": []
+                }
               ]
             },
             {
               "id": "M10",
               "name": "Onboarding+kickoff SOP updated with competency questionnaire",
-              "dependsOn": ["M8"],
+              "dependsOn": [
+                "M8"
+              ],
               "tasks": [
-                { "id": "M10-t1", "desc": "Update the SOP to reflect the new structure; include a post-completion competency questionnaire per coach", "owner": "Brent", "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": ["M8"], "crossDependsOn": [] }
+                {
+                  "id": "M10-t1",
+                  "desc": "Update the SOP to reflect the new structure; include a post-completion competency questionnaire per coach",
+                  "owner": "Brent",
+                  "type": "work",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M8"
+                  ],
+                  "crossDependsOn": []
+                }
               ]
             },
             {
               "id": "M11",
               "name": "All 4 coaches calibrated via 1-on-1 practice and passed competency",
-              "dependsOn": ["M10"],
+              "dependsOn": [
+                "M10"
+              ],
               "tasks": [
-                { "id": "M11-t1", "desc": "1-on-1 calibration + practice with each coach (rebuild presentation with new system, run it live, feedback); includes scheduling coaches", "owner": "Brent", "type": "work", "workDays": 3, "waitDays": 1, "dependsOn": ["M10"], "crossDependsOn": [] },
-                { "id": "M11-t2", "desc": "Each coach completes the competency questionnaire before running live kickoffs", "owner": "Brent", "type": "work", "workDays": 0.5, "waitDays": 1, "dependsOn": ["M11-t1"], "crossDependsOn": [] }
+                {
+                  "id": "M11-t1",
+                  "desc": "1-on-1 calibration + practice with each coach (rebuild presentation with new system, run it live, feedback); includes scheduling coaches",
+                  "owner": "Brent",
+                  "type": "work",
+                  "workDays": 3,
+                  "waitDays": 1,
+                  "dependsOn": [
+                    "M10"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "M11-t2",
+                  "desc": "Each coach completes the competency questionnaire before running live kickoffs",
+                  "owner": "Brent",
+                  "type": "work",
+                  "workDays": 0.5,
+                  "waitDays": 1,
+                  "dependsOn": [
+                    "M11-t1"
+                  ],
+                  "crossDependsOn": []
+                }
               ]
             }
           ]
@@ -153,29 +826,125 @@
               "name": "Design framework locked (approach + metrics + formula/tiers + constraints)",
               "dependsOn": [],
               "tasks": [
-                { "id": "M12-t1", "desc": "Decide the technical approach (Claude agent, script, or third-party); startable now, no dependency", "owner": "Bernardo", "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": [], "crossDependsOn": [] },
-                { "id": "M12-t2", "desc": "Agree key progress metrics for the roadmap (pounds as primary); lock the list (LIVE MEETING)", "owner": "Both", "type": "meeting", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M12-t1"], "crossDependsOn": [] },
-                { "id": "M12-t3", "desc": "Define the roadmap formula/framework: rate-of-progress tiers mapped to phase types (LIVE MEETING)", "owner": "Both", "type": "meeting", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M12-t1"], "crossDependsOn": [] },
-                { "id": "M12-t4", "desc": "Define output structure and constraints (max per phase, sequencing rules, default moderate, coach override) (LIVE MEETING)", "owner": "Both", "type": "meeting", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M12-t1"], "crossDependsOn": [] }
+                {
+                  "id": "M12-t1",
+                  "desc": "Decide the technical approach (Claude agent, script, or third-party); startable now, no dependency",
+                  "owner": "Bernardo",
+                  "type": "work",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "M12-t2",
+                  "desc": "Agree key progress metrics for the roadmap (pounds as primary); lock the list (LIVE MEETING)",
+                  "owner": "Both",
+                  "type": "meeting",
+                  "workDays": 0.5,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M12-t1"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "M12-t3",
+                  "desc": "Define the roadmap formula/framework: rate-of-progress tiers mapped to phase types (LIVE MEETING)",
+                  "owner": "Both",
+                  "type": "meeting",
+                  "workDays": 0.5,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M12-t1"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "M12-t4",
+                  "desc": "Define output structure and constraints (max per phase, sequencing rules, default moderate, coach override) (LIVE MEETING)",
+                  "owner": "Both",
+                  "type": "meeting",
+                  "workDays": 0.5,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M12-t1"
+                  ],
+                  "crossDependsOn": []
+                }
               ]
             },
             {
               "id": "M13",
               "name": "Inputs configured (personality signals from sales call)",
-              "dependsOn": ["M12"],
+              "dependsOn": [
+                "M12"
+              ],
               "deferred": true,
               "tasks": [
-                { "id": "M13-t1", "desc": "Give the automation a way to read personality/capability signals from the sales-call recording (needs Brent input on personality types); DEFERRED to end of sprint, only build if ahead of schedule", "owner": "Bernardo", "type": "work", "workDays": 3, "waitDays": 0, "dependsOn": ["M12"], "crossDependsOn": [], "deferred": true }
+                {
+                  "id": "M13-t1",
+                  "desc": "Give the automation a way to read personality/capability signals from the sales-call recording (needs Brent input on personality types); DEFERRED to end of sprint, only build if ahead of schedule",
+                  "owner": "Bernardo",
+                  "type": "work",
+                  "workDays": 3,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M12"
+                  ],
+                  "crossDependsOn": [],
+                  "deferred": true
+                }
               ]
             },
             {
               "id": "M14-15",
               "name": "Roadmap + Kickoff presentation automations live and validated",
-              "dependsOn": ["M6", "M9", "M12"],
+              "dependsOn": [
+                "M6",
+                "M9",
+                "M12"
+              ],
               "tasks": [
-                { "id": "M14-t1", "desc": "Build the roadmap generation automation with the constraints (coach fills inputs; AI drafts; coach accepts or regenerates)", "owner": "Bernardo", "type": "work", "workDays": 2, "waitDays": 0, "dependsOn": ["M6", "M9", "M12"], "crossDependsOn": [] },
-                { "id": "M14-t2", "desc": "Build the case study selection logic (client profile → best-matched case study from a curated library)", "owner": "Bernardo", "type": "work", "workDays": 1.5, "waitDays": 0, "dependsOn": ["M14-t1"], "crossDependsOn": [] },
-                { "id": "M14-t3", "desc": "Build the kickoff presentation generation automation (coach-guides-then-AI-drafts, coach can adjust any piece)", "owner": "Bernardo", "type": "work", "workDays": 1.5, "waitDays": 0, "dependsOn": ["M14-t2", "M9"], "crossDependsOn": [] }
+                {
+                  "id": "M14-t1",
+                  "desc": "Build the roadmap generation automation with the constraints (coach fills inputs; AI drafts; coach accepts or regenerates)",
+                  "owner": "Bernardo",
+                  "type": "work",
+                  "workDays": 2,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M6",
+                    "M9",
+                    "M12"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "M14-t2",
+                  "desc": "Build the case study selection logic (client profile \u2192 best-matched case study from a curated library)",
+                  "owner": "Bernardo",
+                  "type": "work",
+                  "workDays": 1.5,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M14-t1"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "M14-t3",
+                  "desc": "Build the kickoff presentation generation automation (coach-guides-then-AI-drafts, coach can adjust any piece)",
+                  "owner": "Bernardo",
+                  "type": "work",
+                  "workDays": 1.5,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M14-t2",
+                    "M9"
+                  ],
+                  "crossDependsOn": []
+                }
               ]
             }
           ]
@@ -183,7 +952,7 @@
         {
           "id": "P5",
           "name": "T-shirt and Handwritten Note Fulfillment",
-          "objective": "Add a physical touchpoint — branded t-shirt + handwritten note from Joey — shipped to every new client, run through an inventory/shipment dashboard.",
+          "objective": "Add a physical touchpoint \u2014 branded t-shirt + handwritten note from Joey \u2014 shipped to every new client, run through an inventory/shipment dashboard.",
           "owner": "Both",
           "cuttable": true,
           "milestones": [
@@ -192,36 +961,143 @@
               "name": "In-house fulfillment approach approved with operator identified",
               "dependsOn": [],
               "tasks": [
-                { "id": "M16-t1", "desc": "Approve in-house fulfillment from Tampa (operator: Joey's wife, Joey backup); Brent talks to Joey (APPROVAL)", "owner": "Brent", "type": "approval", "workDays": 0.5, "waitDays": 1, "dependsOn": [], "crossDependsOn": [] },
-                { "id": "M16-t2", "desc": "Lock cost-per-client and confirm budget approval", "owner": "Both", "type": "work", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M16-t1"], "crossDependsOn": [] }
+                {
+                  "id": "M16-t1",
+                  "desc": "Approve in-house fulfillment from Tampa (operator: Joey's wife, Joey backup); Brent talks to Joey (APPROVAL)",
+                  "owner": "Brent",
+                  "type": "approval",
+                  "workDays": 0.5,
+                  "waitDays": 1,
+                  "dependsOn": [],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "M16-t2",
+                  "desc": "Lock cost-per-client and confirm budget approval",
+                  "owner": "Both",
+                  "type": "work",
+                  "workDays": 0.5,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M16-t1"
+                  ],
+                  "crossDependsOn": []
+                }
               ]
             },
             {
               "id": "M17",
               "name": "T-shirt supplier locked (sample approved) + note template ready",
-              "dependsOn": ["M16"],
+              "dependsOn": [
+                "M16"
+              ],
               "tasks": [
-                { "id": "M17-t1", "desc": "Order sample t-shirts to review quality/design/fit before bulk order; shipping wait is the bottleneck — order early", "owner": "Brent", "type": "work", "workDays": 0.5, "waitDays": 5, "dependsOn": ["M16"], "crossDependsOn": [] },
-                { "id": "M17-t2", "desc": "Source supplier: unit cost, sizing, minimum order, turnaround; confirm brand alignment (simple Strong logo)", "owner": "Brent", "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": ["M16"], "crossDependsOn": [] },
-                { "id": "M17-t3", "desc": "Draft the handwritten note template (Joey writes it; personalization limited to client name)", "owner": "Brent", "type": "work", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M16"], "crossDependsOn": [] }
+                {
+                  "id": "M17-t1",
+                  "desc": "Order sample t-shirts to review quality/design/fit before bulk order; shipping wait is the bottleneck \u2014 order early",
+                  "owner": "Brent",
+                  "type": "work",
+                  "workDays": 0.5,
+                  "waitDays": 5,
+                  "dependsOn": [
+                    "M16"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "M17-t2",
+                  "desc": "Source supplier: unit cost, sizing, minimum order, turnaround; confirm brand alignment (simple Strong logo)",
+                  "owner": "Brent",
+                  "type": "work",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M16"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "M17-t3",
+                  "desc": "Draft the handwritten note template (Joey writes it; personalization limited to client name)",
+                  "owner": "Brent",
+                  "type": "work",
+                  "workDays": 0.5,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M16"
+                  ],
+                  "crossDependsOn": []
+                }
               ]
             },
             {
               "id": "M18-19",
               "name": "Inventory & shipment dashboard built",
-              "dependsOn": ["M16"],
+              "dependsOn": [
+                "M16"
+              ],
               "tasks": [
-                { "id": "M18-t1", "desc": "Build the inventory + shipment dashboard as one system (weekly shipment trigger, mark shipped/size, inventory counts, restock notification); pulls client address from the new intake form", "owner": "Both", "type": "work", "workDays": 5, "waitDays": 0, "dependsOn": ["M16"], "crossDependsOn": ["M6-t3"] }
+                {
+                  "id": "M18-t1",
+                  "desc": "Build the inventory + shipment dashboard as one system (weekly shipment trigger, mark shipped/size, inventory counts, restock notification); pulls client address from the new intake form",
+                  "owner": "Both",
+                  "type": "work",
+                  "workDays": 5,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M16"
+                  ],
+                  "crossDependsOn": [
+                    "M6-t3"
+                  ]
+                }
               ]
             },
             {
               "id": "M20",
               "name": "First batch shipped to a real cohort of new clients",
-              "dependsOn": ["M18-19", "M17"],
+              "dependsOn": [
+                "M18-19",
+                "M17"
+              ],
               "tasks": [
-                { "id": "M20-t1", "desc": "Place the first order (~50 t-shirts, mixed sizes ~40% XL / ~40% L / rest M); then wait ~10–14 days for the order (CRITICAL PATH)", "owner": "Brent", "type": "work", "workDays": 0.5, "waitDays": 12, "dependsOn": ["M17", "M18-19"], "crossDependsOn": [] },
-                { "id": "M20-t2", "desc": "Once stock arrives, ship first batch (shirt + note) to the next cohort — batched weekly, after grace period", "owner": "Both", "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": ["M20-t1"], "crossDependsOn": [] },
-                { "id": "M20-t3", "desc": "Message the clients who received the first batch to confirm arrival (first-time validation of the system)", "owner": "Bernardo", "type": "work", "workDays": 0.5, "waitDays": 3, "dependsOn": ["M20-t2"], "crossDependsOn": [] }
+                {
+                  "id": "M20-t1",
+                  "desc": "Place the first order (~50 t-shirts, mixed sizes ~40% XL / ~40% L / rest M); then wait ~10\u201314 days for the order (CRITICAL PATH)",
+                  "owner": "Brent",
+                  "type": "work",
+                  "workDays": 0.5,
+                  "waitDays": 12,
+                  "dependsOn": [
+                    "M17",
+                    "M18-19"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "M20-t2",
+                  "desc": "Once stock arrives, ship first batch (shirt + note) to the next cohort \u2014 batched weekly, after grace period",
+                  "owner": "Both",
+                  "type": "work",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M20-t1"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "M20-t3",
+                  "desc": "Message the clients who received the first batch to confirm arrival (first-time validation of the system)",
+                  "owner": "Bernardo",
+                  "type": "work",
+                  "workDays": 0.5,
+                  "waitDays": 3,
+                  "dependsOn": [
+                    "M20-t2"
+                  ],
+                  "crossDependsOn": []
+                }
               ]
             }
           ]
@@ -231,24 +1107,74 @@
           "name": "Team Rollout and Adoption",
           "objective": "Move the coaching team to the new onboarding cleanly, go-live September 14, 100% adoption verified.",
           "owner": "Both",
-          "note": "The 'announce to the team' milestone (likely M21) was already handled at the July 30 coaching call and removed from the plan (see Decision Log D-002); the M20→M22 numbering gap is a leftover artifact, not a missing deliverable.",
+          "note": "The 'announce to the team' milestone (likely M21) was already handled at the July 30 coaching call and removed from the plan (see Decision Log D-002); the M20\u2192M22 numbering gap is a leftover artifact, not a missing deliverable.",
           "milestones": [
             {
               "id": "M22",
               "name": "Adoption tracked + coach feedback loop + kickoff timing rule locked",
-              "dependsOn": ["M9", "M11"],
+              "dependsOn": [
+                "M9",
+                "M11"
+              ],
               "tasks": [
-                { "id": "M22-t1", "desc": "Brent and Bernardo each review 2 kickoff calls per coach, on their own (day 1)", "owner": "Both", "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": ["M9", "M11"], "crossDependsOn": [] },
-                { "id": "M22-t2", "desc": "Feedback loop (day 2): Brent Loom → Bernardo Loom reply → Brent consolidated Loom per coach", "owner": "Both", "type": "meeting", "workDays": 1, "waitDays": 0, "dependsOn": ["M22-t1"], "crossDependsOn": [] },
-                { "id": "M22-t3", "desc": "Lock the kickoff timing rule into practice (72h ideal, 5–7 day standard, refund eligibility window); coordinate with Emery", "owner": "Both", "type": "work", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M22-t2"], "crossDependsOn": [] }
+                {
+                  "id": "M22-t1",
+                  "desc": "Brent and Bernardo each review 2 kickoff calls per coach, on their own (day 1)",
+                  "owner": "Both",
+                  "type": "work",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M9",
+                    "M11"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "M22-t2",
+                  "desc": "Feedback loop (day 2): Brent Loom \u2192 Bernardo Loom reply \u2192 Brent consolidated Loom per coach",
+                  "owner": "Both",
+                  "type": "meeting",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M22-t1"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "M22-t3",
+                  "desc": "Lock the kickoff timing rule into practice (72h ideal, 5\u20137 day standard, refund eligibility window); coordinate with Emery",
+                  "owner": "Both",
+                  "type": "work",
+                  "workDays": 0.5,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M22-t2"
+                  ],
+                  "crossDependsOn": []
+                }
               ]
             },
             {
               "id": "M23",
               "name": "End-of-sprint retro completed with carry-overs captured",
-              "dependsOn": ["M22"],
+              "dependsOn": [
+                "M22"
+              ],
               "tasks": [
-                { "id": "M23-t1", "desc": "End-of-sprint retro: what worked, what didn't, carry-overs into the next sprint", "owner": "Both", "type": "meeting", "workDays": 1, "waitDays": 0, "dependsOn": ["M22"], "crossDependsOn": [] }
+                {
+                  "id": "M23-t1",
+                  "desc": "End-of-sprint retro: what worked, what didn't, carry-overs into the next sprint",
+                  "owner": "Both",
+                  "type": "meeting",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "M22"
+                  ],
+                  "crossDependsOn": []
+                }
               ]
             }
           ]
