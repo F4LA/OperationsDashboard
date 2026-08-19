@@ -1,8 +1,8 @@
 # Project Brain — Operations Dashboard
 The current state in one page. Updated at the close of every chat via the push Code session.
-_Last updated: 2026-08-19 — Bernardo (cadena de Sprint Planning repartida por D-100; convención de prefijo por D-099; §2 documentado, sin cambios de código)_
+_Last updated: 2026-08-19 — Bernardo (cadena de Sprint Planning repartida por D-100; convención de prefijo por D-099; §2 y §8 documentados y §1 completado, spec en v2.2, sin cambios de código)_
 
-> **Source of truth for WHAT to build** is the spec: `docs/spec.md` (v2.1).
+> **Source of truth for WHAT to build** is the spec: `docs/spec.md` (v2.2).
 > **Source of truth for WHY** is `docs/decision-log.md`.
 > This Brain tracks WHERE the build stands.
 > Repo: `F4LA/OperationsDashboard` (public). Local clone: `~/Desktop/StrongStandard/OperationsDashboard`.
@@ -24,7 +24,7 @@ Nota de seguridad (consistente con el "no auth" del §3, no es un defecto): la U
 
 ## Done
 - Full design approved and captured (decision-log D-006 … D-015): data model, date engine logic, metrics, views, identity/backend, This Week + pin + deliverable link, and what's deferred.
-- Engineering spec written and approved — `docs/spec.md` (v1.1 en su momento, hoy en v2.1; hand-reformatted from the Word original; content complete, worth a diff against the original if byte-exactness ever matters).
+- Engineering spec written and approved — `docs/spec.md` (v1.1 en su momento, hoy en v2.2; hand-reformatted from the Word original; content complete, worth a diff against the original if byte-exactness ever matters).
 - Rock 3 seed written and validated — `data/rock3-seed.json` (6 projects, M1–M23, 47 tasks, 40.75 work-days, zero unresolved dependencies).
 - Repo `F4LA/OperationsDashboard` created (public), scaffolded, and pushed — commit `cdc249a` "Phase 0: repo scaffold, stub modules, and reference docs". Local and origin identical, clean tree.
 - GitHub Pages enabled and live (placeholder loads, 9 scripts load with zero console errors, unstyled as expected).
@@ -63,7 +63,7 @@ OperationsDashboard/
 │          issues.test.js   (real, D-096)
 │          listener-isolation.test.js   (real, D-098)
 ├── data/rock3-seed.json   (real, test fixture, per D-016)
-└── docs/  spec.md (real, v2.1) · decision-log.md · project-brain.md
+└── docs/  spec.md (real, v2.2) · decision-log.md · project-brain.md
 ```
 Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root — matching CoachPulse.
 

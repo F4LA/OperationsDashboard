@@ -1,4 +1,4 @@
-# Operations Dashboard — Engineering Specification v2.1
+# Operations Dashboard — Engineering Specification v2.2
 
 > **v2.0 (2026-08-14)** — El producto se reencuadra: deja de ser un dashboard de Rocks y pasa a ser el dashboard de operaciones del leadership team, la herramienta con la que se corre el L10. El motor de Rocks (§2, §4, §5) queda intacto y pasa a ser un módulo. Se agregan: tareas ad-hoc y la vista de to-dos (§11), cierre semanal (§12) e issues (§13, por especificar). Las secciones §2, §4 y §5 NO cambiaron respecto de v1.1 — están construidas, probadas y referenciadas por el decision log. La numeración existente se conserva entera a propósito: el decision log referencia secciones por número 78 veces.
 
@@ -11,6 +11,8 @@
 > **v2.0.4 (2026-08-16)** — Correcciones al §11.5: se restituye quitar una tarea de la semana como deshacer de la propia adición, solo mientras la semana no está confirmada; agregar una ad-hoc se limita a semanas no cerradas. Se ratifica que en modo armado no se marca estado y que no se re-confirma una semana. D-093, D-094, D-095. La numeración de secciones no cambia.
 
 > **v2.1 (2026-08-16)** — Se especifica el §13 (Issues), que v2.0 había dejado como "por especificar": pantalla propia, pestaña Issues, dos RPC y dos acciones de evento nuevas, crear to-dos desde un issue, resolución obligatoria al cerrar, y el seguimiento del to-do generado que sigue abierto. D-096. La numeración de secciones no cambia.
+
+> **v2.2 (2026-08-19)** — Se documenta en el spec lo que ya era cierto en el código y en el decision log, sin cambios de comportamiento. §1: tabla de propiedades de Milestone, con la regla de D-017 (un `deferred` de milestone se propaga a todas sus tareas) que hasta ahora vivía solo en el log y por eso indujo dos veces la lectura contraria. §2: `crossDependsOn` queda descrito como marcador de vista resuelto junto a `dependsOn` en un solo paso (§4.2), y se explicita que ninguno de los dos campos está acotado al Project. §8: el reparto real del `sprint-plan.json` (Rock Planner emite el fragmento, proyecto de Sprint arma el sobre y valida cross-Rock, el Project Builder no lo toca, PUSH commitea), reemplazando la línea que se lo asignaba al Builder; Asana queda retirada de la ejecución de Rocks. D-017, D-099, D-100. La numeración de secciones no cambia.
 
 **Company:** Strong Standard
 **Author of spec:** design chat (Operating System project)
@@ -75,7 +77,12 @@ Sprint
 
 | Field | Meaning | Source |
 |---|---|---|
+| `id` | Unique milestone id, e.g. `M2` | INPUT (JSON) |
+| `name` | The verifiable outcome, not a period of time | INPUT |
+| `dependsOn` | List of task or milestone ids that must finish first (may point anywhere in the sprint). A milestone has no `crossDependsOn` — this one field takes whatever the dependency is | INPUT |
+| `deadline` | Optional ISO date: a constraint imposed from outside, never an estimate. NOT an input to the engine — scheduling never reads it; it is compared against the computed finish only for display (§5.3, §7). Distinct from the task-level `hardDeadline`, which is a priority tiebreak and behaves differently | INPUT (optional) |
 | `deferred` | If true, propagates to every task in the milestone: all of them are excluded from scheduling, from the progress denominator, and from projection (D-017) | INPUT (optional) |
+| `plannedFinish` | Computed as the latest planned finish across the milestone's non-deferred tasks (§4.6) | COMPUTED (engine) |
 
 ### Task properties
 
