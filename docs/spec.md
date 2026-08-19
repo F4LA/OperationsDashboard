@@ -71,6 +71,12 @@ Sprint
             └── Task   ← atomic unit (owner, type, durations, dependencies, live status)
 ```
 
+### Milestone properties
+
+| Field | Meaning | Source |
+|---|---|---|
+| `deferred` | If true, propagates to every task in the milestone: all of them are excluded from scheduling, from the progress denominator, and from projection (D-017) | INPUT (optional) |
+
 ### Task properties
 
 | Field | Meaning | Source |
@@ -82,9 +88,9 @@ Sprint
 | `workDays` | Active working days the owner is occupied (fractions allowed, e.g. 0.5) | INPUT |
 | `waitDays` | Calendar days of waiting after the work, during which the owner is free | INPUT |
 | `dependsOn` | List of task or milestone ids that must finish first (may point anywhere in the sprint) | INPUT |
-| `crossDependsOn` | Same as `dependsOn`, but semantically flagged as crossing Rocks/Projects (for the visual) | INPUT |
+| `crossDependsOn` | Same as `dependsOn` and resolved together with it in one step (§4.2) — no difference in scheduling behaviour. Flagged separately only so the row shows a cross-Rock/Project badge. Either field may reference any id in the sprint | INPUT |
 | `hardDeadline` | Optional ISO date; used only as a priority tiebreak | INPUT (optional) |
-| `deferred` | If true, excluded from projection and from the progress denominator until activated | INPUT (optional) |
+| `deferred` | If true, excluded from projection and from the progress denominator until activated. Valid here or on the milestone; a deferred milestone propagates to all its tasks (D-017) | INPUT (optional) |
 | `status` | `open` / `in_progress` / `done` | STATE — marked live, NOT in the JSON |
 | `plannedStart`, `plannedFinish` | Computed dates | COMPUTED (engine) |
 
@@ -159,7 +165,7 @@ An issue cannot be closed without stating how it closed. That single constraint 
 
 ## 2 · The input contract — sprint-plan.json
 
-This is the file Bernardo (or, later, the Project Builder — see §8) produces for each sprint. The dashboard reads it; it never writes it. It contains structure only, no status and no dates (dates are computed, status is marked).
+This is the file produced for each sprint — by hand at first, now assembled by the Sprint project from each Rock Planner's fragment (§8, D-100). The dashboard reads it; it never writes it. It contains structure only, no status and no dates (dates are computed, status is marked).
 
 ### Schema
 
@@ -223,6 +229,7 @@ This is the file Bernardo (or, later, the Project Builder — see §8) produces 
 
 - Every id is unique across the whole sprint.
 - Every id in any `dependsOn` / `crossDependsOn` must resolve to a real task id or milestone id in the sprint.
+- `dependsOn` and `crossDependsOn` may both reference any task or milestone id anywhere in the sprint — the same milestone, another Project, another Rock. Milestones carry only `dependsOn`, with the same freedom. The choice between the two task fields is a display convention, not a constraint.
 - `owner` ∈ {a name from `people`, `"Both"`}.
 - `type` ∈ {`work`, `meeting`, `approval`}.
 - `workDays` ≥ 0, `waitDays` ≥ 0, fractions allowed.
@@ -521,9 +528,9 @@ A top-level strip: overall duration-weighted progress, and which Rocks are amber
 These are consequences of v1, made after the dashboard is built and proven, and made against this approved spec rather than guessed at:
 
 - **Vista 4 — auto-update from Rock Projects.** Not viable today (Rock Projects store no machine-readable per-task status). If ever pursued, the clean bridge is Claude Code writing a `status.json` with the same task ids the dashboard uses. Deferred, possibly absorbed by the future company second-brain.
-- **Project Builder emits the JSON.** Later, the Builder learns to output a `sprint-plan.json` conforming to §2 in addition to its `.md` files. Convenience, not a v1 requirement — the seed JSON is produced by hand for now.
-- **Sprint planning produces Rock-3-level detail every time.** The root of the whole chain: this Operating System project must, going forward, produce sprint documents with the same detail Rock 3 has (owner per task, type, working-day durations, waitDays, dependencies, cross-deps). This spec defines exactly what fields that detail must include. Rock 3 is the template.
-- **Retire Asana.** The Rock Project task-closing loop currently marks Asana complete; that step is removed and pointed at the dashboard once Asana is actually retired. Requires a Builder change; done during transition, not now.
+- **Who produces `sprint-plan.json` (D-100).** The Rock Planner emits each Rock's fragment — one element of `rocks[]`. The Sprint project builds the envelope (`schemaVersion`, `sprint`, `people`, all from the Sprint Commitments), assembles the fragments, and runs the cross-Rock validation that no single-Rock project can do: sprint-wide id uniqueness, and every dependency resolving against the assembled file. The Rock Project Builder does NOT touch the JSON. The PUSH session commits it. This supersedes the earlier plan of having the Builder emit it (D-014).
+- **Sprint planning produces Rock-3-level detail every time.** The root of the whole chain, and it is now built: the Rock Planner converts a Rock's commitment and its owner's notes into the full detail this spec requires (owner per task, type, working-day durations, waitDays, dependencies, cross-deps). Rock 3 remains the reference for what that detail looks like.
+- **Asana is retired for Rock execution.** Task status lives in the dashboard. The Rock Project task-closing loop points there, not at Asana.
 
 ---
 

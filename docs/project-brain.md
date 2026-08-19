@@ -1,6 +1,6 @@
 # Project Brain — Operations Dashboard
 The current state in one page. Updated at the close of every chat via the push Code session.
-_Last updated: 2026-08-18 — Bernardo (§13 Issues EN PRODUCCIÓN; Web App en Version 4; dos bugs de producción cerrados por D-097 y D-098)_
+_Last updated: 2026-08-19 — Bernardo (cadena de Sprint Planning repartida por D-100; convención de prefijo por D-099; §2 documentado, sin cambios de código)_
 
 > **Source of truth for WHAT to build** is the spec: `docs/spec.md` (v2.1).
 > **Source of truth for WHY** is `docs/decision-log.md`.
@@ -84,11 +84,12 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 
 ## Deferred (not being actively worked)
 - Vista 4 (auto-update from Rock Projects) — D-014, superseded by D-088: no longer deferred, DISCARDED outright.
-- Retirar Asana y que el Project Builder emita el JSON siguen downstream (D-014). En cambio "Operating System producing Rock-3-level planning detail" YA NO está diferido: se atacó de raíz en D-089 (template nuevo con capa de tareas, Sprint Planning en tres bloques, proyecto Rock Planner para el bloque 2). Falta ejecutarlo fuera de este repo — reemplazar el template y reescribir el Sprint Planning Meeting Playbook en el proyecto Operating System, antes del próximo Sprint Planning (~13 de septiembre).
+- Retirar Asana quedó resuelto: el dashboard es la fuente de estado para la ejecución de Rocks (§8, D-100). "Project Builder emita el JSON" queda REEMPLAZADO por D-100 — el Builder no toca el JSON; el Planner emite el fragmento y el proyecto de Sprint arma el sobre y valida cross-Rock. "Operating System producing Rock-3-level planning detail" YA NO está diferido: se atacó de raíz en D-089 (template nuevo con capa de tareas, Sprint Planning en tres bloques, proyecto Rock Planner para el bloque 2). Falta ejecutarlo fuera de este repo — reemplazar el template y reescribir el Sprint Planning Meeting Playbook en el proyecto Operating System, antes del próximo Sprint Planning (~13 de septiembre).
 - Integración dashboard ↔ Rock Projects: DESCARTADA por D-088, no diferida. No reabrir sin argumento nuevo.
+- La cadena de Sprint Planning (Sprint → Rock Planner → Rock Project Builder → dashboard) quedó repartida por D-100: el fragmento lo emite el Planner, el sobre y la validación cross-Rock los hace el proyecto de Sprint, el Builder no toca el JSON. Del lado del dashboard no hay trabajo de código: el §2 quedó documentado (D-017 subido al texto, `crossDependsOn` aclarado como marcador visual, alcance de las dependencias explicitado) y `sprint-plan.json` sigue llegando por regeneración, como hasta ahora.
 - Gantt/Network (Fase 6): CANCELADA por D-082, no diferida. Ver Next up para el detalle de qué se borra.
 - Prototipos de referencia de la Fase 6 cancelada, localizados el 2026-08-14 en el disco de Bernardo (fuera de este repo): Rock3_Network_Graph.html y Rock3_Interactive_Timeline.html. Hallazgos guardados por si algún día se retoma: las filas son por MILESTONE agrupadas por Project (no carriles por persona — lo "por persona" se resolvió con botones de filtro); el Interactive Timeline es la mejor base pero perdió las barras punteadas de espera que sí tiene el Network Graph; ninguno de los dos dibuja conectores de dependencia (los muestra como texto), aunque el CSS del Interactive dejó un `.deps` preparado y vacío.
-- Carga automática del documento de Rock al dashboard: hoy el §8 lo lista como "Project Builder emite el JSON", conveniencia downstream. Pedido explícito de Bernardo (2026-08-14) de dejarlo registrado.
+- Carga automática del documento de Rock al dashboard: el §8 ya no lo asigna al Project Builder (D-100 se lo dio al Rock Planner + proyecto de Sprint); sigue siendo conveniencia downstream, no construida. Pedido explícito de Bernardo (2026-08-14) de dejarlo registrado.
 - (Retirado) El pulido de duplicados del dropdown de This Week ya no aplica: esa vista se retiró entera en la 2B (§11 supersede al §6.3, renderTw* borrados) y el panel de disponibles que la reemplazó se construyó de cero.
 - Borrar la burn-up se evaluó el 2026-08-14 y se descartó (D-071d): el pie numérico ya da el veredicto, la curva agrega cuándo empezó el desvío a costo cero.
 
