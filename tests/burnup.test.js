@@ -5,8 +5,11 @@
  * D-027 currentState map directly, so most of this is a fully isolated,
  * hand-built fixture — no plan/engine run needed to exercise the pure math.
  * The one exception is the real-Rock-3 sanity check at the end, which
- * reuses sprint-plan.json + planMode() as the "useful as a control" values
- * the Phase 5 spec calls out by name (46 tasks, total 40.75 work-days).
+ * reuses data/rock3-seed.json + planMode() as the "useful as a control"
+ * values the Phase 5 spec calls out by name (46 tasks, total 40.75
+ * work-days). NOT sprint-plan.json: that file is production and grows every
+ * sprint (today R1+R3), so these hardcoded control values can only ever
+ * describe the frozen seed they were measured against, never the live plan.
  *
  *     node tests/burnup.test.js
  */
@@ -136,7 +139,7 @@ check("today echoed", fullSeries.today === "2026-01-20", fullSeries.today);
 /* ================= real Rock 3 sanity check (the spec's own control values) ================= */
 console.log("\n=== Rock 3 sanity check (control values from the Phase 5 spec) ===\n");
 
-var plan = JSON.parse(fs.readFileSync(path.join(REPO, "sprint-plan.json"), "utf8"));
+var plan = JSON.parse(fs.readFileSync(path.join(REPO, "data", "rock3-seed.json"), "utf8"));
 var frozen = OpsDashEngine.planMode(plan);
 var rock3Ids = Object.keys(frozen.tasks);
 

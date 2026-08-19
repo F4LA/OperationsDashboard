@@ -409,43 +409,40 @@
       }
     }
 
-    /** Used ONLY by rock.owners and project.owner, whose validation D-107
-     *  deliberately leaves alone. Task owners go through checkTaskOwner
-     *  below, which is stricter and rejects "Both". */
-    function ownerIsValid(value) {
-      return value === OWNER_BOTH || peopleSet[value] === true;
-    }
-
+    /** No "Both" in the hint anywhere in the file, on any owner field — the
+     *  point of D-107 pass 2: a message that names the removed word is an
+     *  invitation to type it. Tells the reader to list names instead. */
     function ownerHint() {
-      var names = Object.keys(peopleSet);
-      return "expected " + OWNER_BOTH + " or one of [" + names.join(", ") + "]";
-    }
-
-    /** Task-owner hint — no "Both", because for a task the word is now an
-     *  error rather than an option. */
-    function taskOwnerHint() {
       var names = Object.keys(peopleSet);
       return "expected one of [" + names.join(", ") +
         "], or a list of them for joint work";
     }
 
     /**
-     * A plan task's owner (§2, D-107): one name from people[], or an array
-     * of at least one name, all in people[], no repeats. Order is meaningless.
+     * THE single owner rule (D-107, both passes): one name from people[], or
+     * an array of at least one name, all in people[], no repeats. Order is
+     * meaningless. Used for task.owner, project.owner and each element of
+     * rock.owners alike — one function, three call sites, so the rule can
+     * never read differently in one place than another.
      *
      * Four distinct blocking codes, because the fixes are different: the
      * literal "Both" needs rewriting as a list, an empty list needs a name,
      * a repeat needs deleting, and an unknown name needs correcting. Folding
      * "Both" into UNKNOWN_OWNER would tell someone their spelling was wrong
      * when the word itself is gone.
+     *
+     * @param id        the owning object's id, for the error message and report row
+     * @param owner     the value to check — a name, a list, or garbage
+     * @param fieldPath the JSON path TO THE OWNER FIELD ITSELF (already ends
+     *                  in ".owner" or ".owners[i]" — this function appends
+     *                  "[i]" only for a list's own elements)
+     * @param noun      "task" | "project" | "rock" — only for wording
      */
-    function checkTaskOwner(task, taskPath) {
-      var owner = task.owner;
-
+    function checkOwner(id, owner, fieldPath, noun) {
       if (owner === OWNER_BOTH) {
-        addError(report, "OWNER_BOTH_REMOVED", task.id, taskPath + ".owner",
-          'Task ' + task.id + ' has owner "' + OWNER_BOTH + '", which is no longer ' +
-          'part of the schema. List the owners instead, for example ' +
+        addError(report, "OWNER_BOTH_REMOVED", id, fieldPath,
+          'The ' + noun + ' ' + id + ' has owner "' + OWNER_BOTH + '", which is no ' +
+          'longer part of the schema. List the owners instead, for example ' +
           '["Brent", "Bernardo"]. The word used to mean "everyone in people", so it ' +
           'changed meaning by itself whenever someone joined the sprint.');
         return;
@@ -453,23 +450,23 @@
 
       if (Array.isArray(owner)) {
         if (!owner.length) {
-          addError(report, "OWNER_LIST_EMPTY", task.id, taskPath + ".owner",
-            "Task " + task.id + " has an empty owner list; a task needs at least one owner.");
+          addError(report, "OWNER_LIST_EMPTY", id, fieldPath,
+            "The " + noun + " " + id + " has an empty owner list; it needs at least one owner.");
           return;
         }
         var seen = {};
         for (var i = 0; i < owner.length; i++) {
           var name = owner[i];
-          var slot = taskPath + ".owner[" + i + "]";
+          var slot = fieldPath + "[" + i + "]";
           if (typeof name !== "string" || peopleSet[name] !== true) {
-            addError(report, "UNKNOWN_OWNER", task.id, slot,
-              "Unknown owner " + describe(name) + " on task " + task.id +
-              " (" + taskOwnerHint() + ").");
+            addError(report, "UNKNOWN_OWNER", id, slot,
+              "Unknown owner " + describe(name) + " on " + noun + " " + id +
+              " (" + ownerHint() + ").");
             continue;
           }
           if (seen[name] === true) {
-            addError(report, "OWNER_LIST_DUPLICATE", task.id, slot,
-              "Task " + task.id + " lists owner " + describe(name) +
+            addError(report, "OWNER_LIST_DUPLICATE", id, slot,
+              "The " + noun + " " + id + " lists owner " + describe(name) +
               " more than once; each owner appears at most once.");
             continue;
           }
@@ -479,9 +476,9 @@
       }
 
       if (typeof owner !== "string" || peopleSet[owner] !== true) {
-        addError(report, "UNKNOWN_OWNER", task.id, taskPath + ".owner",
-          "Unknown owner " + describe(owner) + " on task " + task.id +
-          " (" + taskOwnerHint() + ").");
+        addError(report, "UNKNOWN_OWNER", id, fieldPath,
+          "Unknown owner " + describe(owner) + " on " + noun + " " + id +
+          " (" + ownerHint() + ").");
       }
     }
 
@@ -525,12 +522,11 @@
           addError(report, "ROCK_OWNERS", rock.id, rockPath + ".owners",
             "rock.owners must be an array, got " + describe(rock.owners) + ".");
         } else if (peopleOk) {
+          // Each ELEMENT is one person's name, not itself a joint-owner field —
+          // checkOwner still applies per element since a single string is exactly
+          // the scalar case it already handles (D-107 pass 2).
           for (i = 0; i < rock.owners.length; i++) {
-            if (!ownerIsValid(rock.owners[i])) {
-              addError(report, "UNKNOWN_OWNER", rock.id, rockPath + ".owners[" + i + "]",
-                "Unknown owner " + describe(rock.owners[i]) + " on rock " + rock.id +
-                " (" + ownerHint() + ").");
-            }
+            checkOwner(rock.id, rock.owners[i], rockPath + ".owners[" + i + "]", "rock");
           }
         }
       }
@@ -554,10 +550,8 @@
           addError(report, "PROJECT_ID", null, projectPath + ".id",
             "project.id is required, got " + describe(project.id) + ".");
         }
-        if (project.owner !== undefined && peopleOk && !ownerIsValid(project.owner)) {
-          addError(report, "UNKNOWN_OWNER", project.id, projectPath + ".owner",
-            "Unknown owner " + describe(project.owner) + " on project " + project.id +
-            " (" + ownerHint() + ").");
+        if (project.owner !== undefined && peopleOk) {
+          checkOwner(project.id, project.owner, projectPath + ".owner", "project");
         }
 
         var milestones = Array.isArray(project.milestones) ? project.milestones : [];
@@ -629,7 +623,7 @@
             }
 
             /* owner = a name from people, or an explicit list of them (§2, D-107) */
-            if (peopleOk) checkTaskOwner(task, taskPath);
+            if (peopleOk) checkOwner(task.id, task.owner, taskPath + ".owner", "task");
 
             /* type ∈ {work, meeting, approval} (§2) */
             if (VALID_TYPES.indexOf(task.type) === -1) {

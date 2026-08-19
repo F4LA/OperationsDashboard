@@ -2,15 +2,28 @@
 /**
  * Date engine regression test — PLAN MODE (spec §4, D-020/D-021/D-022).
  *
- * Loads sprint-plan.json, runs the engine in plan mode, and compares every task's
+ * Loads data/rock3-seed.json — NOT sprint-plan.json — and compares every task's
  * plannedStart/plannedFinish against the frozen fixture tests/expected-plan-mode.json.
+ *
+ * Why the seed and not production: sprint-plan.json is the live file and grows every
+ * sprint by design (today R1+R3, soon R2). A 46-task fixture compared against a file
+ * that keeps growing can never stay green — that mismatch is exactly what forced this
+ * change. rock3-seed.json is where the fixture came from in the first place: it is
+ * frozen at 46 tasks and 40.75 work-days on purpose, so it is the only file this
+ * suite can hold still against. sprint-plan.json gets its own test instead —
+ * tests/plan-load.test.js — which asserts structural validity and deliberately
+ * contains no date assertions, because a file that changes every sprint cannot
+ * promise a date.
  *
  * Plain Node, no framework, no install step:
  *     node tests/engine.test.js
  *
  * Exits non-zero if anything fails. The fixture is the arbiter of date semantics —
  * if the engine and the fixture disagree, that is resolved in the design chat, never
- * by quietly editing one of them (D-022).
+ * by quietly editing one of them (D-022). NEVER regenerate expected-plan-mode.json
+ * from a live plan file: that would bake whatever the engine currently does into the
+ * "expected" answer, and a real regression — like the month-long slip "Both" caused
+ * silently until D-107 found it — would pass by definition.
  */
 "use strict";
 
@@ -25,7 +38,7 @@ var OpsDashValidate = require(path.join(REPO, "dashboard", "validate.js")).OpsDa
 globalThis.OpsDashValidate = OpsDashValidate;
 var OpsDashEngine = require(path.join(REPO, "dashboard", "engine.js")).OpsDashEngine;
 
-var plan = JSON.parse(fs.readFileSync(path.join(REPO, "sprint-plan.json"), "utf8"));
+var plan = JSON.parse(fs.readFileSync(path.join(REPO, "data", "rock3-seed.json"), "utf8"));
 var expected = JSON.parse(fs.readFileSync(path.join(__dirname, "expected-plan-mode.json"), "utf8"));
 
 var failures = 0;
@@ -47,7 +60,7 @@ function check(name, cond, detail) {
 }
 
 /* ------------------------------------------------------------------ */
-console.log("\n=== sprint-plan.json validation (§7) ===\n");
+console.log("\n=== rock3-seed.json validation (§7) ===\n");
 
 var report = OpsDashValidate.validate(plan);
 console.log(OpsDashValidate.formatReport(report) + "\n");

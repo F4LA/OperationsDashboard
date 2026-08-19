@@ -19,7 +19,7 @@
           "id": "P1",
           "name": "Synthetic Project",
           "objective": "Exercise live-mode reprojection.",
-          "owner": "Both",
+          "owner": ["Brent","Bernardo"],
           "milestones": [
             {
               "id": "M1",

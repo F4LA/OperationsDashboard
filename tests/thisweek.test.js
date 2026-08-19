@@ -159,8 +159,10 @@ var liveResult = {
     // open, projected entirely AFTER the window — must be excluded
     T5: { id: "T5", owner: "Ana", owners: ["Ana"], workDays: 2, waitDays: 0,
       status: "open", plannedStart: "2026-09-01", plannedFinish: "2026-09-02" },
-    // Both — must appear in EACH owner's column (D-063b)
-    T6: { id: "T6", owner: "Both", owners: ["Ana", "Beto"], workDays: 1, waitDays: 0,
+    // Joint task — must appear in EACH owner's column (D-063b). The
+    // assertion reads `owners` (D-107); the stale "Both" literal in `owner`
+    // is gone, since ownersOf() no longer resolves it specially.
+    T6: { id: "T6", owner: ["Ana", "Beto"], owners: ["Ana", "Beto"], workDays: 1, waitDays: 0,
       status: "open", plannedStart: "2026-08-16", plannedFinish: "2026-08-18" }
   }
 };
@@ -207,7 +209,7 @@ var plan2 = {
         tasks: [
           { id: "T1", desc: "Kickoff", owner: "Ana", type: "work", workDays: 1, waitDays: 0 },
           { id: "T2", desc: "Depends on T1", owner: "Beto", type: "work", workDays: 1, waitDays: 0, dependsOn: ["T1"] },
-          { id: "T3", desc: "Also depends on T1", owner: "Both", type: "work", workDays: 1, waitDays: 0, dependsOn: ["T1"] },
+          { id: "T3", desc: "Also depends on T1", owner: ["Ana", "Beto"], type: "work", workDays: 1, waitDays: 0, dependsOn: ["T1"] },
           { id: "T4", desc: "Depends on T2 (not done)", owner: "Ana", type: "work", workDays: 1, waitDays: 0, dependsOn: ["T2"] }
         ]
       }]

@@ -19,7 +19,7 @@
           "id": "P1",
           "name": "Baseline Data and Measurement System",
           "objective": "Establish historical baselines and set up ongoing measurement that keeps collecting post-sprint.",
-          "owner": "Both",
+          "owner": ["Brent","Bernardo"],
           "milestones": [
             {
               "id": "M1",
@@ -63,7 +63,7 @@
           "id": "P2",
           "name": "Intake Redesign and Welcome Email Flow",
           "objective": "Rebuild the intake to reduce friction and capture usable signal; restructure the welcome email into one clean entry point.",
-          "owner": "Both",
+          "owner": ["Brent","Bernardo"],
           "milestones": [
             {
               "id": "M5",
@@ -102,7 +102,7 @@
           "id": "P3",
           "name": "Kickoff Call Redesign and Coach Calibration",
           "objective": "Rebuild the kickoff presentation (condensed, phase-anchored) and calibrate every coach to the new standard.",
-          "owner": "Both",
+          "owner": ["Brent","Bernardo"],
           "milestones": [
             {
               "id": "M8",
@@ -184,7 +184,7 @@
           "id": "P5",
           "name": "T-shirt and Handwritten Note Fulfillment",
           "objective": "Add a physical touchpoint — branded t-shirt + handwritten note from Joey — shipped to every new client, run through an inventory/shipment dashboard.",
-          "owner": "Both",
+          "owner": ["Brent","Bernardo"],
           "cuttable": true,
           "milestones": [
             {
@@ -230,7 +230,7 @@
           "id": "P6",
           "name": "Team Rollout and Adoption",
           "objective": "Move the coaching team to the new onboarding cleanly, go-live September 14, 100% adoption verified.",
-          "owner": "Both",
+          "owner": ["Brent","Bernardo"],
           "note": "The 'announce to the team' milestone (likely M21) was already handled at the July 30 coaching call and removed from the plan (see Decision Log D-002); the M20→M22 numbering gap is a leftover artifact, not a missing deliverable.",
           "milestones": [
             {
