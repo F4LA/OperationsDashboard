@@ -595,6 +595,14 @@
    * backend does its own write-then-verify (returning `verified`).
    */
   function postCreateIssue(payload) {
+    // Same write gate as postEvent and createTask (D-109) — one overlay for
+    // every write in the app, raised in exactly one place.
+    return getEvents().guardedWrite("Raising the issue…", function () {
+      return postCreateIssueUnguarded(payload);
+    });
+  }
+
+  function postCreateIssueUnguarded(payload) {
     var cfg = CFG();
     var body = JSON.stringify(Object.assign({ action: "createIssue" }, payload));
     var opts = { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: body };
@@ -816,6 +824,7 @@
     setActive: setActive,
     _internals: {
       getState: function () { return state; },
+      postCreateIssue: postCreateIssue, // tests/write-overlay.test.js
       openIssuesOldestFirst: openIssuesOldestFirst,
       resolvedIssuesNewestFirst: resolvedIssuesNewestFirst,
       todosOfIssue: todosOfIssue,

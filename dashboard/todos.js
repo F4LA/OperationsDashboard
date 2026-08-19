@@ -217,6 +217,25 @@
   }
 
   /**
+   * Is this task part of the FROZEN commitment for this week (§11.5, D-108)?
+   *
+   * This — not whether the week is confirmed — is what decides whether Remove
+   * is offered. The two used to be treated as the same thing, which left
+   * someone who added a task by mistake AFTER confirming with no way out:
+   * cancelling a Rock task removes it from the whole sprint plan, discarding
+   * only works on ad-hoc ids, and moving commits it to next week and counts
+   * it as moved against their rate.
+   *
+   * An unconfirmed week has NO frozen list (weekCommitment returns null), so
+   * nothing is in it and every pinned task qualifies for Remove — which is
+   * why build mode needs no branch of its own here.
+   */
+  function isInFrozenList(taskId, win) {
+    var frozen = getEvents().weekCommitment(state.folded, win.mondayKey);
+    return frozen !== null && frozen.indexOf(taskId) !== -1;
+  }
+
+  /**
    * @returns "review"  — the week has ended: read it, with the §12 summary
    *          "execute" — confirmed: mark status, move, discard, cancel (§11.4)
    *          "build"   — not yet confirmed: add tasks, capacity, confirm (§11.5)
@@ -627,15 +646,37 @@
    *  D-063a shows in every window unconditionally (in-progress status, no
    *  window filter) but that this build week never committed. */
   function reviewActionsHtml(item, mode, win) {
-    if (mode === "build") {
-      if (state.pins[item.id] !== win.mondayKey) return "";
-      return '<div class="todo-row-actions">' +
-        '<button type="button" class="todo-action-btn" data-action="todo-unpin-build" ' +
-          'data-task-id="' + escapeAttr(item.id) + '">Remove — undo this addition</button>' +
-        "</div>";
-    }
     if (item.status === "done") return "";
     if (item.discarded || item.cancelled) return ""; // already closed — Undo covers it
+
+    /**
+     * REMOVE, decided by the frozen list and NOT by the week's confirmation
+     * state (§11.5, D-108). One condition serves both modes: an unconfirmed
+     * week has no frozen list, so nothing is in it, so everything pinned here
+     * qualifies — build-mode behaviour is unchanged without a branch for it.
+     *
+     * Still requires the task to be pinned to THIS window, unchanged: that is
+     * what keeps a workingOn row — which D-063a shows in every window — from
+     * offering to be removed from a week it was never committed to.
+     *
+     * `mode !== "review"` is the pre-existing SCOPE of Remove, not a second
+     * branch of the rule: Remove has never been offered on a week that has
+     * already ended, and unpinning a task out of a finished week would edit
+     * history §12 already measured. A closed week keeps exactly the §11.4
+     * actions it has today. (The brief specified the cut for build and
+     * execute; review is reported as an open question, not decided here.)
+     */
+    if (mode !== "review" &&
+        state.pins[item.id] === win.mondayKey && !isInFrozenList(item.id, win)) {
+      return '<div class="todo-row-actions">' +
+        '<button type="button" class="todo-action-btn" data-action="todo-unpin-week" ' +
+          'data-task-id="' + escapeAttr(item.id) + '">Remove from this week</button>' +
+        "</div>";
+    }
+
+    // Build mode offers nothing else: with no confirmed commitment there is
+    // nothing to move out of or close (D-092).
+    if (mode === "build") return "";
 
     var moveBtn = '<button type="button" class="todo-action-btn" data-action="todo-postpone" ' +
       'data-task-id="' + escapeAttr(item.id) + '">Move to next week</button>';
@@ -1052,8 +1093,18 @@
    * returns `verified` in the response, so this does not additionally re-read
    * the Tasks tab to confirm — a deliberate simplification flagged in the
    * build report, unlike postEvent's full client-side verify loop.
+   *
+   * It DOES go through the same write gate as postEvent (D-109): the overlay
+   * is not a property of the events log, it is a property of writing, and
+   * this is a write.
    */
   function postCreateTask(payload) {
+    return getEvents().guardedWrite("Adding the to-do…", function () {
+      return postCreateTaskUnguarded(payload);
+    });
+  }
+
+  function postCreateTaskUnguarded(payload) {
     var cfg = CFG();
     var body = JSON.stringify(Object.assign({ action: "createTask" }, payload));
     var opts = { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: body };
@@ -1113,10 +1164,12 @@
     postAndRefresh("pin", taskId, win.mondayKey, "", "Pulled " + taskId + " into " + person + "\u2019s week.");
   }
 
-  /** D-095: undo your own addition, build mode only. No reason \u2014 unlike
-   *  discard/cancel (\u00a711.4), this corrects something that never became a
-   *  commitment, so there is nothing to explain. Plain unpin, no value. */
-  function onUnpinBuild(taskId) {
+  /** D-095/D-108: take a task out of this week. No reason \u2014 unlike
+   *  discard/cancel (\u00a711.4), this corrects something that never entered the
+   *  frozen commitment, so there is nothing to explain and nothing to count.
+   *  Plain unpin, no value. Not build-mode-only any more: what gates it is
+   *  absence from the frozen list, which is why the name lost "build". */
+  function onUnpinWeek(taskId) {
     postAndRefresh("unpin", taskId, "", "", "Removed " + taskId + " from this week.");
   }
 
@@ -1343,7 +1396,7 @@
 
     if (action === "todo-postpone") onPostpone(taskId);
     else if (action === "todo-pull") onPull(taskId, el.getAttribute("data-person"));
-    else if (action === "todo-unpin-build") onUnpinBuild(taskId);
+    else if (action === "todo-unpin-week") onUnpinWeek(taskId);
     else if (action === "todo-undo") onUndo(taskId, el.getAttribute("data-origin"));
     else if (action === "todo-discard-open") openReasonPanel(taskId, "discard");
     else if (action === "todo-cancel-open") openReasonPanel(taskId, "cancel");
@@ -1472,6 +1525,11 @@
       weekModeFor: weekModeFor,
       weekHasEnded: weekHasEnded,
       weekIsConfirmed: weekIsConfirmed,
+      isInFrozenList: isInFrozenList,
+      // Exposed for tests/write-overlay.test.js: the gated entry point, and
+      // the ungated body it wraps, which that file uses to prove it can fail.
+      postCreateTask: postCreateTask,
+      postCreateTaskUnguarded: postCreateTaskUnguarded,
       formatWindowRange: formatWindowRange,
       defaultWeekOffset: defaultWeekOffset,
       windowAt: windowAt,

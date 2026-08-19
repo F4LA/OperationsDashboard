@@ -1331,6 +1331,60 @@ main#main {
   margin: 8px 0 0;
 }
 
+/* ------------------------------------------------------------------ *
+ * The write overlay (§3, D-109)
+ *
+ * z-index 300 — ABOVE the toast container (200), which is the highest thing
+ * in the app. The overlay must be the topmost surface or it is not blocking,
+ * and a toast appearing over a modal would be the one thing still clickable.
+ *
+ * `position: fixed` with all four insets, so it covers the viewport
+ * regardless of scroll — a write started at the bottom of a long To-dos list
+ * must not leave the top of the page live.
+ * ------------------------------------------------------------------ */
+
+.write-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(8, 13, 26, 0.55); /* --navy-900 at 55% */
+}
+.write-overlay.is-visible { display: flex; }
+.write-overlay:focus-visible { outline: none; } /* it is a container, not a control */
+
+.write-overlay-card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg); /* same elevation the popover/toast use */
+  padding: 24px 28px;
+  max-width: 460px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.write-overlay-msg {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+/* Error state: the card keeps a red edge so the state is not carried by the
+   wording alone. The acknowledge button is the only thing clickable in the
+   app while this is up. */
+.write-overlay.is-error .write-overlay-card {
+  border-top: 3px solid var(--red);
+}
+.write-overlay.is-error .write-overlay-msg { color: var(--text); }
+.write-overlay-ack { align-self: flex-end; }
+
 /* ---------- Reduced motion ---------- */
 @media (prefers-reduced-motion: reduce) {
   .toast { animation: none; }

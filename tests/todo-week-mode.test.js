@@ -104,9 +104,14 @@ function mountAt(todayISO, confirmedMondays, pins) {
   CFG.todayISO = function () { return todayISO; };
 
   var rows = [HEADER];
-  (confirmedMondays || []).forEach(function (monday, i) {
+  // An entry is either a bare Monday key (frozen list empty, as before) or
+  // {monday, frozen:[taskIds]} — D-108 turns on what is IN that list, so the
+  // harness has to be able to put something in it.
+  (confirmedMondays || []).forEach(function (entry, i) {
+    var monday = typeof entry === "string" ? entry : entry.monday;
+    var frozen = typeof entry === "string" ? [] : (entry.frozen || []);
     rows.push(ev("E-C" + i, "WEEK-" + monday, "confirmWeek", monday,
-      "2026-08-01T10:00:00-04:00", "[]"));
+      "2026-08-01T10:00:00-04:00", JSON.stringify(frozen)));
   });
   (pins || []).forEach(function (p, i) {
     rows.push(ev("E-P" + i, p.taskId, "pin", p.monday, "2026-08-01T11:00:00-04:00"));
@@ -145,6 +150,7 @@ function snapshot(todayISO, confirmedMondays, pins) {
     positions: I.WEEK_POSITIONS,
     committed: function (person, o) { return I.committedIdsForPerson(person, wins[String(o)]); },
     liveTasks: Object.keys(I.getState().liveResult.tasks),
+    inFrozen: function (taskId, o) { return I.isInFrozenList(taskId, wins[String(o)]); },
     card: function (person, o) {
       var win = wins[String(o)];
       return I.cardHtml(person, win, I.weekModeFor(win));
@@ -275,51 +281,106 @@ check("...yet the committed set is still empty — projection no longer pre-fill
   wed.committed("Ana", 0).length === 0 && wed.committed("Beto", 0).length === 0,
   JSON.stringify(wed.committed("Ana", 0)));
 
-/* ================= remove-your-own-addition (D-095) ================= */
-console.log("\n=== build mode restores 'remove' as undo-your-own-addition (D-095) ===\n");
+/* ================= Remove is decided by the FROZEN LIST (D-108) ================= */
+console.log("\n=== Remove turns on the frozen list, not on confirmation (D-108) ===\n");
 
 var openingKey = wed.win(1).mondayKey;
-var withPin = snapshot(WED, [], [{ taskId: "T1", monday: openingKey }]);
-
-check("a task pinned in the unconfirmed (build) week shows the Remove action",
-  withPin.card("Ana", 1).indexOf('data-action="todo-unpin-build"') !== -1,
-  withPin.card("Ana", 1));
-check("its label reads as undoing an addition, not rejecting a system proposal",
-  withPin.card("Ana", 1).indexOf("undo this addition") !== -1);
-check("a person with nothing pinned there gets no Remove button",
-  withPin.card("Beto", 1).indexOf('data-action="todo-unpin-build"') === -1,
-  withPin.card("Beto", 1));
-
 var curKey = wed.win(0).mondayKey;
-var confirmedWithPin = snapshot(WED, [curKey], [{ taskId: "T1", monday: curKey }]);
-check("once the week is CONFIRMED (execute mode), Remove is gone",
-  confirmedWithPin.card("Ana", 0).indexOf('data-action="todo-unpin-build"') === -1,
-  confirmedWithPin.card("Ana", 0));
-check("...move/discard/cancel are the way to change a confirmed commitment instead",
-  confirmedWithPin.card("Ana", 0).indexOf('data-action="todo-postpone"') !== -1);
-
 var endedKey = wed.win(-1).mondayKey;
-var closedWithPin = snapshot(WED, [], [{ taskId: "T1", monday: endedKey }]);
-check("a CLOSED week (ended, never confirmed) also has no Remove — it is review, not build",
-  closedWithPin.card("Ana", -1).indexOf('data-action="todo-unpin-build"') === -1,
-  closedWithPin.card("Ana", -1));
 
-check("no reason/mandatory-note UI is attached to the Remove action itself",
-  withPin.card("Ana", 1).indexOf('data-action="todo-discard-open"') === -1 &&
-  withPin.card("Ana", 1).indexOf('data-action="todo-cancel-open"') === -1);
+var REMOVE = 'data-action="todo-unpin-week"';
+
+/* Every card HTML below is captured EAGERLY, immediately after its own mount:
+   todos.js is a singleton, so a card() closure held across a later snapshot()
+   would render against the wrong state. That trap already cost this file once. */
+function capture(todayISO, confirmed, pins, person, offset) {
+  var snap = snapshot(todayISO, confirmed, pins);
+  return {
+    html: snap.card(person, offset),
+    mode: snap.mode(offset),
+    frozenT1: snap.inFrozen("T1", offset)
+  };
+}
+
+/* --- unconfirmed week: no frozen list exists, so everything pinned qualifies.
+       This is the D-095 behaviour, unchanged, and it needs no branch of its
+       own — it falls out of "not in the frozen list". --- */
+var buildPinned = capture(WED, [], [{ taskId: "T1", monday: openingKey }], "Ana", 1);
+var buildOther  = capture(WED, [], [{ taskId: "T1", monday: openingKey }], "Beto", 1);
+
+check("an unconfirmed week has no frozen list at all", buildPinned.frozenT1 === false);
+check("a task pinned in the unconfirmed week shows Remove",
+  buildPinned.html.indexOf(REMOVE) !== -1, buildPinned.html);
+check("a person with nothing pinned there gets no Remove",
+  buildOther.html.indexOf(REMOVE) === -1, buildOther.html);
+check("no reason/mandatory-note UI is attached to Remove",
+  buildPinned.html.indexOf('data-action="todo-discard-open"') === -1 &&
+  buildPinned.html.indexOf('data-action="todo-cancel-open"') === -1);
+
+/* --- THE CASE D-108 EXISTS FOR: week already CONFIRMED, task added after, so
+       it is NOT in the frozen list. Under the old rule there was no way out:
+       cancel removes a Rock task from the whole sprint, discard is ad-hoc
+       only, and move commits it to next week and counts as a move. --- */
+var notFrozen = capture(WED, [{ monday: curKey, frozen: ["T2"] }],
+  [{ taskId: "T1", monday: curKey }], "Ana", 0);
+
+check("the confirmed week IS in execute mode", notFrozen.mode === "execute", notFrozen.mode);
+check("a task added AFTER confirming is not in the frozen list", notFrozen.frozenT1 === false);
+check("THE FIX: it still offers Remove, even though the week is confirmed",
+  notFrozen.html.indexOf(REMOVE) !== -1, notFrozen.html);
+
+/* --- the other side of the cut: task IS in the frozen list -> no Remove, the
+       reason-carrying actions instead, exactly as before. --- */
+var frozen = capture(WED, [{ monday: curKey, frozen: ["T1"] }],
+  [{ taskId: "T1", monday: curKey }], "Ana", 0);
+
+check("a task inside the frozen list is reported as frozen", frozen.frozenT1 === true);
+check("a task inside the frozen list does NOT offer Remove",
+  frozen.html.indexOf(REMOVE) === -1, frozen.html);
+check("...it offers Move instead, unchanged",
+  frozen.html.indexOf('data-action="todo-postpone"') !== -1);
+check("...and Cancel with a reason, unchanged for a Rock task",
+  frozen.html.indexOf('data-action="todo-cancel-open"') !== -1);
+
+/* The point of the rule: confirmation state is IDENTICAL across the two cases
+   above — same week, same execute mode, same pin. ONLY frozen-list membership
+   differs, and that alone flips Remove. */
+check("the two cases share mode and week, differing only in frozen membership",
+  notFrozen.mode === frozen.mode && notFrozen.frozenT1 !== frozen.frozenT1);
+check("...and that difference alone decides Remove",
+  notFrozen.html.indexOf(REMOVE) !== -1 && frozen.html.indexOf(REMOVE) === -1);
+
+/* --- one label, both modes --- */
+check("the button label is identical in build and execute mode",
+  buildPinned.html.indexOf("Remove from this week") !== -1 &&
+  notFrozen.html.indexOf("Remove from this week") !== -1);
+
+/* --- preserved: pinned to THIS window --- */
+var elsewhere = capture(WED, [], [{ taskId: "T1", monday: openingKey }], "Ana", 0);
+check("a task pinned to a DIFFERENT window offers no Remove here",
+  elsewhere.html.indexOf(REMOVE) === -1, elsewhere.html);
+
+/* --- a closed week keeps its §11.4 actions and gains no Remove --- */
+var closed = capture(WED, [], [{ taskId: "T1", monday: endedKey }], "Ana", -1);
+check("a CLOSED week offers no Remove — unpinning would edit a finished week",
+  closed.html.indexOf(REMOVE) === -1, closed.html);
+check("...but keeps Move and Cancel, which is what step 6 is for",
+  closed.html.indexOf('data-action="todo-postpone"') !== -1 &&
+  closed.html.indexOf('data-action="todo-cancel-open"') !== -1);
 
 /* ================= ad-hoc form limited to non-closed weeks (D-094) ================= */
 console.log("\n=== ad-hoc creation is un-gated from build, but NOT offered on a closed week (D-094) ===\n");
 
+/* Reuses the eagerly-captured HTML above rather than re-reading a stale
+   snapshot closure — same singleton discipline. */
 check("build mode (unconfirmed, running week) offers the ad-hoc form",
-  withPin.card("Ana", 1).indexOf("todo-adhoc-form") !== -1);
+  buildPinned.html.indexOf("todo-adhoc-form") !== -1);
 check("execute mode (confirmed, running week) ALSO offers it — unplanned work on a Tuesday",
-  confirmedWithPin.card("Ana", 0).indexOf("todo-adhoc-form") !== -1);
+  notFrozen.html.indexOf("todo-adhoc-form") !== -1);
 check("review mode (a week that has ENDED) does NOT offer it",
-  closedWithPin.card("Ana", -1).indexOf("todo-adhoc-form") === -1,
-  closedWithPin.card("Ana", -1));
+  closed.html.indexOf("todo-adhoc-form") === -1, closed.html);
 check("...even when that closed week was never confirmed",
-  wed.mode(-1) === "review" && wed.card("Ana", -1).indexOf("todo-adhoc-form") === -1);
+  closed.mode === "review" && closed.html.indexOf("todo-adhoc-form") === -1);
 
 console.log("\n=== summary ===");
 console.log("  passed: " + passes);

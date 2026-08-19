@@ -710,6 +710,222 @@
   }
 
   /* ------------------------------------------------------------------ *
+   * The write overlay (§3, D-109) — ONE gate for EVERY write
+   *
+   * Why it lives here, in events.js, and not in each view: this module is
+   * the §3 write path, and D-109 amends §3. All three views already reach
+   * OpsDashEvents, so routing them through here adds no dependency between
+   * views — and a guard written inside a view comes back broken in the next
+   * one, which is literally how D-098 happened (two listeners on one #main,
+   * two createTask calls from one click).
+   *
+   * The failure this closes: write-then-verify backs off 0/500/1000/2000 ms
+   * and then re-reads the whole Sheet, so a write can take several seconds
+   * during which nothing on screen moved. Miguel pressed "Add to week"
+   * repeatedly. Pins fold, so nothing duplicated that time — but the log
+   * took junk rows, and the next non-idempotent action would have duplicated
+   * for real.
+   *
+   * TIMING IS THE WHOLE POINT: the overlay goes up SYNCHRONOUSLY, before
+   * doWrite() is even entered, therefore before fetch. If it went up in a
+   * .then(), a fast second click would land in the gap and the pass would
+   * have achieved nothing.
+   * ------------------------------------------------------------------ */
+
+  var overlay = { el: null, depth: 0, keyHandler: null, clickHandler: null };
+
+  function hasDom() {
+    return typeof document !== "undefined" && document && !!document.body;
+  }
+
+  function buildOverlay() {
+    var el = document.createElement("div");
+    el.className = "write-overlay";
+    // alertdialog, not dialog: this interrupts to say something, and the
+    // error case demands acknowledgement before anything else happens.
+    el.setAttribute("role", "alertdialog");
+    el.setAttribute("aria-modal", "true");
+    el.setAttribute("aria-live", "assertive");
+    el.setAttribute("tabindex", "-1");
+    el.innerHTML =
+      '<div class="write-overlay-card">' +
+        '<p class="write-overlay-msg"></p>' +
+        '<button type="button" class="btn btn-primary write-overlay-ack hidden">OK</button>' +
+      "</div>";
+    document.body.appendChild(el);
+    return el;
+  }
+
+  function overlayEl() {
+    if (!hasDom()) return null;
+    if (!overlay.el || !overlay.el.parentNode) overlay.el = buildOverlay();
+    return overlay.el;
+  }
+
+  /**
+   * Swallow Tab and Escape while the overlay is up: neither may move focus out
+   * of it or dismiss it. Capture phase on document, so nothing downstream sees
+   * the key at all.
+   *
+   * AND swallow clicks, which is not redundant with the visual cover. A cover
+   * at z-index 300 stops a MOUSE click by hit-testing, but a click dispatched
+   * programmatically — or produced by Enter/Space on a focused button — is
+   * delivered straight to its target and never consults what is painted on
+   * top. Found by hammering the real button in a browser while a slow write
+   * was in flight: six extra clicks produced six extra POSTs with the cover
+   * visibly up. One capture-phase listener closes all three routes at once,
+   * in every view, which is why it belongs here and not in each onClick.
+   */
+  function installKeyTrap(el) {
+    if (overlay.keyHandler) return;
+
+    overlay.keyHandler = function (e) {
+      if (e.key === "Tab" || e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        var ack = el.querySelector(".write-overlay-ack");
+        if (ack && !ack.classList.contains("hidden")) ack.focus();
+        else el.focus();
+      }
+    };
+    document.addEventListener("keydown", overlay.keyHandler, true);
+
+    overlay.clickHandler = function (e) {
+      // The overlay's own acknowledge button is the one thing still live.
+      var t = e.target;
+      while (t) {
+        if (t === el) return;
+        t = t.parentNode;
+      }
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    document.addEventListener("click", overlay.clickHandler, true);
+  }
+
+  function removeKeyTrap() {
+    if (overlay.keyHandler) {
+      document.removeEventListener("keydown", overlay.keyHandler, true);
+      overlay.keyHandler = null;
+    }
+    if (overlay.clickHandler) {
+      document.removeEventListener("click", overlay.clickHandler, true);
+      overlay.clickHandler = null;
+    }
+  }
+
+  /** Raise the overlay in its "working" state. Depth-counted, so two writes
+   *  in flight cannot have the first one's completion pull the cover out from
+   *  under the second. */
+  function showWorking(message) {
+    overlay.depth++;
+    var el = overlayEl();
+    if (!el) return;
+    el.querySelector(".write-overlay-msg").textContent = message || "Saving…";
+    var ack = el.querySelector(".write-overlay-ack");
+    ack.classList.add("hidden");
+    el.classList.remove("is-error");
+    el.classList.add("is-visible");
+    installKeyTrap(el);
+    if (typeof el.focus === "function") el.focus();
+  }
+
+  function hideOverlay() {
+    if (overlay.depth > 0) overlay.depth--;
+    if (overlay.depth > 0) return; // another write still running
+    var el = overlay.el;
+    if (!el) return;
+    el.classList.remove("is-visible", "is-error");
+    removeKeyTrap();
+  }
+
+  /**
+   * Switch to the error state and STAY UP until acknowledged. An error that
+   * dismisses itself after three seconds is an error nobody read — least of
+   * all on a screen being shared in a meeting.
+   *
+   * Does not consume the depth count: the write is over, so the count is
+   * released here and the cover is held open by the error class instead.
+   */
+  function showError(message) {
+    if (overlay.depth > 0) overlay.depth--;
+    var el = overlayEl();
+    if (!el) return;
+    el.querySelector(".write-overlay-msg").textContent = message;
+    var ack = el.querySelector(".write-overlay-ack");
+    ack.classList.remove("hidden");
+    el.classList.add("is-visible", "is-error");
+    installKeyTrap(el);
+    ack.onclick = function () {
+      el.classList.remove("is-visible", "is-error");
+      ack.classList.add("hidden");
+      removeKeyTrap();
+    };
+    if (typeof ack.focus === "function") ack.focus();
+  }
+
+  /**
+   * THE one gate. Every write in the app goes through this — postEvent below,
+   * and todos.js/issues.js's two sibling RPCs, which call it by name.
+   * tests/write-overlay.test.js counts the entry points and fails if one
+   * stops routing through here.
+   *
+   * @param message  plain language, no internal codes (D-103)
+   * @param doWrite  () => Promise<result>. Called synchronously, AFTER the
+   *                 overlay is already up.
+   *
+   * Resolves with whatever doWrite resolves to. On a falsy `ok` (or a
+   * rejection) the overlay flips to its error state and stays there; the
+   * promise still resolves immediately, so each caller's existing error
+   * handling — its toast and its button re-enable — runs unchanged rather
+   * than waiting on a click.
+   */
+  function guardedWrite(message, doWrite) {
+    showWorking(message);
+
+    var p;
+    try {
+      p = doWrite();
+    } catch (err) {
+      showError(describeForHuman(err));
+      return Promise.resolve({ ok: false, error: "POST_FAILED", detail: String((err && err.message) || err) });
+    }
+
+    return Promise.resolve(p).then(function (result) {
+      if (result && result.ok) hideOverlay();
+      else showError(humanWriteError(result));
+      return result;
+    }, function (err) {
+      showError(describeForHuman(err));
+      return { ok: false, error: "POST_FAILED", detail: String((err && err.message) || err) };
+    });
+  }
+
+  function describeForHuman(err) {
+    return "That did not save. " + String((err && err.message) || err || "Unknown problem.") +
+      " Nothing was changed — try again.";
+  }
+
+  /** Plain language, no error codes on screen (D-103). */
+  function humanWriteError(result) {
+    if (!result) return "That did not save, and the reason is unknown. Try again.";
+    if (result.message) return result.message;
+    switch (result.error) {
+      case "VERIFY_TIMEOUT":
+        return "The change did not show up after checking several times. It may " +
+          "not have saved — reload before trying again, so you do not save it twice.";
+      case "VERIFY_READ_FAILED":
+        return "Could not confirm the change: reading the sheet back kept failing. " +
+          "Reload to see whether it saved.";
+      case "POST_FAILED":
+        return "Could not reach the server. Nothing was saved — check the " +
+          "connection and try again.";
+      default:
+        return "That did not save (" + (result.error || "unknown problem") + "). Try again.";
+    }
+  }
+
+  /* ------------------------------------------------------------------ *
    * postEvent (§3 "Write path", D-046)
    * ------------------------------------------------------------------ */
 
@@ -729,6 +945,14 @@
    * decision rule of which one wins.
    */
   function postEvent(action, taskId, value, actor, note) {
+    // Every caller of postEvent gets the overlay for free — that is the point
+    // of gating here rather than at the seven call sites (D-109).
+    return guardedWrite("Saving…", function () {
+      return postEventUnguarded(action, taskId, value, actor, note);
+    });
+  }
+
+  function postEventUnguarded(action, taskId, value, actor, note) {
     var cfg = getConfig();
     var want = { taskId: taskId, action: action, value: value === undefined ? "" : value, actor: actor };
     var payload = {
@@ -795,6 +1019,10 @@
     fetchEvents: fetchEvents,
     postEvent: postEvent,
     verifyEvent: verifyEvent,
+    /* The one write gate (§3, D-109). todos.js and issues.js route their
+     * sibling RPCs through this; nothing else may POST. */
+    guardedWrite: guardedWrite,
+    isWriteInFlight: function () { return overlay.depth > 0; },
     _internals: {
       parseTimestampMs: parseTimestampMs,
       canonicalIso: canonicalIso,
