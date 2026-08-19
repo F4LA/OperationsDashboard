@@ -1,4 +1,4 @@
-# Operations Dashboard — Engineering Specification v2.2
+# Operations Dashboard — Engineering Specification v2.3
 
 > **v2.0 (2026-08-14)** — El producto se reencuadra: deja de ser un dashboard de Rocks y pasa a ser el dashboard de operaciones del leadership team, la herramienta con la que se corre el L10. El motor de Rocks (§2, §4, §5) queda intacto y pasa a ser un módulo. Se agregan: tareas ad-hoc y la vista de to-dos (§11), cierre semanal (§12) e issues (§13, por especificar). Las secciones §2, §4 y §5 NO cambiaron respecto de v1.1 — están construidas, probadas y referenciadas por el decision log. La numeración existente se conserva entera a propósito: el decision log referencia secciones por número 78 veces.
 
@@ -11,6 +11,8 @@
 > **v2.0.4 (2026-08-16)** — Correcciones al §11.5: se restituye quitar una tarea de la semana como deshacer de la propia adición, solo mientras la semana no está confirmada; agregar una ad-hoc se limita a semanas no cerradas. Se ratifica que en modo armado no se marca estado y que no se re-confirma una semana. D-093, D-094, D-095. La numeración de secciones no cambia.
 
 > **v2.1 (2026-08-16)** — Se especifica el §13 (Issues), que v2.0 había dejado como "por especificar": pantalla propia, pestaña Issues, dos RPC y dos acciones de evento nuevas, crear to-dos desde un issue, resolución obligatoria al cerrar, y el seguimiento del to-do generado que sigue abierto. D-096. La numeración de secciones no cambia.
+
+> **v2.3 (2026-08-19)** — Tres cambios de comportamiento salidos del primer uso real por parte del equipo. §2: se ELIMINA el literal `"Both"` del esquema y `owner` pasa a aceptar un nombre o un array explícito de nombres; `"Both"` nunca significó "los dos dueños del Rock" sino "todas las personas de `people[]`", y al entrar un tercer nombre 18 tareas de R3 cambiaron de dueño y desplazaron un mes las fechas de R1 sin un solo error (D-107). §3: toda escritura pasa por un overlay modal bloqueante, porque el camino de escritura no daba ninguna señal durante varios segundos (D-109). §11.5: quitar una tarea de la semana depende de si está en la lista congelada, no de si la semana está confirmada (D-108). La numeración de secciones no cambia.
 
 > **v2.2 (2026-08-19)** — Se documenta en el spec lo que ya era cierto en el código y en el decision log, sin cambios de comportamiento. §1: tabla de propiedades de Milestone, con la regla de D-017 (un `deferred` de milestone se propaga a todas sus tareas) que hasta ahora vivía solo en el log y por eso indujo dos veces la lectura contraria. §2: `crossDependsOn` queda descrito como marcador de vista resuelto junto a `dependsOn` en un solo paso (§4.2), y se explicita que ninguno de los dos campos está acotado al Project. §8: el reparto real del `sprint-plan.json` (Rock Planner emite el fragmento, proyecto de Sprint arma el sobre y valida cross-Rock, el Project Builder no lo toca, PUSH commitea), reemplazando la línea que se lo asignaba al Builder; Asana queda retirada de la ejecución de Rocks. D-017, D-099, D-100. La numeración de secciones no cambia.
 
@@ -90,7 +92,7 @@ Sprint
 |---|---|---|
 | `id` | Unique task id, e.g. `M2-t1` | INPUT (JSON) |
 | `desc` | Human-readable description | INPUT |
-| `owner` | `"Brent"`, `"Bernardo"`, or `"Both"` | INPUT |
+| `owner` | One name from `people`, or an array of names for joint work: `"Bernardo"`/`["Brent","Bernardo"]` | INPUT |
 | `type` | `"work"` (active work), `"meeting"` (live/joint), `"approval"` (waiting on a yes) | INPUT |
 | `workDays` | Active working days the owner is occupied (fractions allowed, e.g. 0.5) | INPUT |
 | `waitDays` | Calendar days of waiting after the work, during which the owner is free | INPUT |
@@ -127,7 +129,7 @@ Ad-hoc tasks (§11) and issues (§13) are created live, so they are structure an
 |---|---|---|
 | `id` | Server-assigned, `T-0001` — a namespace that cannot collide with plan task ids (`M9-t2`) | SERVER |
 | `desc` | What has to be done | Typed |
-| `owner` | Exactly one person from the People tab. `"Both"` is NOT valid — emergent work has one owner | Typed |
+| `owner` | Exactly one person from the People tab — never a list. Emergent work has one owner | Typed |
 | `workDays` | Estimated working days, fractions allowed (0.5, 1, 2). MANDATORY on creation | Typed |
 | `deadline` | Optional ISO date. Only flags overdue in the view; never feeds the engine | Typed (optional) |
 | `sourceIssueId` | The issue this came out of, if any (§13) | Set by the convert-to-todo flow |
@@ -199,7 +201,7 @@ This is the file produced for each sprint — by hand at first, now assembled by
           "id":        "P1",
           "name":      "Baseline Data and Measurement System",
           "objective": "Establish historical baselines and ongoing measurement.",
-          "owner":     "Both",
+          "owner":     ["Brent","Bernardo"],
           "milestones": [
             {
               "id":        "M2",
@@ -216,7 +218,7 @@ This is the file produced for each sprint — by hand at first, now assembled by
                   "owner": "Bernardo", "type": "work", "workDays": 1, "waitDays": 0,
                   "dependsOn": ["M1"], "crossDependsOn": [] },
                 { "id": "M2-t3", "desc": "Lock refund target into Rock KPI",
-                  "owner": "Both",     "type": "work", "workDays": 1, "waitDays": 0,
+                  "owner": ["Brent","Bernardo"], "type": "work", "workDays": 1, "waitDays": 0,
                   "dependsOn": ["M2-t1", "M2-t2"], "crossDependsOn": [] }
               ]
             }
@@ -237,7 +239,8 @@ This is the file produced for each sprint — by hand at first, now assembled by
 - Every id is unique across the whole sprint.
 - Every id in any `dependsOn` / `crossDependsOn` must resolve to a real task id or milestone id in the sprint.
 - `dependsOn` and `crossDependsOn` may both reference any task or milestone id anywhere in the sprint — the same milestone, another Project, another Rock. Milestones carry only `dependsOn`, with the same freedom. The choice between the two task fields is a display convention, not a constraint.
-- `owner` ∈ {a name from `people`, `"Both"`}.
+- `owner` is either one name from `people`, or an array of at least one name, all from `people`, with no repeats. Order carries no meaning.
+- The literal `"Both"` is a BLOCKING ERROR with its own code. It is never re-expanded and never accepted quietly: it used to mean "everyone in `people`", which silently changed meaning the day a third person joined the sprint, so the word must not exist rather than resolve differently (D-107).
 - `type` ∈ {`work`, `meeting`, `approval`}.
 - `workDays` ≥ 0, `waitDays` ≥ 0, fractions allowed.
 - No dependency cycles.
@@ -248,7 +251,7 @@ This is the file produced for each sprint — by hand at first, now assembled by
 ### Illustrative real fragments (from Rock 3), showing the concepts the engine must handle
 
 - **Parallel, different owners:** `M2-t1` (Brent) and `M2-t2` (Bernardo) both depend only on `M1` → they run at the same time.
-- **A "Both" join task:** `M2-t3` waits for both `M2-t1` and `M2-t2` and occupies both people.
+- **A joint task:** `M2-t3` (`owner: ["Brent","Bernardo"]`) waits for both `M2-t1` and `M2-t2` and occupies both people.
 - **Wait time:** `M3-t1` = `workDays: 0.5`, `waitDays: 4` (reach out, then wait 3–4 days for replies; owner free during the wait).
 - **Meeting task:** `M12-t2` `type: "meeting"` (live framework decision, both owners present).
 - **Cross-dependency across Projects:** the shipment-dashboard task in Project 5 has `crossDependsOn: ["M6-t3"]` (needs the address field from the new intake form in Project 2).
@@ -314,6 +317,7 @@ Every §3 guarantee already in force applies to these tabs verbatim: server-gene
 - POST as a CORS "simple request": `fetch(WEB_APP_URL, { method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body: JSON.stringify(payload) })`. Body is valid JSON; Apps Script reads `e.postData.contents` regardless of the declared type. This avoids the preflight OPTIONS that Apps Script Web Apps don't answer, and keeps the response readable.
 - `mode:"no-cors"` ONLY as a fallback inside the `catch` on a `TypeError`. Never as the default. (An earlier version used `no-cors` unconditionally; a server-side failure looked identical to success because the body was opaque. That bug is why this is written this way.)
 - Write-then-verify: after a successful-looking POST, re-read the last ~40 rows of Events via the read API and confirm a row matching (Task ID, Action, Value, Actor) appeared, retrying with backoff before reporting success. Apps Script append and Sheets read are not instantly consistent.
+- Every write is wrapped in a BLOCKING MODAL OVERLAY, app-wide: it appears the moment a write starts, covers the whole application, refuses every click, and lifts only when the result is known. On success it lifts by itself and leaves the existing toast; on failure it does NOT lift by itself — it names the error and waits for an acknowledging click, because an error that vanishes on its own is not read by anyone on a shared screen. It lives above the whole app and is fired from the single write path, never per view: a guard written inside one view reappears broken in the next one (D-109, and the way D-098 was born). Waiting a few seconds costs nothing, because state is loaded before the L10, not during it (D-101).
 
 ### Apps Script `doPost` — server-side guarantees
 
@@ -366,7 +370,7 @@ exclude: tasks with deferred=true are removed from scheduling entirely (until ac
 ### 4.3 Resource model
 
 Each person has an `availableFrom` date, initialized to `nextWorkingDay(sprint.start)`.
-A task with owner `"Both"` consumes BOTH owners: it can only start when every one of its owners is free, and it advances all of their `availableFrom` dates.
+A task with more than one owner consumes ALL of them: it can only start when every one of its owners is free, and it advances all of their `availableFrom` dates.
 A person does exactly one task at a time.
 
 ### 4.4 Ordering of ready tasks (resolves the open decision)
@@ -518,7 +522,7 @@ A top-level strip: overall duration-weighted progress, and which Rocks are amber
 - Validation on load: unresolved dependency id, duplicate id, unknown owner/type, negative duration, or a dependency cycle → show a clear error naming the offending id; do not silently proceed.
 - Deferred tasks (`deferred:true`): excluded from scheduling, from the progress denominator, and from projection. Shown in the UI in a muted "deferred" state so they aren't lost.
 - Cuttable Rock/Project (`cuttable:true`): informational badge only. Cutting = regenerate the JSON without it.
-- `Both` task with owners on different availability: starts only when the later owner is free (§4.3).
+- Multi-owner task with owners on different availability: starts only when the later owner is free (§4.3).
 - Task with only `waitDays` and `workDays:0` (pure wait): allowed; occupies no one, gates dependents by calendar time.
 - Stale raw JSON / stale sheet read: cache-bust the JSON fetch; write-then-verify covers the write side.
 - Actor removed from People: stale localStorage actor stops resolving → selector returns to unset rather than erroring.
@@ -568,7 +572,7 @@ Build order rationale: the engine is the heaviest and highest-risk piece and eve
 
 ## Decisions locked by this spec (recap)
 
-Model Sprint→Rock→Project→Milestone→Task; atomic task with owner/type/workDays/waitDays/deps (broad, cross-Rock); Both occupies both queues; fractions allowed · Dates computed, never typed; ready tasks auto-ordered by priority for projection only, executionOrder optional override, reality reprojects · Duration-weighted progress + on-track = actual vs. frozen planned curve · Board = tasks-by-milestone, no imposed order · Identity = person-selector (no auth) on GitHub Pages + Sheet + Apps Script, testimonial pattern + single People source + stable row id + write-then-verify · This Week view (Fri→Thu, three buckets per person, driven by live projection) · manual pin via engine-validated drop-down (pull forward / postpone; allowed / refused-with-reason / cascade) · deliverable link box per task · Structure in `sprint-plan.json` (repo), state in a single append-only Events log in the Sheet · v1 does not edit structure in-app, does not touch Builder/Rock 3/Asana.
+Model Sprint→Rock→Project→Milestone→Task; atomic task with owner/type/workDays/waitDays/deps (broad, cross-Rock); a multi-owner task occupies every owner's queue; fractions allowed · Dates computed, never typed; ready tasks auto-ordered by priority for projection only, executionOrder optional override, reality reprojects · Duration-weighted progress + on-track = actual vs. frozen planned curve · Board = tasks-by-milestone, no imposed order · Identity = person-selector (no auth) on GitHub Pages + Sheet + Apps Script, testimonial pattern + single People source + stable row id + write-then-verify · This Week view (Fri→Thu, three buckets per person, driven by live projection) · manual pin via engine-validated drop-down (pull forward / postpone; allowed / refused-with-reason / cascade) · deliverable link box per task · Structure in `sprint-plan.json` (repo), state in a single append-only Events log in the Sheet · v1 does not edit structure in-app, does not touch Builder/Rock 3/Asana.
 
 ---
 
@@ -639,11 +643,11 @@ This is where the week gets built.
 
 **Available panel.** Alongside, the tasks the live projection places in that window, plus everything else pullable — informative, never auto-committed. It SHOWS blocked tasks, flagged, naming what blocks them and who owns the blocker (D-071b): hiding blocked tasks hides the coordination.
 
-**Remove a task you just added.** While the week is unconfirmed, every committed row offers a plain remove — it undoes your own addition, mechanically the `unpin`. This is not "rejecting a system proposal" (nothing is proposed any more): it is the recovery path for a mis-click on a shared screen during step 8, the same reason D-069 built reversal pairs for discard and cancel. Once the week is confirmed, remove is gone: taking work out is no longer a correction but a change of commitment, and that goes through move, discard or cancel with a reason (§11.4).
+**Remove a task added by mistake.** What decides this is not whether the week is confirmed but whether the task is in the frozen list written by `confirmWeek`. A task OUTSIDE that list — added after confirmation — offers a plain remove with no reason, mechanically the `unpin`: it was never anyone's commitment and the frozen denominator does not contain it. A task INSIDE the frozen list has no remove; taking it out is a change of commitment and goes through move, discard or cancel with a reason (§11.4). The earlier rule tied remove to the unconfirmed week, which left a mis-click during a confirmed week with three wrong exits: cancelling a Rock task removes it from the whole sprint plan and not from one person's week, discard is ad-hoc only, and moving it commits it to the following week and counts as moved against that person's rate (D-108).
 
 **Pull others in.** Pulling a task from the Available panel into the week is the mechanism behind "this depends on something of Emery's — Emery, can you get it done this week?": seeing a blocked task named, with its blocker and owner, is what produces that conversation, and when the answer is yes, both commitments land in the same week where they can be seen.
 
-**Add ad-hoc tasks:** description, owner (exactly one person — "Both" is not valid), estimated workDays, optional deadline. Adding an ad-hoc task is available on any day, in any week that has not closed — unplanned work arrives on a Tuesday, with the week already confirmed and running. A closed week does not accept new tasks: work that appeared after the week ended belongs to the week in progress, not to the one that passed (D-094).
+**Add ad-hoc tasks:** description, owner (exactly one person — never a list), estimated workDays, optional deadline. Adding an ad-hoc task is available on any day, in any week that has not closed — unplanned work arrives on a Tuesday, with the week already confirmed and running. A closed week does not accept new tasks: work that appeared after the week ended belongs to the week in progress, not to the one that passed (D-094).
 
 **Capacity warning:** sum the workDays of everything in that person's week, Rock and ad-hoc alike, and warn when it exceeds the working days available. The warning is an input to the conversation, not a verdict — the person decides whether to drop something or absorb it.
 
