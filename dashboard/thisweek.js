@@ -149,7 +149,7 @@
     for (var taskId in tasks) {
       if (!Object.prototype.hasOwnProperty.call(tasks, taskId)) continue;
       var task = tasks[taskId];
-      var owners = task.owners || [task.owner];
+      var owners = getValidate().ownersOf(task); // the one resolver (D-107)
       var cs = currentState[taskId];
       var status = cs && cs.status ? cs.status : "open";
 
@@ -245,7 +245,10 @@
           blockedBy.push({
             id: depId,
             desc: depTask ? depTask.desc : null,
-            owner: depTask ? depTask.owner : null
+            // The LABEL, not the raw field: this string is printed next to
+            // the blocker's id so a person can go ask them (D-071b), and a
+            // joint blocker has to read as "Brent + Bernardo" (D-107).
+            owner: depTask ? getValidate().ownerLabel(depTask) : null
           });
         }
       }
@@ -253,7 +256,7 @@
       out.push({
         id: id,
         desc: task.desc,
-        owner: task.owner,
+        owner: getValidate().ownerLabel(task),
         blocked: blockedBy.length > 0,
         blockedBy: blockedBy
       });
@@ -297,7 +300,8 @@
       if (seen[cur]) continue;
       seen[cur] = true;
       var t = index.tasks[cur];
-      out.push({ id: cur, desc: t.desc, owner: t.owner });
+      // Shown in the cancel cascade, so the display label again (D-107).
+      out.push({ id: cur, desc: t.desc, owner: getValidate().ownerLabel(t) });
       var next = dependents[cur] || [];
       for (var n = 0; n < next.length; n++) if (!seen[next[n]]) stack.push(next[n]);
     }

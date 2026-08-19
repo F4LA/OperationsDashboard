@@ -472,7 +472,7 @@
                 {
                   "id": "M2-t5",
                   "desc": "Lock the refund rate target % into the Rock KPI section",
-                  "owner": "Both",
+                  "owner": ["Brent","Bernardo"],
                   "type": "work",
                   "workDays": 0.5,
                   "waitDays": 0,
@@ -514,7 +514,7 @@
                 {
                   "id": "M4-t1",
                   "desc": "Define ongoing cadence (overwhelm question, refund rate per client, extension rate); document where each metric lives",
-                  "owner": "Both",
+                  "owner": ["Brent","Bernardo"],
                   "type": "meeting",
                   "workDays": 0.5,
                   "waitDays": 0,
@@ -541,7 +541,7 @@
                 {
                   "id": "M5-t1",
                   "desc": "Audit current intake question by question (CRUCIAL / KEEP-BUT-SIMPLIFY / CUT); each audits on their own first",
-                  "owner": "Both",
+                  "owner": ["Brent","Bernardo"],
                   "type": "work",
                   "workDays": 1,
                   "waitDays": 0,
@@ -575,7 +575,7 @@
                 {
                   "id": "M5-t4",
                   "desc": "Exchange Looms of each audit; resolve differences by message (escalate to a call only if real disagreement)",
-                  "owner": "Both",
+                  "owner": ["Brent","Bernardo"],
                   "type": "meeting",
                   "workDays": 0.5,
                   "waitDays": 1,
@@ -693,7 +693,7 @@
                 {
                   "id": "M8-t1",
                   "desc": "Audit the kickoff presentation and process end-to-end (KEEP/IMPROVE/DELETE); each audits on their own first",
-                  "owner": "Both",
+                  "owner": ["Brent","Bernardo"],
                   "type": "work",
                   "workDays": 1,
                   "waitDays": 0,
@@ -703,7 +703,7 @@
                 {
                   "id": "M8-t2",
                   "desc": "Decide structural changes (LIVE MEETING): condense roadmap to one compact overview by phase; lock timeframe, detail vs preview, sequencing",
-                  "owner": "Both",
+                  "owner": ["Brent","Bernardo"],
                   "type": "meeting",
                   "workDays": 0.5,
                   "waitDays": 0,
@@ -715,7 +715,7 @@
                 {
                   "id": "M8-t3",
                   "desc": "Include case studies before the extension conversation; Brent builds 4\u20136 avatars, Bernardo picks case studies per avatar",
-                  "owner": "Both",
+                  "owner": ["Brent","Bernardo"],
                   "type": "work",
                   "workDays": 1,
                   "waitDays": 0,
@@ -736,7 +736,7 @@
                 {
                   "id": "M9-t1",
                   "desc": "Evaluate Google Slides vs interactive HTML; investigate feasibility, then decide",
-                  "owner": "Both",
+                  "owner": ["Brent","Bernardo"],
                   "type": "meeting",
                   "workDays": 0.5,
                   "waitDays": 0,
@@ -839,7 +839,7 @@
                 {
                   "id": "M12-t2",
                   "desc": "Agree key progress metrics for the roadmap (pounds as primary); lock the list (LIVE MEETING)",
-                  "owner": "Both",
+                  "owner": ["Brent","Bernardo"],
                   "type": "meeting",
                   "workDays": 0.5,
                   "waitDays": 0,
@@ -851,7 +851,7 @@
                 {
                   "id": "M12-t3",
                   "desc": "Define the roadmap formula/framework: rate-of-progress tiers mapped to phase types (LIVE MEETING)",
-                  "owner": "Both",
+                  "owner": ["Brent","Bernardo"],
                   "type": "meeting",
                   "workDays": 0.5,
                   "waitDays": 0,
@@ -863,7 +863,7 @@
                 {
                   "id": "M12-t4",
                   "desc": "Define output structure and constraints (max per phase, sequencing rules, default moderate, coach override) (LIVE MEETING)",
-                  "owner": "Both",
+                  "owner": ["Brent","Bernardo"],
                   "type": "meeting",
                   "workDays": 0.5,
                   "waitDays": 0,
@@ -974,7 +974,7 @@
                 {
                   "id": "M16-t2",
                   "desc": "Lock cost-per-client and confirm budget approval",
-                  "owner": "Both",
+                  "owner": ["Brent","Bernardo"],
                   "type": "work",
                   "workDays": 0.5,
                   "waitDays": 0,
@@ -1040,7 +1040,7 @@
                 {
                   "id": "M18-t1",
                   "desc": "Build the inventory + shipment dashboard as one system (weekly shipment trigger, mark shipped/size, inventory counts, restock notification); pulls client address from the new intake form",
-                  "owner": "Both",
+                  "owner": ["Brent","Bernardo"],
                   "type": "work",
                   "workDays": 5,
                   "waitDays": 0,
@@ -1077,7 +1077,7 @@
                 {
                   "id": "M20-t2",
                   "desc": "Once stock arrives, ship first batch (shirt + note) to the next cohort \u2014 batched weekly, after grace period",
-                  "owner": "Both",
+                  "owner": ["Brent","Bernardo"],
                   "type": "work",
                   "workDays": 1,
                   "waitDays": 0,
@@ -1120,7 +1120,7 @@
                 {
                   "id": "M22-t1",
                   "desc": "Brent and Bernardo each review 2 kickoff calls per coach, on their own (day 1)",
-                  "owner": "Both",
+                  "owner": ["Brent","Bernardo"],
                   "type": "work",
                   "workDays": 1,
                   "waitDays": 0,
@@ -1133,7 +1133,7 @@
                 {
                   "id": "M22-t2",
                   "desc": "Feedback loop (day 2): Brent Loom \u2192 Bernardo Loom reply \u2192 Brent consolidated Loom per coach",
-                  "owner": "Both",
+                  "owner": ["Brent","Bernardo"],
                   "type": "meeting",
                   "workDays": 1,
                   "waitDays": 0,
@@ -1145,7 +1145,7 @@
                 {
                   "id": "M22-t3",
                   "desc": "Lock the kickoff timing rule into practice (72h ideal, 5\u20137 day standard, refund eligibility window); coordinate with Emery",
-                  "owner": "Both",
+                  "owner": ["Brent","Bernardo"],
                   "type": "work",
                   "workDays": 0.5,
                   "waitDays": 0,
@@ -1166,7 +1166,7 @@
                 {
                   "id": "M23-t1",
                   "desc": "End-of-sprint retro: what worked, what didn't, carry-overs into the next sprint",
-                  "owner": "Both",
+                  "owner": ["Brent","Bernardo"],
                   "type": "meeting",
                   "workDays": 1,
                   "waitDays": 0,

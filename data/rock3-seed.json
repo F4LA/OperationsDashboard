@@ -38,7 +38,7 @@
                 { "id": "M2-t2", "desc": "Pull historical refund rate post-kickoff; compute baseline, set target %", "owner": "Bernardo", "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": ["M1"], "crossDependsOn": [] },
                 { "id": "M2-t3", "desc": "Pull historical first end-of-meso extension rate; compute baseline", "owner": "Bernardo", "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": ["M1"], "crossDependsOn": [] },
                 { "id": "M2-t4", "desc": "Validate the overwhelm questionnaire item is measuring what we think; adjust phrasing if needed", "owner": "Brent", "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": ["M1"], "crossDependsOn": [] },
-                { "id": "M2-t5", "desc": "Lock the refund rate target % into the Rock KPI section", "owner": "Both", "type": "work", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M2-t2"], "crossDependsOn": [] }
+                { "id": "M2-t5", "desc": "Lock the refund rate target % into the Rock KPI section", "owner": ["Brent","Bernardo"], "type": "work", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M2-t2"], "crossDependsOn": [] }
               ]
             },
             {
@@ -54,7 +54,7 @@
               "name": "Ongoing measurement cadence defined and running",
               "dependsOn": ["M3"],
               "tasks": [
-                { "id": "M4-t1", "desc": "Define ongoing cadence (overwhelm question, refund rate per client, extension rate); document where each metric lives", "owner": "Both", "type": "meeting", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M3"], "crossDependsOn": [] }
+                { "id": "M4-t1", "desc": "Define ongoing cadence (overwhelm question, refund rate per client, extension rate); document where each metric lives", "owner": ["Brent","Bernardo"], "type": "meeting", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M3"], "crossDependsOn": [] }
               ]
             }
           ]
@@ -70,10 +70,10 @@
               "name": "Intake audited (KEEP/SIMPLIFY/CUT) and structural decisions locked",
               "dependsOn": [],
               "tasks": [
-                { "id": "M5-t1", "desc": "Audit current intake question by question (CRUCIAL / KEEP-BUT-SIMPLIFY / CUT); each audits on their own first", "owner": "Both", "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": [], "crossDependsOn": [] },
+                { "id": "M5-t1", "desc": "Audit current intake question by question (CRUCIAL / KEEP-BUT-SIMPLIFY / CUT); each audits on their own first", "owner": ["Brent","Bernardo"], "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": [], "crossDependsOn": [] },
                 { "id": "M5-t2", "desc": "Design the struggles section as a check-box list with ranking, replacing the open-ended narrative", "owner": "Brent", "type": "work", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M5-t1"], "crossDependsOn": [] },
                 { "id": "M5-t3", "desc": "Add lifestyle-phase pre-personalization data (hobbies, activities enjoyed, activities no longer possible)", "owner": "Bernardo", "type": "work", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M5-t1"], "crossDependsOn": [] },
-                { "id": "M5-t4", "desc": "Exchange Looms of each audit; resolve differences by message (escalate to a call only if real disagreement)", "owner": "Both", "type": "meeting", "workDays": 0.5, "waitDays": 1, "dependsOn": ["M5-t2", "M5-t3"], "crossDependsOn": [] }
+                { "id": "M5-t4", "desc": "Exchange Looms of each audit; resolve differences by message (escalate to a call only if real disagreement)", "owner": ["Brent","Bernardo"], "type": "meeting", "workDays": 0.5, "waitDays": 1, "dependsOn": ["M5-t2", "M5-t3"], "crossDependsOn": [] }
               ]
             },
             {
@@ -109,9 +109,9 @@
               "name": "Kickoff call audited (KEEP/IMPROVE/DELETE) and structural decisions locked",
               "dependsOn": [],
               "tasks": [
-                { "id": "M8-t1", "desc": "Audit the kickoff presentation and process end-to-end (KEEP/IMPROVE/DELETE); each audits on their own first", "owner": "Both", "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": [], "crossDependsOn": [] },
-                { "id": "M8-t2", "desc": "Decide structural changes (LIVE MEETING): condense roadmap to one compact overview by phase; lock timeframe, detail vs preview, sequencing", "owner": "Both", "type": "meeting", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M8-t1"], "crossDependsOn": [] },
-                { "id": "M8-t3", "desc": "Include case studies before the extension conversation; Brent builds 4–6 avatars, Bernardo picks case studies per avatar", "owner": "Both", "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": ["M8-t2"], "crossDependsOn": [] }
+                { "id": "M8-t1", "desc": "Audit the kickoff presentation and process end-to-end (KEEP/IMPROVE/DELETE); each audits on their own first", "owner": ["Brent","Bernardo"], "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": [], "crossDependsOn": [] },
+                { "id": "M8-t2", "desc": "Decide structural changes (LIVE MEETING): condense roadmap to one compact overview by phase; lock timeframe, detail vs preview, sequencing", "owner": ["Brent","Bernardo"], "type": "meeting", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M8-t1"], "crossDependsOn": [] },
+                { "id": "M8-t3", "desc": "Include case studies before the extension conversation; Brent builds 4–6 avatars, Bernardo picks case studies per avatar", "owner": ["Brent","Bernardo"], "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": ["M8-t2"], "crossDependsOn": [] }
               ]
             },
             {
@@ -119,7 +119,7 @@
               "name": "Format decided (Slides vs HTML) and new presentation template built",
               "dependsOn": ["M8"],
               "tasks": [
-                { "id": "M9-t1", "desc": "Evaluate Google Slides vs interactive HTML; investigate feasibility, then decide", "owner": "Both", "type": "meeting", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M8"], "crossDependsOn": [] },
+                { "id": "M9-t1", "desc": "Evaluate Google Slides vs interactive HTML; investigate feasibility, then decide", "owner": ["Brent","Bernardo"], "type": "meeting", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M8"], "crossDependsOn": [] },
                 { "id": "M9-t2", "desc": "Build the new presentation template in the chosen format (also feeds Project 4)", "owner": "Bernardo", "type": "work", "workDays": 1.5, "waitDays": 0, "dependsOn": ["M9-t1"], "crossDependsOn": [] }
               ]
             },
@@ -154,9 +154,9 @@
               "dependsOn": [],
               "tasks": [
                 { "id": "M12-t1", "desc": "Decide the technical approach (Claude agent, script, or third-party); startable now, no dependency", "owner": "Bernardo", "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": [], "crossDependsOn": [] },
-                { "id": "M12-t2", "desc": "Agree key progress metrics for the roadmap (pounds as primary); lock the list (LIVE MEETING)", "owner": "Both", "type": "meeting", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M12-t1"], "crossDependsOn": [] },
-                { "id": "M12-t3", "desc": "Define the roadmap formula/framework: rate-of-progress tiers mapped to phase types (LIVE MEETING)", "owner": "Both", "type": "meeting", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M12-t1"], "crossDependsOn": [] },
-                { "id": "M12-t4", "desc": "Define output structure and constraints (max per phase, sequencing rules, default moderate, coach override) (LIVE MEETING)", "owner": "Both", "type": "meeting", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M12-t1"], "crossDependsOn": [] }
+                { "id": "M12-t2", "desc": "Agree key progress metrics for the roadmap (pounds as primary); lock the list (LIVE MEETING)", "owner": ["Brent","Bernardo"], "type": "meeting", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M12-t1"], "crossDependsOn": [] },
+                { "id": "M12-t3", "desc": "Define the roadmap formula/framework: rate-of-progress tiers mapped to phase types (LIVE MEETING)", "owner": ["Brent","Bernardo"], "type": "meeting", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M12-t1"], "crossDependsOn": [] },
+                { "id": "M12-t4", "desc": "Define output structure and constraints (max per phase, sequencing rules, default moderate, coach override) (LIVE MEETING)", "owner": ["Brent","Bernardo"], "type": "meeting", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M12-t1"], "crossDependsOn": [] }
               ]
             },
             {
@@ -193,7 +193,7 @@
               "dependsOn": [],
               "tasks": [
                 { "id": "M16-t1", "desc": "Approve in-house fulfillment from Tampa (operator: Joey's wife, Joey backup); Brent talks to Joey (APPROVAL)", "owner": "Brent", "type": "approval", "workDays": 0.5, "waitDays": 1, "dependsOn": [], "crossDependsOn": [] },
-                { "id": "M16-t2", "desc": "Lock cost-per-client and confirm budget approval", "owner": "Both", "type": "work", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M16-t1"], "crossDependsOn": [] }
+                { "id": "M16-t2", "desc": "Lock cost-per-client and confirm budget approval", "owner": ["Brent","Bernardo"], "type": "work", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M16-t1"], "crossDependsOn": [] }
               ]
             },
             {
@@ -211,7 +211,7 @@
               "name": "Inventory & shipment dashboard built",
               "dependsOn": ["M16"],
               "tasks": [
-                { "id": "M18-t1", "desc": "Build the inventory + shipment dashboard as one system (weekly shipment trigger, mark shipped/size, inventory counts, restock notification); pulls client address from the new intake form", "owner": "Both", "type": "work", "workDays": 5, "waitDays": 0, "dependsOn": ["M16"], "crossDependsOn": ["M6-t3"] }
+                { "id": "M18-t1", "desc": "Build the inventory + shipment dashboard as one system (weekly shipment trigger, mark shipped/size, inventory counts, restock notification); pulls client address from the new intake form", "owner": ["Brent","Bernardo"], "type": "work", "workDays": 5, "waitDays": 0, "dependsOn": ["M16"], "crossDependsOn": ["M6-t3"] }
               ]
             },
             {
@@ -220,7 +220,7 @@
               "dependsOn": ["M18-19", "M17"],
               "tasks": [
                 { "id": "M20-t1", "desc": "Place the first order (~50 t-shirts, mixed sizes ~40% XL / ~40% L / rest M); then wait ~10–14 days for the order (CRITICAL PATH)", "owner": "Brent", "type": "work", "workDays": 0.5, "waitDays": 12, "dependsOn": ["M17", "M18-19"], "crossDependsOn": [] },
-                { "id": "M20-t2", "desc": "Once stock arrives, ship first batch (shirt + note) to the next cohort — batched weekly, after grace period", "owner": "Both", "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": ["M20-t1"], "crossDependsOn": [] },
+                { "id": "M20-t2", "desc": "Once stock arrives, ship first batch (shirt + note) to the next cohort — batched weekly, after grace period", "owner": ["Brent","Bernardo"], "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": ["M20-t1"], "crossDependsOn": [] },
                 { "id": "M20-t3", "desc": "Message the clients who received the first batch to confirm arrival (first-time validation of the system)", "owner": "Bernardo", "type": "work", "workDays": 0.5, "waitDays": 3, "dependsOn": ["M20-t2"], "crossDependsOn": [] }
               ]
             }
@@ -238,9 +238,9 @@
               "name": "Adoption tracked + coach feedback loop + kickoff timing rule locked",
               "dependsOn": ["M9", "M11"],
               "tasks": [
-                { "id": "M22-t1", "desc": "Brent and Bernardo each review 2 kickoff calls per coach, on their own (day 1)", "owner": "Both", "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": ["M9", "M11"], "crossDependsOn": [] },
-                { "id": "M22-t2", "desc": "Feedback loop (day 2): Brent Loom → Bernardo Loom reply → Brent consolidated Loom per coach", "owner": "Both", "type": "meeting", "workDays": 1, "waitDays": 0, "dependsOn": ["M22-t1"], "crossDependsOn": [] },
-                { "id": "M22-t3", "desc": "Lock the kickoff timing rule into practice (72h ideal, 5–7 day standard, refund eligibility window); coordinate with Emery", "owner": "Both", "type": "work", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M22-t2"], "crossDependsOn": [] }
+                { "id": "M22-t1", "desc": "Brent and Bernardo each review 2 kickoff calls per coach, on their own (day 1)", "owner": ["Brent","Bernardo"], "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": ["M9", "M11"], "crossDependsOn": [] },
+                { "id": "M22-t2", "desc": "Feedback loop (day 2): Brent Loom → Bernardo Loom reply → Brent consolidated Loom per coach", "owner": ["Brent","Bernardo"], "type": "meeting", "workDays": 1, "waitDays": 0, "dependsOn": ["M22-t1"], "crossDependsOn": [] },
+                { "id": "M22-t3", "desc": "Lock the kickoff timing rule into practice (72h ideal, 5–7 day standard, refund eligibility window); coordinate with Emery", "owner": ["Brent","Bernardo"], "type": "work", "workDays": 0.5, "waitDays": 0, "dependsOn": ["M22-t2"], "crossDependsOn": [] }
               ]
             },
             {
@@ -248,7 +248,7 @@
               "name": "End-of-sprint retro completed with carry-overs captured",
               "dependsOn": ["M22"],
               "tasks": [
-                { "id": "M23-t1", "desc": "End-of-sprint retro: what worked, what didn't, carry-overs into the next sprint", "owner": "Both", "type": "meeting", "workDays": 1, "waitDays": 0, "dependsOn": ["M22"], "crossDependsOn": [] }
+                { "id": "M23-t1", "desc": "End-of-sprint retro: what worked, what didn't, carry-overs into the next sprint", "owner": ["Brent","Bernardo"], "type": "meeting", "workDays": 1, "waitDays": 0, "dependsOn": ["M22"], "crossDependsOn": [] }
               ]
             }
           ]

@@ -174,9 +174,19 @@
     return { active: active, deferred: deferred, cancelled: cancelled };
   }
 
-  function ownersOf(task, people) {
-    if (task.owner === "Both") return people.slice();
-    return [task.owner];
+  /**
+   * §4.3's owner list, read from the task and nothing else (D-107).
+   *
+   * Delegates to OpsDashValidate.ownersOf — the single definition. This used
+   * to expand the literal "Both" to people.slice(), which meant the engine's
+   * answer depended on who was in the sprint: adding a third person silently
+   * gave 18 joint tasks a third owner and serialised them against that
+   * person's queue, pushing another Rock's finish out by a month. The
+   * semantics of §4.3 are unchanged — a task with several owners still waits
+   * for the LAST of them and advances all of their availableFrom.
+   */
+  function ownersOf(task) {
+    return getValidate(root).ownersOf(task);
   }
 
   /** Transitive count of tasks that depend on each task — §4.4 criterion (a). */
@@ -249,7 +259,7 @@
     var people = ctx.people;
 
     function ownerKey(id) {
-      return ownersOf(index.tasks[id], people).slice().sort().join("+");
+      return ownersOf(index.tasks[id]).slice().sort().join("+");
     }
 
     function deadlineOf(id) {
@@ -270,7 +280,7 @@
      */
     function execCompare(a, b) {
       if (ownerKey(a) !== ownerKey(b)) return 0;
-      var owners = ownersOf(index.tasks[a], people);
+      var owners = ownersOf(index.tasks[a]);
       for (var i = 0; i < owners.length; i++) {
         var table = execRanks[owners[i]];
         if (!table) continue;
@@ -401,7 +411,7 @@
       ready.sort(comparator);
       var pick = ready[0];
       var task = index.tasks[pick];
-      var owners = ownersOf(task, people);
+      var owners = ownersOf(task);
 
       /* depFinish = max finish position of prerequisites, else the sprint start (§4.5) */
       var depFinishPos = 0;
@@ -411,7 +421,7 @@
         if (pf > depFinishPos) depFinishPos = pf;
       }
 
-      /* resourceFree = max availableFrom across owners; "Both" waits for the later (§4.3) */
+      /* resourceFree = max availableFrom across owners; a joint task waits for the last one (§4.3) */
       var resourceFreePos = 0;
       for (i = 0; i < owners.length; i++) {
         var af = availableFrom[owners[i]] || 0;
@@ -720,7 +730,7 @@
       var did = doneIds[i];
       var dtask = index.tasks[did];
       var dentry = state[did] || {};
-      var downers = ownersOf(dtask, people);
+      var downers = ownersOf(dtask);
 
       if (!dentry.statusChangedAt) {
         errors.push({
@@ -764,7 +774,7 @@
       var pid = inProgressIds[i];
       var ptask = index.tasks[pid];
       var pentry = state[pid] || {};
-      var powners = ownersOf(ptask, people);
+      var powners = ownersOf(ptask);
 
       if (!pentry.statusChangedAt) {
         errors.push({
@@ -847,7 +857,7 @@
       ready.sort(comparator);
       var pick = ready[0];
       var task = index.tasks[pick];
-      var owners = ownersOf(task, people);
+      var owners = ownersOf(task);
 
       var depFinishPos = 0;
       var picked = prereqs[pick];

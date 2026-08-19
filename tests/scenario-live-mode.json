@@ -35,7 +35,7 @@
               "dependsOn": ["M1"],
               "tasks": [
                 { "id": "T2", "desc": "In progress, will be overdue relative to today", "owner": "Bernardo", "type": "work", "workDays": 3, "waitDays": 0, "dependsOn": ["T1"], "crossDependsOn": [] },
-                { "id": "T3", "desc": "Open, Both, depends on T2", "owner": "Both", "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": ["T2"], "crossDependsOn": [] }
+                { "id": "T3", "desc": "Open, Both, depends on T2", "owner": ["Brent","Bernardo"], "type": "work", "workDays": 1, "waitDays": 0, "dependsOn": ["T2"], "crossDependsOn": [] }
               ]
             },
             {

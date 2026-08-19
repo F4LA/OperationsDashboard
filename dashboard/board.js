@@ -94,6 +94,13 @@
     return cfg;
   }
 
+  /** Same shape as CFG(). Used for the shared owner resolver/format (D-107). */
+  function getValidate() {
+    var v = root.OpsDashValidate;
+    if (!v) throw new Error("OpsDashBoard requires OpsDashValidate to be loaded first.");
+    return v;
+  }
+
   /* ------------------------------------------------------------------ *
    * Toasts (reuses the .toast-container / .toast classes)
    * ------------------------------------------------------------------ */
@@ -520,8 +527,10 @@
    * Rendering — task row
    * ------------------------------------------------------------------ */
 
+  /** The one owner format, from the one definition (D-107): a single owner
+   *  renders as its name, a joint task as "Brent + Bernardo". */
   function ownerLabel(task) {
-    return task.owner; // "Brent" | "Bernardo" | "Both" — shown verbatim
+    return getValidate().ownerLabel(task);
   }
 
   function durationLabel(task) {
@@ -600,7 +609,7 @@
     var rowClass = "task-row" + (task.deferred ? " is-deferred" : "");
     return (
       '<div class="' + rowClass + '" data-task-id="' + escapeAttr(taskId) +
-        '" data-owner="' + escapeAttr(task.owner) + '" data-milestone-id="' + escapeAttr(milestoneId) + '">' +
+        '" data-owner="' + escapeAttr(ownerLabel(task)) + '" data-milestone-id="' + escapeAttr(milestoneId) + '">' +
         '<div class="task-status-cell">' + statusCtrlHtml(taskId, task) + "</div>" +
         '<div class="task-main">' +
           '<div class="task-desc">' + escapeHtml(task.desc) + "</div>" +
@@ -764,10 +773,13 @@
     return null;
   }
 
+  /** "Only my tasks": a joint task is mine if I am one of its owners. Reads
+   *  the owner list rather than testing for the old "Both" literal (D-107) —
+   *  that test also happened to be why a joint task showed for everyone. */
   function taskPassesFilter(taskId) {
     if (!state.onlyMine || !state.actor) return true;
     var task = state.index.tasks[taskId];
-    return task.owner === state.actor || task.owner === "Both";
+    return getValidate().ownersOf(task).indexOf(state.actor) !== -1;
   }
 
   /* ------------------------------------------------------------------ *

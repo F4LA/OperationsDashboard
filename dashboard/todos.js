@@ -254,8 +254,12 @@
       : startMonth + " " + startDay + " – " + endMonth + " " + endDay;
   }
 
-  function ownersOfPlain(owner) {
-    return owner === "Both" ? state.plan.people.slice() : [owner];
+  /** Owners of a task, via the one shared resolver (D-107). Takes the TASK,
+   *  not a bare owner value: the field can now be a name or a list, and the
+   *  local copy of that logic here is exactly what let the engine and this
+   *  view disagree about who owned what. */
+  function ownersOfTask(task) {
+    return getValidate().ownersOf(task);
   }
 
   /** Structural ownership for EVERY task, Rock or ad-hoc, regardless of
@@ -267,7 +271,7 @@
     var tasks = state.index.tasks;
     for (var id in tasks) {
       if (!Object.prototype.hasOwnProperty.call(tasks, id)) continue;
-      out[id] = ownersOfPlain(tasks[id].owner);
+      out[id] = ownersOfTask(tasks[id]);
     }
     for (var aid in state.tasksAdHoc) {
       if (!Object.prototype.hasOwnProperty.call(state.tasksAdHoc, aid)) continue;
@@ -334,7 +338,7 @@
       var cs = state.currentState[taskId];
       var status = cs && cs.status ? cs.status : "open";
       if (status !== "open") continue; // done/in_progress are handled by buckets() above
-      var owners = t.owners || [t.owner];
+      var owners = ownersOfTask(t);
       for (var j = 0; j < owners.length; j++) {
         var p = owners[j];
         if (b[p] && b[p].notStarted.indexOf(taskId) === -1) b[p].notStarted.push(taskId);
@@ -414,7 +418,7 @@
       if (alreadyAdded[cid]) continue;
       var ct = state.index.tasks[cid];
       if (!ct) continue; // not a Rock task id — cancel is Rock-only by namespace (D-068)
-      if (ownersOfPlain(ct.owner).indexOf(person) === -1) continue;
+      if (ownersOfTask(ct).indexOf(person) === -1) continue;
 
       var pin = state.pins[cid];
       var visibleHere = pin !== undefined
@@ -731,7 +735,7 @@
     for (var taskId in tasks) {
       if (!Object.prototype.hasOwnProperty.call(tasks, taskId)) continue;
       if (pins[taskId] !== win.mondayKey) continue;
-      var owners = tasks[taskId].owners || [tasks[taskId].owner];
+      var owners = ownersOfTask(tasks[taskId]);
       if (owners.indexOf(person) !== -1) out.push(taskId);
     }
 
@@ -761,7 +765,11 @@
     var committed = committedIdsForPerson(person, win);
     var candidates = getThisWeek().availableToPull(state.plan, state.currentState, cancelledIds())
       .filter(function (t) {
-        return ownersOfPlain(t.owner).indexOf(person) !== -1 && committed.indexOf(t.id) === -1;
+        // Ownership comes from the plan task, NOT from the row's own `owner`,
+        // which is a display label ("Brent + Bernardo") and would never match
+        // a single name (D-107).
+        return ownersOfTask(state.index.tasks[t.id]).indexOf(person) !== -1 &&
+          committed.indexOf(t.id) === -1;
       });
 
     // "projected here" = the live projection overlaps this window, the same

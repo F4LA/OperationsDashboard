@@ -26,6 +26,49 @@
    * Small helpers
    * ------------------------------------------------------------------ */
 
+  /* ------------------------------------------------------------------ *
+   * Owner resolution — THE single definition (D-107)
+   *
+   * Lives here, next to the validation that defines the field's legal
+   * shape, so the rule and its only reader cannot drift apart. Every other
+   * module reads owners through these two functions; the expression used to
+   * be copied into engine.js, todos.js and thisweek.js, which is how the
+   * same field came to mean two different things.
+   *
+   * Note what is NOT a parameter: `people`. The old resolver expanded the
+   * literal "Both" to people.slice(), so the answer depended on who was in
+   * the sprint — and changed, silently, the day a third person joined.
+   * Owners now come only from the field itself.
+   * ------------------------------------------------------------------ */
+
+  /**
+   * Every owner of a task, as an array.
+   *
+   * Accepts BOTH shapes the app passes around: a plan task (`owner`, a name
+   * or an array of names) and an engine output entry (`owners`, already
+   * resolved). One reader for both, so a caller cannot pick the wrong one.
+   *
+   * Returns a fresh array — callers sort and join it.
+   */
+  function ownersOf(task) {
+    if (!task) return [];
+    if (Array.isArray(task.owners)) return task.owners.slice(); // engine output
+    var owner = task.owner;
+    if (Array.isArray(owner)) return owner.slice();             // joint plan task
+    if (owner === undefined || owner === null || owner === "") return [];
+    return [owner];
+  }
+
+  /**
+   * How a task's owners are written on screen: "Brent + Bernardo".
+   *
+   * The ONLY owner format in the app. A single owner renders exactly as it
+   * always did, because a one-element join is the name itself.
+   */
+  function ownerLabel(task) {
+    return ownersOf(task).join(" + ");
+  }
+
   function isPlainObject(v) {
     return v !== null && typeof v === "object" && !Array.isArray(v);
   }
@@ -366,6 +409,9 @@
       }
     }
 
+    /** Used ONLY by rock.owners and project.owner, whose validation D-107
+     *  deliberately leaves alone. Task owners go through checkTaskOwner
+     *  below, which is stricter and rejects "Both". */
     function ownerIsValid(value) {
       return value === OWNER_BOTH || peopleSet[value] === true;
     }
@@ -373,6 +419,70 @@
     function ownerHint() {
       var names = Object.keys(peopleSet);
       return "expected " + OWNER_BOTH + " or one of [" + names.join(", ") + "]";
+    }
+
+    /** Task-owner hint — no "Both", because for a task the word is now an
+     *  error rather than an option. */
+    function taskOwnerHint() {
+      var names = Object.keys(peopleSet);
+      return "expected one of [" + names.join(", ") +
+        "], or a list of them for joint work";
+    }
+
+    /**
+     * A plan task's owner (§2, D-107): one name from people[], or an array
+     * of at least one name, all in people[], no repeats. Order is meaningless.
+     *
+     * Four distinct blocking codes, because the fixes are different: the
+     * literal "Both" needs rewriting as a list, an empty list needs a name,
+     * a repeat needs deleting, and an unknown name needs correcting. Folding
+     * "Both" into UNKNOWN_OWNER would tell someone their spelling was wrong
+     * when the word itself is gone.
+     */
+    function checkTaskOwner(task, taskPath) {
+      var owner = task.owner;
+
+      if (owner === OWNER_BOTH) {
+        addError(report, "OWNER_BOTH_REMOVED", task.id, taskPath + ".owner",
+          'Task ' + task.id + ' has owner "' + OWNER_BOTH + '", which is no longer ' +
+          'part of the schema. List the owners instead, for example ' +
+          '["Brent", "Bernardo"]. The word used to mean "everyone in people", so it ' +
+          'changed meaning by itself whenever someone joined the sprint.');
+        return;
+      }
+
+      if (Array.isArray(owner)) {
+        if (!owner.length) {
+          addError(report, "OWNER_LIST_EMPTY", task.id, taskPath + ".owner",
+            "Task " + task.id + " has an empty owner list; a task needs at least one owner.");
+          return;
+        }
+        var seen = {};
+        for (var i = 0; i < owner.length; i++) {
+          var name = owner[i];
+          var slot = taskPath + ".owner[" + i + "]";
+          if (typeof name !== "string" || peopleSet[name] !== true) {
+            addError(report, "UNKNOWN_OWNER", task.id, slot,
+              "Unknown owner " + describe(name) + " on task " + task.id +
+              " (" + taskOwnerHint() + ").");
+            continue;
+          }
+          if (seen[name] === true) {
+            addError(report, "OWNER_LIST_DUPLICATE", task.id, slot,
+              "Task " + task.id + " lists owner " + describe(name) +
+              " more than once; each owner appears at most once.");
+            continue;
+          }
+          seen[name] = true;
+        }
+        return;
+      }
+
+      if (typeof owner !== "string" || peopleSet[owner] !== true) {
+        addError(report, "UNKNOWN_OWNER", task.id, taskPath + ".owner",
+          "Unknown owner " + describe(owner) + " on task " + task.id +
+          " (" + taskOwnerHint() + ").");
+      }
     }
 
     /* ---- rocks present ---- */
@@ -518,12 +628,8 @@
                 "Task " + task.id + " has no description.");
             }
 
-            /* owner ∈ {a name from people, "Both"} (§2) */
-            if (peopleOk && !ownerIsValid(task.owner)) {
-              addError(report, "UNKNOWN_OWNER", task.id, taskPath + ".owner",
-                "Unknown owner " + describe(task.owner) + " on task " + task.id +
-                " (" + ownerHint() + ").");
-            }
+            /* owner = a name from people, or an explicit list of them (§2, D-107) */
+            if (peopleOk) checkTaskOwner(task, taskPath);
 
             /* type ∈ {work, meeting, approval} (§2) */
             if (VALID_TYPES.indexOf(task.type) === -1) {
@@ -769,6 +875,9 @@
     findCycles: findCycles,
     formatReport: formatReport,
     cacheBust: cacheBust,
+    /* The one owner resolver and the one owner format (D-107). */
+    ownersOf: ownersOf,
+    ownerLabel: ownerLabel,
     VALID_TYPES: VALID_TYPES,
     OWNER_BOTH: OWNER_BOTH
   };
