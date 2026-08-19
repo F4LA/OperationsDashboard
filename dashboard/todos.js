@@ -637,46 +637,51 @@
   /** D-078d: actions ONLY on unfinished rows. Discard/cancel with a
    *  mandatory reason and — for a Rock task — the cascade shown first
    *  (D-068b, same cascadeOf as postpone, D-063d), informative and
-   *  never blocking.
-   *
-   *  BUILD mode does not get mark/move/discard/cancel (D-092: nothing is
-   *  committed yet, so there is nothing to close). It gets a DIFFERENT
-   *  action instead — Remove, restored by D-095 — but only on a row that
-   *  is actually pinned to this window: this excludes a workingOn row that
-   *  D-063a shows in every window unconditionally (in-progress status, no
-   *  window filter) but that this build week never committed. */
+   *  never blocking. */
   function reviewActionsHtml(item, mode, win) {
     if (item.status === "done") return "";
     if (item.discarded || item.cancelled) return ""; // already closed — Undo covers it
 
-    /**
-     * REMOVE, decided by the frozen list and NOT by the week's confirmation
-     * state (§11.5, D-108). One condition serves both modes: an unconfirmed
-     * week has no frozen list, so nothing is in it, so everything pinned here
-     * qualifies — build-mode behaviour is unchanged without a branch for it.
-     *
-     * Still requires the task to be pinned to THIS window, unchanged: that is
-     * what keeps a workingOn row — which D-063a shows in every window — from
-     * offering to be removed from a week it was never committed to.
-     *
-     * `mode !== "review"` is the pre-existing SCOPE of Remove, not a second
-     * branch of the rule: Remove has never been offered on a week that has
-     * already ended, and unpinning a task out of a finished week would edit
-     * history §12 already measured. A closed week keeps exactly the §11.4
-     * actions it has today. (The brief specified the cut for build and
-     * execute; review is reported as an open question, not decided here.)
-     */
-    if (mode !== "review" &&
-        state.pins[item.id] === win.mondayKey && !isInFrozenList(item.id, win)) {
+    // BUILD mode: Remove only, and only on a row actually pinned to this
+    // window — nothing else, since with no confirmed commitment there is
+    // nothing to move out of or close (D-092). The pin check excludes a
+    // workingOn row that D-063a shows in every window unconditionally but
+    // that this build week never committed.
+    if (mode === "build") {
+      if (state.pins[item.id] !== win.mondayKey) return "";
       return '<div class="todo-row-actions">' +
         '<button type="button" class="todo-action-btn" data-action="todo-unpin-week" ' +
           'data-task-id="' + escapeAttr(item.id) + '">Remove from this week</button>' +
         "</div>";
     }
 
-    // Build mode offers nothing else: with no confirmed commitment there is
-    // nothing to move out of or close (D-092).
-    if (mode === "build") return "";
+    /**
+     * EXECUTE mode (D-108, corrected): Remove is ADDITIVE, not exclusive.
+     *
+     * The first cut made Remove replace move/discard/cancel for a task
+     * outside the frozen list, which broke a real case: a task added
+     * mid-week and still unfinished by Friday could only be unpinned in
+     * silence — no way to move it to next week (recorded as a move, §12,
+     * D-078c) or to discard/cancel with a reason. The frozen list now only
+     * decides whether Remove is OFFERED; it never removes the other three.
+     *
+     * A task IN the frozen list keeps exactly today's row — move, then
+     * discard/cancel, no Remove — because changing what was committed is a
+     * change of commitment, not a correction, and goes through §11.4 with
+     * a reason.
+     *
+     * REVIEW (the closing week, §11.4): unchanged by this pass — Remove has
+     * never been offered on a week that has already ended, since unpinning a
+     * task out of it would edit history §12 already measured. It falls
+     * straight through to move/discard/cancel below, exactly as before.
+     *
+     * Order is least-destructive first: Remove, then move, then close.
+     */
+    var removeBtn = (mode === "execute" &&
+        state.pins[item.id] === win.mondayKey && !isInFrozenList(item.id, win))
+      ? '<button type="button" class="todo-action-btn" data-action="todo-unpin-week" ' +
+        'data-task-id="' + escapeAttr(item.id) + '">Remove from this week</button>'
+      : "";
 
     var moveBtn = '<button type="button" class="todo-action-btn" data-action="todo-postpone" ' +
       'data-task-id="' + escapeAttr(item.id) + '">Move to next week</button>';
@@ -686,7 +691,7 @@
       : '<button type="button" class="todo-action-btn" data-action="todo-cancel-open" ' +
         'data-task-id="' + escapeAttr(item.id) + '">Cancel\u2026</button>';
 
-    return '<div class="todo-row-actions">' + moveBtn + closeBtn + "</div>";
+    return '<div class="todo-row-actions">' + removeBtn + moveBtn + closeBtn + "</div>";
   }
 
   function reviewRowHtml(item, mode, win) {

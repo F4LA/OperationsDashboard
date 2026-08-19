@@ -329,6 +329,20 @@ check("a task added AFTER confirming is not in the frozen list", notFrozen.froze
 check("THE FIX: it still offers Remove, even though the week is confirmed",
   notFrozen.html.indexOf(REMOVE) !== -1, notFrozen.html);
 
+/* THE CORRECTION: Remove is ADDITIVE in execute mode, not exclusive. The
+   first cut made Remove replace move/discard/cancel for a task outside the
+   frozen list, which left no way to move an unfinished mid-week addition to
+   next week (recorded as a move, §12) or to discard/cancel it with a reason —
+   only silent unpin. All three must appear together on this row now. */
+check("...AND it still offers Move — Remove does not crowd it out",
+  notFrozen.html.indexOf('data-action="todo-postpone"') !== -1, notFrozen.html);
+check("...AND still offers Cancel with a reason (Rock task) alongside Remove",
+  notFrozen.html.indexOf('data-action="todo-cancel-open"') !== -1, notFrozen.html);
+check("Remove appears BEFORE Move and Move BEFORE Cancel — least-destructive first",
+  notFrozen.html.indexOf(REMOVE) < notFrozen.html.indexOf('data-action="todo-postpone"') &&
+  notFrozen.html.indexOf('data-action="todo-postpone"') < notFrozen.html.indexOf('data-action="todo-cancel-open"'),
+  notFrozen.html);
+
 /* --- the other side of the cut: task IS in the frozen list -> no Remove, the
        reason-carrying actions instead, exactly as before. --- */
 var frozen = capture(WED, [{ monday: curKey, frozen: ["T1"] }],
