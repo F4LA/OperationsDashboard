@@ -392,11 +392,12 @@ a { color: var(--steel-600); }
   padding: 10px 16px 8px;
   box-shadow: var(--shadow-sm);
 }
-.rock-header .burnup-chart {
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border);
-}
+/* Burn-up now lives in the Rock BODY, not the header (§6.4 collapsible
+   hierarchy): a collapsed Rock has to be one row and a chart is not one
+   row. Bottom border, not top — it now leads the body rather than trailing
+   the header. */
+.rock-burnup { padding: 16px 22px 4px; border-bottom: 1px solid var(--border); }
+.rock-burnup .burnup-chart { border: none; box-shadow: none; padding: 0 0 8px; }
 
 .burnup-row { display: flex; align-items: stretch; gap: 8px; height: 34px; }
 .burnup-yaxis {
@@ -464,6 +465,15 @@ main#main {
   padding: 24px 32px 64px;
 }
 
+/* §6.5: the one bulk control, deliberately alone — no "expand all". Lives
+   inside #main so its click routes through the Sprint Board's existing
+   listener (D-098), rather than a second one attached anywhere else. */
+.board-controls {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
 .rock-section {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -472,18 +482,49 @@ main#main {
   overflow: hidden;
   box-shadow: var(--shadow-sm);
 }
+/* ---------- Collapsible hierarchy (§6, revised) ----------
+   Three levels: Rock (always rendered) > Project (rendered when its Rock is
+   expanded) > Milestone (rendered when its Project is expanded, WITH its
+   tasks — a milestone is not itself collapsible, §6.2). The whole header row
+   is the toggle (§6.5), so it is a real <button>, not a div with a click
+   handler on it — the same reasoning issues.js's .issue-head already
+   applies, reused here rather than reinvented. Neither header contains any
+   other control, so nothing collides with the row-sized hit target. */
+.rock-header,
+.project-header {
+  /* button reset — everything below re-declares what the row actually needs */
+  appearance: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+  box-sizing: border-box;
+}
+.rock-header:focus-visible,
+.project-header:focus-visible {
+  /* --steel-700, not --steel-400: a non-text UI indicator needs 3:1 against
+     its background (WCAG 2.1 AA), and --steel-400 measured 2.81:1 on
+     --surface-1 (the project header) — a real fail, found by this pass's
+     own web-design-guidelines review, not assumed. --steel-700 clears both
+     backgrounds (6.65:1 / 6.08:1) with room to spare. */
+  outline: 2px solid var(--steel-700);
+  /* inset: .rock-section clips with overflow:hidden, so a positive offset
+     would be cut off at the rounded corners */
+  outline-offset: -3px;
+}
+
 .rock-header {
   padding: 18px 22px;
   border-bottom: 1px solid var(--border);
   background: var(--surface-2);
   display: flex;
   align-items: center;
-  justify-content: space-between;
   flex-wrap: wrap;
-  gap: 12px 24px;
+  gap: 10px 16px;
 }
-.rock-title { display: flex; align-items: center; gap: 10px; }
-.rock-title h2 {
+.rock-title-text {
   font-family: var(--font-display);
   font-size: 22px;
   letter-spacing: 0.02em;
@@ -499,16 +540,24 @@ main#main {
   background: var(--steel-tint);
   color: var(--steel-700);
 }
-.rock-metrics {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
 .rock-finish { font-size: 12.5px; color: var(--text-muted); }
 .rock-finish strong { color: var(--text); }
 
-.rock-body { padding: 4px 0; }
+/* §6.6: every collapsible row states its own contents — informational, not
+   a control, so it is plain text rather than a badge shape. */
+.contents-count { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+
+/* §6.5: content, not an attribute — every regenerated header includes it,
+   so a patch can never leave a stale arrow behind (§6.8). */
+.caret {
+  display: inline-block;
+  width: 0.9em;
+  flex-shrink: 0;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.rock-body { padding: 0; }
 .board-empty {
   padding: 24px 22px;
   text-align: center;
@@ -526,9 +575,12 @@ main#main {
    rail-carrying element: a rounded corner on a one-sided border reads as a
    rendering bug, not a rounded corner. */
 
-/* ---------- Project divider (§7 cuttable badge; not a collapsible section — §6
-   keeps milestones directly inside a Rock, no Project level in the view) ---------- */
-.project-divider {
+/* ---------- Project row (level 2, §6.4) — collapsible, same disclosure
+   pattern as the Rock header, one level down. No progress bar and no
+   on-track chip here on purpose: both are Rock/sprint-level numbers
+   (§5.1, §5.2), and a project-level one would be new math nothing asks
+   for. ---------- */
+.project-header {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -540,14 +592,22 @@ main#main {
   border-radius: 0;
   background: var(--surface-1);
 }
-.rock-body > .project-divider:first-child { border-top: none; margin-top: 0; }
+/* Not :first-child — the burn-up now sits before the first project inside
+   rock-body (§6.4), so the true first child is .rock-burnup, not this. Its
+   own bottom border already separates it from what follows; suppressing
+   THIS border+margin only on the project directly after it avoids a
+   redundant double line. */
+.rock-burnup + .project-section .project-header { border-top: none; margin-top: 0; }
 .project-name {
   font-size: 12.5px;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--navy-900);
+  margin: 0;
 }
+.project-finish { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.project-body { padding: 0; }
 
 /* ---------- Milestone group ---------- */
 .milestone-group {

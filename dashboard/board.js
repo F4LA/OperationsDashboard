@@ -56,7 +56,13 @@
     onlyMine: false,
     liveResult: null,
     metrics: null,
-    view: "board"           // "board" | "todos" (D-062, D-081e)
+    view: "board",           // "board" | "todos" (D-062, D-081e)
+    // Collapsible hierarchy (§6, revised). {id: true} = expanded; absent = collapsed.
+    // Lives here, not localStorage: it survives a re-render, a filter change, a
+    // mark, and a view switch and back — but NOT a page reload (§6.7), which is
+    // deliberate: a reload is how the L10 starts, and it starts collapsed.
+    expandedRocks: {},
+    expandedProjects: {}
   };
 
   var dom = {};            // cached DOM refs, filled in mount()
@@ -193,11 +199,21 @@
     }
 
     var msIds = unionKeys(prevLiveResult.milestones, state.liveResult.milestones);
+    var projectsTouched = {};
     for (var j = 0; j < msIds.length; j++) {
       var mid = msIds[j];
       if (milestoneSig(prevLiveResult.milestones[mid]) !== milestoneSig(state.liveResult.milestones[mid])) {
         patchMilestoneHeader(mid);
+        // The project row shows an AGGREGATE across its milestones (the
+        // latest finish, the missed-deadline flag) — a moved milestone can
+        // move that aggregate, so the owning project's header needs the
+        // same patch a moved task already gets at the Rock level.
+        var owningProject = index_findProjectOfMilestone(mid);
+        if (owningProject) projectsTouched[owningProject.id] = true;
       }
+    }
+    for (var pid in projectsTouched) {
+      if (Object.prototype.hasOwnProperty.call(projectsTouched, pid)) patchProjectHeader(pid);
     }
 
     var rockIds = getRockIndex().rockOrder;
@@ -473,8 +489,99 @@
    * after a mark, so it must not depend on anything the mark handler lacks)
    * ------------------------------------------------------------------ */
 
-  function renderRockMetrics(rockId) {
+  /**
+   * §6.2/§6.6 collapsible-hierarchy counts. Pure lengths + a filter test over
+   * the id index the board already holds — per D-053, anything needing more
+   * than that belongs in metrics.js, and this doesn't.
+   */
+  function projectCounts(project) {
+    var milestonesTotal = project.milestones.length;
+    var milestonesVisible = 0;
+    var tasksTotal = 0;
+    var tasksVisible = 0;
+    for (var mi = 0; mi < project.milestones.length; mi++) {
+      var ids = state.index.tasksOfMilestone[project.milestones[mi].id] || [];
+      var vis = ids.filter(taskPassesFilter);
+      tasksTotal += ids.length;
+      tasksVisible += vis.length;
+      if (vis.length > 0) milestonesVisible++;
+    }
+    return {
+      milestonesTotal: milestonesTotal, milestonesVisible: milestonesVisible,
+      tasksTotal: tasksTotal, tasksVisible: tasksVisible
+    };
+  }
+
+  function rockCounts(rock) {
+    var projectsVisible = 0;
+    var milestonesTotal = 0, milestonesVisible = 0;
+    var tasksTotal = 0, tasksVisible = 0;
+    for (var pi = 0; pi < rock.projects.length; pi++) {
+      var pc = projectCounts(rock.projects[pi]);
+      milestonesTotal += pc.milestonesTotal;
+      milestonesVisible += pc.milestonesVisible;
+      tasksTotal += pc.tasksTotal;
+      tasksVisible += pc.tasksVisible;
+      if (pc.tasksVisible > 0) projectsVisible++;
+    }
+    return {
+      projectsTotal: rock.projects.length, projectsVisible: projectsVisible,
+      milestonesTotal: milestonesTotal, milestonesVisible: milestonesVisible,
+      tasksTotal: tasksTotal, tasksVisible: tasksVisible
+    };
+  }
+
+  /** §6.6: unfiltered, plain counts. Filtered, the task count reads "X of Y"
+   *  and the project/milestone counts are reduced to only what still has a
+   *  visible task — not paired with the original, since §6.6 only asks the
+   *  task count to show what the filter removed. */
+  function onlyMineActive() {
+    return state.onlyMine && !!state.actor;
+  }
+
+  function rockContentsLabel(counts) {
+    var filtered = onlyMineActive();
+    var projects = (filtered ? counts.projectsVisible : counts.projectsTotal) + " projects";
+    var milestones = (filtered ? counts.milestonesVisible : counts.milestonesTotal) + " milestones";
+    var tasks = filtered
+      ? (counts.tasksVisible + " of " + counts.tasksTotal + " tasks")
+      : (counts.tasksTotal + " tasks");
+    return projects + " \u00b7 " + milestones + " \u00b7 " + tasks;
+  }
+
+  function projectContentsLabel(counts) {
+    var filtered = onlyMineActive();
+    var milestones = (filtered ? counts.milestonesVisible : counts.milestonesTotal) + " milestones";
+    var tasks = filtered
+      ? (counts.tasksVisible + " of " + counts.tasksTotal + " tasks")
+      : (counts.tasksTotal + " tasks");
+    return milestones + " \u00b7 " + tasks;
+  }
+
+  /** The disclosure arrow. Content, not an attribute — it has to be part of
+   *  the regenerated innerHTML on every patch, or a patch that forgets it
+   *  would silently reset a row's arrow (§6.8). Always derived fresh from
+   *  the SAME state a caller already has, never cached. */
+  function caretHtml(expanded) {
+    return '<span class="caret" aria-hidden="true">' + (expanded ? "\u25be" : "\u25b8") + "</span>";
+  }
+
+  /**
+   * Rock row (level 1, §6.4) — everything the header shows, in the spec's
+   * own order: caret, title, contents count, progress bar + on-track chip,
+   * projected finish, CUTTABLE, missed-deadline. The burn-up is NOT here —
+   * it moved to the body (renderRockBurnupHtml), because a collapsed Rock
+   * has to be one row and a chart is not one row.
+   *
+   * Shared by the full render and patchRockHeader (same split as before),
+   * and it is what makes the "patch can't silently reset the arrow" rule
+   * hold: this always reads state.expandedRocks fresh rather than being
+   * handed a value that could go stale between render and patch.
+   */
+  function renderRockHeaderInner(rockId) {
     var rock = index_findRock(rockId);
+    var expanded = !!state.expandedRocks[rockId];
+    var counts = rockCounts(rock);
     var m = state.metrics.rocks[rockId];
     var live = state.liveResult.rocks[rockId];
 
@@ -497,32 +604,56 @@
       ? '<span class="deadline-chip" title="At least one milestone in this Rock is past its deadline — expand to see which.">⚠ Deadline missed</span>'
       : "";
 
-    var rockIds = getRockIndex().rockTaskIds[rockId] || [];
-    var series = computeBurnup(rockIds);
-
     return (
-      '<div class="rock-title">' +
-        "<h2>" + escapeHtml(rock.id) + " · " + escapeHtml(rock.name) + "</h2>" +
-        cuttableBadge +
-        deadlineMissedBadge +
+      caretHtml(expanded) +
+      '<h2 class="rock-title-text">' + escapeHtml(rock.id) + " · " + escapeHtml(rock.name) + "</h2>" +
+      '<span class="contents-count">' + escapeHtml(rockContentsLabel(counts)) + "</span>" +
+      '<div class="progress-bar-wrap">' +
+        '<div class="progress-bar-fill" style="width:' + pct(m.progress.pct) + '%"></div>' +
       "</div>" +
-      '<div class="rock-metrics">' +
-        '<div class="progress-bar-wrap">' +
-          '<div class="progress-bar-fill" style="width:' + pct(m.progress.pct) + '%"></div>' +
-        "</div>" +
-        '<span class="progress-pct">' + pct(m.progress.pct) + "%</span>" +
-        chipHtml(m.onTrack.color, onTrackLabel(m.onTrack.color)) +
-        finishHtml +
-      "</div>" +
-      renderBurnupChart(series, m.onTrack)
+      '<span class="progress-pct">' + pct(m.progress.pct) + "%</span>" +
+      chipHtml(m.onTrack.color, onTrackLabel(m.onTrack.color)) +
+      finishHtml +
+      cuttableBadge +
+      deadlineMissedBadge
     );
   }
 
-  function patchRockMetrics(rockId) {
-    var header = dom.mainEl.querySelector('.rock-section[data-rock-id="' + cssEscape(rockId) + '"] .rock-header');
-    if (header) header.innerHTML = renderRockMetrics(rockId);
+  /** Just the chart — extracted so it can be rendered ONLY when the Rock is
+   *  expanded (§6.4) and patched as its own node (§6.8), independent of the
+   *  header patch. */
+  function renderRockBurnupHtml(rockId) {
+    var m = state.metrics.rocks[rockId];
+    var rockIds = getRockIndex().rockTaskIds[rockId] || [];
+    var series = computeBurnup(rockIds);
+    return renderBurnupChart(series, m.onTrack);
   }
 
+  function patchRockHeader(rockId) {
+    var header = dom.mainEl.querySelector('.rock-section[data-rock-id="' + cssEscape(rockId) + '"] .rock-header');
+    if (!header) return;
+    header.innerHTML = renderRockHeaderInner(rockId);
+    // Re-derived explicitly, defensively (§6.8): nothing a mark-patch does
+    // today changes a Rock's expanded state, but the attribute lives on the
+    // OUTER button and innerHTML alone would never touch it if that ever
+    // stopped being true — this keeps the guarantee true by construction,
+    // not by nobody happening to break it later.
+    header.setAttribute("aria-expanded", String(!!state.expandedRocks[rockId]));
+  }
+
+  /** Only touches the DOM when the Rock is actually expanded — the existing
+   *  "patch helpers return early when the node is absent" guard (§6.8),
+   *  which a collapsed Rock now makes the NORMAL case rather than a rare one. */
+  function patchRockBurnup(rockId) {
+    var node = dom.mainEl.querySelector('.rock-section[data-rock-id="' + cssEscape(rockId) + '"] .rock-burnup');
+    if (!node) return;
+    node.innerHTML = renderRockBurnupHtml(rockId);
+  }
+
+  function patchRockMetrics(rockId) {
+    patchRockHeader(rockId);
+    patchRockBurnup(rockId); // no-ops when collapsed
+  }
   /* ------------------------------------------------------------------ *
    * Rendering — task row
    * ------------------------------------------------------------------ */
@@ -717,51 +848,151 @@
     );
   }
 
+  /** The project's own overall finish (§6.4: "the project's latest milestone
+   *  finish"): the LATEST live plannedFinish among its non-deferred
+   *  milestones. There is no per-project entry in liveResult (only tasks,
+   *  milestones, rocks), so this is computed here, the same way the Rock row
+   *  already gets a single finish out of many milestones underneath it. */
+  function projectLatestFinish(project) {
+    var best = null;
+    for (var mi = 0; mi < project.milestones.length; mi++) {
+      var mid = project.milestones[mi].id;
+      if (milestoneIsDeferred(mid)) continue;
+      var live = state.liveResult.milestones[mid];
+      if (!live || !live.plannedFinish) continue;
+      if (!best || live.plannedFinish > best.plannedFinish) best = live;
+    }
+    return best;
+  }
+
+  /** Project-level mirror of rockHasMissedDeadline (§6.4: new at this level).
+   *  §5.3 put the badge on the Rock header so a miss was visible without
+   *  expanding; with a level in between, the same rule applies one step
+   *  down, or expanding a Rock would say a deadline is missed and then hide
+   *  which project owns it. */
+  function projectHasMissedDeadline(project) {
+    var milestones = project.milestones || [];
+    for (var mi = 0; mi < milestones.length; mi++) {
+      if (deadlineChipHtml(milestones[mi].id) !== "") return true;
+    }
+    return false;
+  }
+
   /**
-   * A light divider before each project's first milestone — NOT a collapsible
-   * section, since §6 puts milestones directly inside a Rock ("Inside a Rock:
-   * milestones as groups"), no Project level in the view. But §7 requires a
-   * cuttable PROJECT to carry its own informational badge (Rock 3's P5 is
-   * cuttable:true while its Rock, R3, is not) — this is the one place to put it.
+   * Project row (level 2, §6.4) — caret, id · name, contents count, the
+   * project's own finish, CUTTABLE, missed-deadline. NO progress bar and NO
+   * on-track chip: both are defined per Rock and sprint-wide (§5.1, §5.2),
+   * and inventing a project-level number here would be new math nothing
+   * asks for.
    */
-  function renderProjectDivider(project) {
-    var badge = project.cuttable
+  function renderProjectHeaderInner(project) {
+    var expanded = !!state.expandedProjects[project.id];
+    var counts = projectCounts(project);
+
+    var finishHtml = "";
+    var best = projectLatestFinish(project);
+    if (best && best.plannedFinish) {
+      finishHtml = '<span class="project-finish">→ ' + escapeHtml(best.plannedFinish) + "</span>";
+      if (best.red) finishHtml += " " + overshootFlagHtml(best.plannedFinish, state.plan.sprint.end);
+    }
+
+    var cuttableBadge = project.cuttable
       ? '<span class="cuttable-badge" title="Informational only — cutting means regenerating the plan without this Rock/Project">CUTTABLE</span>'
       : "";
+    var deadlineMissedBadge = projectHasMissedDeadline(project)
+      ? '<span class="deadline-chip" title="At least one milestone in this project is past its deadline — expand to see which.">⚠ Deadline missed</span>'
+      : "";
+
     return (
-      '<div class="project-divider">' +
-        '<span class="project-name">' + escapeHtml(project.id) + " · " + escapeHtml(project.name) + "</span>" +
-        badge +
+      caretHtml(expanded) +
+      '<h3 class="project-name">' + escapeHtml(project.id) + " · " + escapeHtml(project.name) + "</h3>" +
+      '<span class="contents-count">' + escapeHtml(projectContentsLabel(counts)) + "</span>" +
+      finishHtml +
+      cuttableBadge +
+      deadlineMissedBadge
+    );
+  }
+
+  function patchProjectHeader(projectId) {
+    var header = dom.mainEl.querySelector('.project-section[data-project-id="' + cssEscape(projectId) + '"] .project-header');
+    if (!header) return; // collapsed Rock hides this too — normal, no-op (§6.8)
+    header.innerHTML = renderProjectHeaderInner(index_findProject(projectId));
+    header.setAttribute("aria-expanded", String(!!state.expandedProjects[projectId]));
+  }
+
+  /**
+   * Project section (level 2). Always renders its row, even at zero visible
+   * tasks under the filter — same honesty rule §6.6 states explicitly for a
+   * Rock the filter empties completely, applied one level down: a collapsed
+   * row states what it hides, it does not disappear because the count is
+   * zero. Body renders only when expanded, and is empty (no milestones
+   * rendered at all) rather than merely hidden, so a mark inside a
+   * collapsed project changes no DOM (§6.8).
+   */
+  function renderProject(project) {
+    var expanded = !!state.expandedProjects[project.id];
+    var counts = projectCounts(project);
+
+    var bodyHtml = "";
+    if (expanded) {
+      if (counts.tasksVisible === 0) {
+        bodyHtml = '<p class="board-empty">No tasks for the selected filter in this project.</p>';
+      } else {
+        var pieces = [];
+        for (var mi = 0; mi < project.milestones.length; mi++) {
+          var html = renderMilestone(project.milestones[mi].id);
+          if (html) pieces.push(html);
+        }
+        bodyHtml = pieces.join("");
+      }
+    }
+
+    return (
+      '<div class="project-section" data-project-id="' + escapeAttr(project.id) + '">' +
+        '<button type="button" class="project-header" data-action="toggle-project" ' +
+          'data-project-id="' + escapeAttr(project.id) + '" aria-expanded="' + expanded + '">' +
+          renderProjectHeaderInner(project) +
+        "</button>" +
+        '<div class="project-body">' + bodyHtml + "</div>" +
       "</div>"
     );
   }
 
+  /**
+   * Rock section (level 1). Always renders its row (§6.3: the default and
+   * only state that matters is "one row per Rock"). Body — burn-up first,
+   * then every project row — renders only when expanded, and only the
+   * burn-up when the filter empties the Rock (the burn-up is unaffected by
+   * "only my tasks", same as the Rock's own progress/on-track numbers).
+   */
   function renderRock(rockId) {
     var rock = index_findRock(rockId);
-    var milestonesHtml = [];
-    var anyVisible = false;
+    var expanded = !!state.expandedRocks[rockId];
+    var counts = rockCounts(rock);
 
-    for (var pi = 0; pi < rock.projects.length; pi++) {
-      var project = rock.projects[pi];
-      var projectMilestonesHtml = [];
-      for (var mi = 0; mi < project.milestones.length; mi++) {
-        var html = renderMilestone(project.milestones[mi].id);
-        if (html) { anyVisible = true; projectMilestonesHtml.push(html); }
+    var bodyHtml = "";
+    if (expanded) {
+      var burnupHtml = '<div class="rock-burnup">' + renderRockBurnupHtml(rockId) + "</div>";
+      var innerBody;
+      if (counts.tasksVisible === 0) {
+        innerBody = '<p class="board-empty">No tasks for the selected filter in this Rock.</p>';
+      } else {
+        var pieces = [];
+        for (var pi = 0; pi < rock.projects.length; pi++) {
+          pieces.push(renderProject(rock.projects[pi]));
+        }
+        innerBody = pieces.join("");
       }
-      if (projectMilestonesHtml.length) {
-        milestonesHtml.push(renderProjectDivider(project));
-        milestonesHtml = milestonesHtml.concat(projectMilestonesHtml);
-      }
+      bodyHtml = burnupHtml + innerBody;
     }
-
-    var body = anyVisible
-      ? milestonesHtml.join("")
-      : '<p class="board-empty">No tasks for the selected filter in this Rock.</p>';
 
     return (
       '<section class="rock-section" data-rock-id="' + escapeAttr(rockId) + '">' +
-        '<div class="rock-header">' + renderRockMetrics(rockId) + "</div>" +
-        '<div class="rock-body">' + body + "</div>" +
+        '<button type="button" class="rock-header" data-action="toggle-rock" ' +
+          'data-rock-id="' + escapeAttr(rockId) + '" aria-expanded="' + expanded + '">' +
+          renderRockHeaderInner(rockId) +
+        "</button>" +
+        '<div class="rock-body">' + bodyHtml + "</div>" +
       "</section>"
     );
   }
@@ -769,6 +1000,35 @@
   function index_findRock(rockId) {
     for (var i = 0; i < state.plan.rocks.length; i++) {
       if (state.plan.rocks[i].id === rockId) return state.plan.rocks[i];
+    }
+    return null;
+  }
+
+  /** Project ids are unique across the whole sprint (§2), so this needs no
+   *  rockId — used by patchProjectHeader, which only has the id a click or a
+   *  diff-repaint handed it. */
+  function index_findProject(projectId) {
+    for (var i = 0; i < state.plan.rocks.length; i++) {
+      var projects = state.plan.rocks[i].projects;
+      for (var j = 0; j < projects.length; j++) {
+        if (projects[j].id === projectId) return projects[j];
+      }
+    }
+    return null;
+  }
+
+  /** validate.js's index maps a task to its milestone but not a milestone to
+   *  its project — nothing else needed one until now. Used only by
+   *  diffAndRepaint, which is not a hot path, so a scan is fine. */
+  function index_findProjectOfMilestone(milestoneId) {
+    for (var i = 0; i < state.plan.rocks.length; i++) {
+      var projects = state.plan.rocks[i].projects;
+      for (var j = 0; j < projects.length; j++) {
+        var milestones = projects[j].milestones;
+        for (var k = 0; k < milestones.length; k++) {
+          if (milestones[k].id === milestoneId) return projects[j];
+        }
+      }
     }
     return null;
   }
@@ -864,7 +1124,20 @@
       return;
     }
 
-    var html = [];
+    // §6.5: one "Collapse all" control, no "expand all" — expanding
+    // everything reproduces exactly the state the collapsible hierarchy
+    // exists to remove. Lives INSIDE #main so the click routes through the
+    // one listener this module already owns (setBoardMainListeners), rather
+    // than adding a second (D-098's own lesson).
+    var controlsHtml =
+      '<div class="board-controls">' +
+        // .btn-primary, NOT .btn-secondary: this renders on #main's light
+        // body, and .btn-secondary is white-on-translucent-white — invisible
+        // there (that exact bug shipped once already, commit ef72e33).
+        '<button type="button" class="btn btn-primary" data-action="collapse-all">Collapse all</button>' +
+      "</div>";
+
+    var html = [controlsHtml];
     for (var i = 0; i < state.plan.rocks.length; i++) {
       html.push(renderRock(state.plan.rocks[i].id));
     }
@@ -1056,6 +1329,19 @@
   }
 
   function onMainClick(e) {
+    // The overshoot flag has its own hover/focus popover (CSS-only, no click
+    // behaviour of its own) and now sits inside the Rock/project header
+    // BUTTON (§6.5). A click on it would otherwise bubble up and be read as
+    // a click on the row itself — since data-action lives on that button,
+    // not on the flag — toggling the row when someone only meant to read the
+    // warning. Confirmed in the browser before this guard existed: a plain
+    // click on the flag flipped state.expandedRocks with nothing else
+    // clicked. Every other badge in the row (CUTTABLE, missed-deadline, the
+    // finish text) has no interactive affordance of its own, so a click
+    // there toggling the row is correct — "the whole header row is the
+    // toggle" (§6.5) — this is the one exception, not a second one to widen.
+    if (e.target.closest(".overshoot-wrap")) return;
+
     var el = e.target.closest("[data-action]");
     if (!el) return;
     var action = el.getAttribute("data-action");
@@ -1063,6 +1349,34 @@
 
     if (action === "edit-deliverable") onEditDeliverable(taskId);
     else if (action === "save-deliverable") onSaveDeliverable(taskId);
+    else if (action === "toggle-rock") onToggleRock(el.getAttribute("data-rock-id"));
+    else if (action === "toggle-project") onToggleProject(el.getAttribute("data-project-id"));
+    else if (action === "collapse-all") onCollapseAll();
+  }
+
+  /**
+   * §6.5: the whole header row is the toggle — reached here because the
+   * click lands on the <button data-action="toggle-rock">, not on the caret
+   * alone. Full render() rather than a targeted patch: this is a display
+   * toggle over data already in memory, cheap either way, and there is no
+   * write to protect an in-progress edit from (§6.8's guards are for the
+   * mark-patch path, not this one).
+   */
+  function onToggleRock(rockId) {
+    state.expandedRocks[rockId] = !state.expandedRocks[rockId];
+    render();
+  }
+
+  function onToggleProject(projectId) {
+    state.expandedProjects[projectId] = !state.expandedProjects[projectId];
+    render();
+  }
+
+  /** §6.5: the only bulk control — deliberately no "expand all" beside it. */
+  function onCollapseAll() {
+    state.expandedRocks = {};
+    state.expandedProjects = {};
+    render();
   }
 
   function onMainChange(e) {
@@ -1098,6 +1412,11 @@
     state.people = initial.people || [];
     state.band = typeof initial.band === "number" ? initial.band : 1;
     state.onlyMine = false;
+    // §6.3/§6.7: everything opens collapsed, on every mount — a reload is
+    // how the L10 starts, and it starts collapsed. Not read from
+    // localStorage, unlike ACTOR_STORAGE_KEY/VIEW_STORAGE_KEY just below.
+    state.expandedRocks = {};
+    state.expandedProjects = {};
 
     var cfg = CFG();
     var stored = localStorage.getItem(cfg.ACTOR_STORAGE_KEY);
@@ -1133,7 +1452,18 @@
     _internals: {
       getState: function () { return state; },
       recompute: recompute,
-      render: render
+      render: render,
+      // §6 collapsible hierarchy — exposed for tests/board-hierarchy.test.js
+      onToggleRock: onToggleRock,
+      onToggleProject: onToggleProject,
+      onCollapseAll: onCollapseAll,
+      rockCounts: rockCounts,
+      projectCounts: projectCounts,
+      onMainClick: onMainClick,
+      patchRockBurnup: patchRockBurnup,
+      patchProjectHeader: patchProjectHeader,
+      patchTaskRow: patchTaskRow,
+      patchMilestoneHeader: patchMilestoneHeader
     }
   };
 })(typeof window !== "undefined" ? window : this);
