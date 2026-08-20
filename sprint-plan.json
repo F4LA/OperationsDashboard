@@ -10,7 +10,9 @@
   "people": [
     "Brent",
     "Bernardo",
-    "Miguel"
+    "Miguel",
+    "Emery",
+    "Joey"
   ],
   "rocks": [
     {
@@ -373,6 +375,425 @@
                   "dependsOn": [
                     "R1-M10-t1",
                     "R1-M11-t1"
+                  ],
+                  "crossDependsOn": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "R2",
+      "name": "Hire and implement a Setter performing to KPI",
+      "owners": [
+        "Emery"
+      ],
+      "cuttable": false,
+      "projects": [
+        {
+          "id": "R2-P1",
+          "name": "Confirm Hire (Joyce) and Hiring Conversation",
+          "objective": "Confirm Joyce as the incoming setter, run the hiring conversation cleanly, lock terms and start date.",
+          "owner": "Emery",
+          "milestones": [
+            {
+              "id": "R2-M1",
+              "name": "Joyce confirmed as fit after the alignment call",
+              "dependsOn": [],
+              "tasks": [
+                {
+                  "id": "R2-M1-t1",
+                  "desc": "Run the final alignment/interview call with Joyce to confirm fit",
+                  "owner": "Emery",
+                  "type": "work",
+                  "workDays": 0.25,
+                  "waitDays": 0,
+                  "dependsOn": [],
+                  "crossDependsOn": []
+                }
+              ]
+            },
+            {
+              "id": "R2-M2",
+              "name": "Compensation locked, contract signed, start date set",
+              "dependsOn": [
+                "R2-M1"
+              ],
+              "tasks": [
+                {
+                  "id": "R2-M2-t1",
+                  "desc": "Prepare the hiring conversation framework (expectations, KPIs, compensation, KPI-driven schedule model)",
+                  "owner": "Emery",
+                  "type": "work",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R2-M1"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "R2-M2-t2",
+                  "desc": "Lock the compensation structure for the setter role (approval from Bernardo + Joey)",
+                  "owner": "Joey",
+                  "type": "approval",
+                  "workDays": 0.25,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R2-M2-t1"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "R2-M2-t3",
+                  "desc": "Run the hiring conversation with Joyce (expectations, KPI target, compensation, schedule, ramp, split leads)",
+                  "owner": "Emery",
+                  "type": "meeting",
+                  "workDays": 0.25,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R2-M2-t2"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "R2-M2-t4",
+                  "desc": "Sign hiring paperwork / contractor agreement with Joyce; set her start date",
+                  "owner": "Emery",
+                  "type": "work",
+                  "workDays": 0.25,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R2-M2-t3"
+                  ],
+                  "crossDependsOn": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "R2-P2",
+          "name": "Onboarding and Training Program",
+          "objective": "Turn Emery's setter approach into a documented, repeatable onboarding - then execute it with Joyce.",
+          "owner": "Emery",
+          "milestones": [
+            {
+              "id": "R2-M3",
+              "name": "Setter script rewritten from scratch",
+              "dependsOn": [],
+              "tasks": [
+                {
+                  "id": "R2-M3-t1",
+                  "desc": "Redesign the setter script from scratch, based on the conversation flow Emery uses today",
+                  "owner": "Emery",
+                  "type": "work",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [],
+                  "crossDependsOn": []
+                }
+              ]
+            },
+            {
+              "id": "R2-M4",
+              "name": "5-day onboarding document ready (includes FAQ / quick-reference)",
+              "dependsOn": [
+                "R2-M2"
+              ],
+              "tasks": [
+                {
+                  "id": "R2-M4-t1",
+                  "desc": "Build the 5-day onboarding document, modeled after the closer 5-day training document",
+                  "owner": "Emery",
+                  "type": "work",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R2-M2"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "R2-M4-t2",
+                  "desc": "Develop quick-reference materials: FAQs, objection responses, tone examples, edge cases",
+                  "owner": "Emery",
+                  "type": "work",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R2-M2"
+                  ],
+                  "crossDependsOn": []
+                }
+              ]
+            },
+            {
+              "id": "R2-M5",
+              "name": "Joyce completed onboarding week 1 (training + shadowing)",
+              "dependsOn": [
+                "R2-M4"
+              ],
+              "tasks": [
+                {
+                  "id": "R2-M5-t1",
+                  "desc": "Solidify day-to-day onboarding specifics: shadowing schedule, mock conversations, cadence, evaluation criteria",
+                  "owner": "Emery",
+                  "type": "work",
+                  "workDays": 0.5,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R2-M2"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "R2-M5-t2",
+                  "desc": "Execute onboarding week one: 1 hour of training per day plus shadowing on live conversations",
+                  "owner": "Emery",
+                  "type": "work",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R2-M4-t1",
+                    "R2-M4-t2",
+                    "R2-M5-t1"
+                  ],
+                  "crossDependsOn": []
+                }
+              ]
+            },
+            {
+              "id": "R2-M6",
+              "name": "Ongoing training cadence in place + KPI transition criteria defined",
+              "dependsOn": [
+                "R2-M5"
+              ],
+              "tasks": [
+                {
+                  "id": "R2-M6-t1",
+                  "desc": "Set ongoing training cadence post-onboarding: twice per week until Joyce hits her KPI target",
+                  "owner": "Emery",
+                  "type": "work",
+                  "workDays": 0.25,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R2-M5"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "R2-M6-t2",
+                  "desc": "Define the criteria for 'Joyce has hit KPI and no longer needs ongoing training'",
+                  "owner": "Emery",
+                  "type": "work",
+                  "workDays": 0.25,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R2-M5"
+                  ],
+                  "crossDependsOn": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "R2-P3",
+          "name": "Access, Automations and Dashboards",
+          "objective": "Provision Joyce's access, build the split-leads routing, and set up leadership and individual visibility dashboards.",
+          "owner": "Emery",
+          "milestones": [
+            {
+              "id": "R2-M7",
+              "name": "Joyce's systems provisioned and tested (ManyChat split, GHL, Slack, calendars)",
+              "dependsOn": [
+                "R2-M2"
+              ],
+              "tasks": [
+                {
+                  "id": "R2-M7-t1",
+                  "desc": "ManyChat: build the routing automation to split incoming leads between Emery and Joyce by an adjustable percentage",
+                  "owner": "Miguel",
+                  "type": "work",
+                  "workDays": 2,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R2-M2"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "R2-M7-t2",
+                  "desc": "GHL: add Joyce to the relevant pipelines with the right permissions",
+                  "owner": "Miguel",
+                  "type": "work",
+                  "workDays": 2,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R2-M2"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "R2-M7-t3",
+                  "desc": "Slack: add Joyce to all channels a setter needs (not leadership-only channels)",
+                  "owner": "Emery",
+                  "type": "work",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R2-M2"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "R2-M7-t4",
+                  "desc": "Calendars: set up shared / booking calendars so Joyce can schedule calls on the closer's calendar",
+                  "owner": "Emery",
+                  "type": "work",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R2-M2"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "R2-M7-t5",
+                  "desc": "Access exclusion: explicitly do not give Joyce access to the Leads Applied sheet",
+                  "owner": "Emery",
+                  "type": "work",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R2-M2"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "R2-M7-t6",
+                  "desc": "Confirm all access and automation is live before the start date; test with a synthetic lead through ManyChat",
+                  "owner": "Emery",
+                  "type": "work",
+                  "workDays": 1,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R2-M7-t1",
+                    "R2-M7-t2",
+                    "R2-M7-t3",
+                    "R2-M7-t4",
+                    "R2-M7-t5"
+                  ],
+                  "crossDependsOn": []
+                }
+              ]
+            },
+            {
+              "id": "R2-M8",
+              "name": "Joyce's data correct and visible (Sales Pulse split + individual dashboard)",
+              "dependsOn": [
+                "R2-M7"
+              ],
+              "tasks": [
+                {
+                  "id": "R2-M8-t1",
+                  "desc": "Sales Pulse dashboard: display Emery's and Joyce's numbers separately (leadership view)",
+                  "owner": "Bernardo",
+                  "type": "work",
+                  "workDays": 0.25,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R2-M7"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "R2-M8-t2",
+                  "desc": "Individual setter dashboard for Joyce: her personal numbers, KPI progress, daily/weekly performance",
+                  "owner": "Miguel",
+                  "type": "work",
+                  "workDays": 0.5,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R2-M7"
+                  ],
+                  "crossDependsOn": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "R2-P4",
+          "name": "Reporting Rhythm and Sales Pulse Integration",
+          "objective": "Set up the reporting cadence so Emery can track Joyce in real time and integrate her numbers into the weekly Sales Pulse.",
+          "owner": "Emery",
+          "milestones": [
+            {
+              "id": "R2-M9",
+              "name": "Joyce's EOD report defined and flowing into Sales Pulse (format + cadence)",
+              "dependsOn": [
+                "R2-M8"
+              ],
+              "tasks": [
+                {
+                  "id": "R2-M9-t1",
+                  "desc": "Define the EOD report format for the setter role: which metrics, which channel, by what time",
+                  "owner": "Emery",
+                  "type": "work",
+                  "workDays": 0.25,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R2-M8"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "R2-M9-t2",
+                  "desc": "Set the reporting cadence: daily EOD from Joyce to Emery, weekly rollup into the Sales Pulse",
+                  "owner": "Emery",
+                  "type": "work",
+                  "workDays": 0.25,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R2-M9-t1"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "R2-M9-t3",
+                  "desc": "Update the Sales Pulse meeting format so setter numbers are presented separately",
+                  "owner": "Emery",
+                  "type": "work",
+                  "workDays": 0.25,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R2-M9-t2"
+                  ],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "R2-M9-t4",
+                  "desc": "Confirm Emery attends the leadership meeting to present setter-department numbers",
+                  "owner": "Emery",
+                  "type": "meeting",
+                  "workDays": 0.25,
+                  "waitDays": 0,
+                  "dependsOn": [],
+                  "crossDependsOn": []
+                },
+                {
+                  "id": "R2-M9-t5",
+                  "desc": "First-two-weeks check: review the reporting rhythm and adjust the EOD format or cadence",
+                  "owner": "Emery",
+                  "type": "work",
+                  "workDays": 0.5,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R2-M9-t3"
                   ],
                   "crossDependsOn": []
                 }
