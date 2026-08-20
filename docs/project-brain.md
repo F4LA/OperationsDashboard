@@ -1,6 +1,6 @@
 # Project Brain — Operations Dashboard
 The current state in one page. Updated at the close of every chat via the push Code session.
-_Last updated: 2026-08-20 — Bernardo (Sprint Board: jerarquía plegable de tres niveles, semáforo on-track de tres estados simétricos, fix de foco en overshoot popover; D-114 a D-117)_
+_Last updated: 2026-08-20 — Bernardo (R2 cargado en 4d2f129: sprint completo con los tres Rocks; protocolo de apertura endurecido — contrastar el hash pineado contra el HEAD real antes de construir)_
 
 > **Source of truth for WHAT to build** is the spec: `docs/spec.md` (v2.4).
 > **Source of truth for WHY** is `docs/decision-log.md`.
@@ -77,12 +77,12 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 
 ## Next up (per spec §9)
 - CONVERSACIÓN DE PLAN, no de código: R1-M8-t3 (Brent, 0.5 días) aterriza el 2026-09-15, después del fin de sprint, porque queda encolada detrás de 29 work-days de R3 — el motor haciendo lo que el §4.3/§4.4 manda. Las 20 tareas de Miguel en R1 cierran el 2026-08-11. Hay otras cinco tareas de R3 (M4-t1, M7-t1, M7-t3, M20-t3, M23-t1) terminando el 2026-09-14. Se resuelve reasignando o reordenando en el L10, no tocando código.
-- Carga de Rocks: R1 CARGADO el 2026-08-19 en 45d7903 (D-104/105/106). Falta R2 (Setter Rock de Emery): su documento con duraciones YA LLEGÓ y se procesa en chat nuevo. Al cargarlo hay que agregar "Emery" a people[] en la misma edición. El Closer Rock de Emery sigue EXCLUIDO del alcance. Segundo commit de sprint-plan.json, deliberado: R1 no esperó a Emery porque Miguel estaba bloqueado y el documento de Emery puede traer huecos propios.
+- Carga de Rocks: COMPLETA. R1 cargado el 2026-08-19 en 45d7903 (D-104/105/106); R2 (Setter Rock de Emery) cargado el 2026-08-20 en 4d2f129 (D-118). El sprint tiene los tres Rocks: 93 tareas, 73.25 días, people[] con los cinco. El Closer Rock de Emery sigue EXCLUIDO del alcance. Pendiente operativo, no de build: R2 arranca en 0% con 20 tareas ya hechas en la vida real — Emery, Miguel y Bernardo deben marcarlas.
 - Fase 6 (Network / Timeline): CANCELADA por D-082. dashboard/network.js y su `<script>` ya se borraron (D-082b, confirmado 404). Prototipos de referencia si alguna vez se retoma: Rock3_Network_Graph.html (barras de espera punteadas, más simple) y Rock3_Interactive_Timeline.html (más avanzado, .deps vacío preparado); ninguno dibuja conectores de dependencia.
 
 ## Blocked / waiting
 - Nada bloqueado. Pendiente NO bloqueante: los dos procedimientos manuales de D-037 (header-guard y concurrencia) YA se corrieron y pasaron — ya no quedan pendientes.
-- Carga de Rocks: ya no bloqueada por datos en R1. El formulario de tres columnas (Done? / Work days / Wait days) funcionó — Miguel devolvió duraciones, no fechas por milestone, que era el modo de falla que D-089 atacó. Las tres tareas que igual volvieron sin estimar las cubrió Bernardo (D-106). Pendiente operativo, no de build: Miguel debe marcar a mano sus 15 tareas ya hechas para que R1 pase de 0% a 49% y su proyección deje de estar estirada.
+- Carga de Rocks: DESBLOQUEADA y cerrada. El formulario de tres columnas funcionó en los dos Rocks. En R2 apareció un modo de falla nuevo que el formulario no ataja: Emery devolvió duraciones por tarea, pero en cuatro bloques escribió el número del MILESTONE en cada fila (D-118a). Se detectó por aritmética — 76 días para una persona en un sprint de 35 — no a ojo. La corrección fue una sola pregunta con un bloque como ejemplo concreto, no un formulario nuevo. Para el próximo sprint: el formulario necesita un contraejemplo explícito ("una tarea puede estar abierta dos semanas y ser media jornada de trabajo"), que es lo que faltaba. Pendiente operativo: marcar a mano lo ya hecho — Miguel sus 15 de R1, Emery sus 20 de R2, Bernardo el Sales Pulse split.
 - REDESPLIEGUE MANUAL DEL WEB APP: RESUELTO. Bernardo desplegó Version 3 el 2026-08-15 (backend/Code.gs ya igualado al repo, D-075 cerrado). El Web App vivo ya no está atrasado respecto al repo.
 - PASE VISUAL PENDIENTE, no bloqueante y DESPUÉS de la 2B: Bernardo reporta que el dashboard se lee apretado y demasiado uniforme — tipografía, aire entre filas y falta de un color que subraye lo importante. Aplica a todo el dashboard, no solo al §11. Se abre en su propio chat cuando la 2B esté cerrada, mismo procedimiento que D-050, para no mezclar rediseño con vista nueva.
 - Las tres preguntas abiertas de la 2B quedaron cerradas por D-084/D-085/D-086, sin construir nada nuevo: "current" ratificado igual a "closing" (D-084, luego superseded en parte por D-092 — ver Next up), el escenario del denominador resultó estructuralmente inalcanzable, y createTask no necesita re-verificación propia.
@@ -98,6 +98,7 @@ Module globals use the `OpsDash` prefix; stubs in `/dashboard`, `app.js` at root
 - Carga automática del documento de Rock al dashboard: el §8 ya no lo asigna al Project Builder (D-100 se lo dio al Rock Planner + proyecto de Sprint); sigue siendo conveniencia downstream, no construida. Pedido explícito de Bernardo (2026-08-14) de dejarlo registrado.
 - (Retirado) El pulido de duplicados del dropdown de This Week ya no aplica: esa vista se retiró entera en la 2B (§11 supersede al §6.3, renderTw* borrados) y el panel de disponibles que la reemplazó se construyó de cero.
 - Borrar la burn-up se evaluó el 2026-08-14 y se descartó (D-071d): el pie numérico ya da el veredicto, la curva agrega cuándo empezó el desvío a costo cero.
+- Disparador por fecha de calendario: el schema no puede expresar "esta tarea no puede empezar antes de tal fecha". dependsOn solo entiende "tal tarea terminó" y waitDays solo corre DESPUÉS del trabajo; deadline es lo opuesto y el motor no lo agenda. Apareció una sola vez (R2-M9-t5) y se resolvió sin campo nuevo. Evaluar solo si reaparece en el próximo sprint.
 
 ## Open decisions
 - D-025 provisional: semántica de executionOrder y de "Both" multi-persona, a confirmar antes del primer plan que las ejercite. No bloquea nada hoy (Rock 3 no las usa).
