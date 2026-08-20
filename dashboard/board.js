@@ -370,10 +370,15 @@
     return false;
   }
 
+  /** §5.2, three states, symmetric band: ahead of plan by more than the band
+   *  reads "Ahead" (blue); within the band either direction reads "On pace"
+   *  (green); behind by more than the band reads "Behind" (red). Replaces
+   *  the old asymmetric green/amber/red, where anything at or ahead of plan
+   *  was always green and the band only ever softened the behind side. */
   function onTrackLabel(color) {
-    if (color === "green") return "On track";
-    if (color === "amber") return "Slightly behind";
-    return "Behind";
+    if (color === "blue") return "Ahead";
+    if (color === "red") return "Behind";
+    return "On pace";
   }
 
   /* ------------------------------------------------------------------ *

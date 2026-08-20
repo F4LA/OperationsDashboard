@@ -24,8 +24,9 @@
  *     planned(D) = Σ workDays of tasks whose FROZEN plannedFinish ≤ D
  *     actual(D)  = Σ workDays of tasks marked done on/before D (real
  *                  completion date from currentState.statusChangedAt)
- *   gap = actual(today) − planned(today); banded by Settings.onTrackBandWorkDays
- *   (D-033): gap ≥ 0 → green, −band < gap < 0 → amber, gap ≤ −band → red.
+ *   gap = actual(today) − planned(today); banded SYMMETRICALLY by
+ *   Settings.onTrackBandWorkDays, three states: gap ≥ +band → blue (ahead),
+ *   −band < gap < +band → green (on pace), gap ≤ −band → red (behind).
  *   Both curves are calendar-date comparisons (no working-day axis needed —
  *   §5.2 explicitly operates "over the sprint calendar").
  *
@@ -224,9 +225,9 @@
     var gap = actual - planned;
     var b = typeof band === "number" && band >= 0 ? band : 0;
     var color;
-    if (gap >= 0) color = "green";
+    if (gap >= b) color = "blue";
     else if (gap <= -b) color = "red";
-    else color = "amber";
+    else color = "green";
 
     return { planned: planned, actual: actual, gap: gap, band: b, color: color };
   }

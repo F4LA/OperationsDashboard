@@ -316,8 +316,13 @@ a { color: var(--steel-600); }
   white-space: nowrap;
 }
 .chip-green  { background: var(--green-bg);  color: var(--green); }
-.chip-amber  { background: var(--yellow-bg); color: var(--yellow); }
 .chip-red    { background: var(--red-bg);    color: var(--red); }
+/* Ahead (§5.2, three-state band). Blue, not yellow: yellow already carries
+   the `approval` type badge, and measures 2.81:1 / 2.92:1 on this app's
+   surfaces — under the 4.5:1 text bar. Reuses the brand blue already
+   carrying .btn-primary and the focus ring, no new colour: steel-700 on
+   steel-tint measures 6.02:1. */
+.chip-blue   { background: var(--steel-tint); color: var(--steel-700); }
 
 /* ---------- Overshoot flag + popover (redesign pass) ----------
    Replaces the native title="" tooltip on both the Rock-level and
