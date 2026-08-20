@@ -307,6 +307,15 @@
    * overshoot markers so the two read as one consistent pattern. Day count is
    * a calendar-date diff for display only — same parseISO the engine and
    * metrics.js already use, no new date semantics.
+   *
+   * A real <button>, not a span with tabindex: the Rock/Project rows this
+   * sits inside are themselves a div[role="button"] (see renderRockSection /
+   * renderProject), and a bare tabindex="0" span is excluded from the
+   * default Tab order in Safari without Full Keyboard Access — a real
+   * button is not. Also fixes the invalid HTML this used to produce: it
+   * used to sit inside a <button> (a button may not contain interactive
+   * content), which is why the popover CSS's :focus-within could pass here
+   * synthetically but real keyboard Tab never reached it.
    */
   var overshootIdSeq = 0;
 
@@ -319,8 +328,8 @@
     var popId = "overshoot-pop-" + (++overshootIdSeq);
     return (
       '<span class="overshoot-wrap">' +
-        '<span class="overshoot-flag" tabindex="0" aria-label="Projected past sprint end" ' +
-          'aria-describedby="' + popId + '">⚠</span>' +
+        '<button type="button" class="overshoot-flag" aria-label="Projected past sprint end" ' +
+          'aria-describedby="' + popId + '">⚠</button>' +
         '<span class="overshoot-popover" id="' + popId + '" role="tooltip">' +
           escapeHtml(message) + "</span>" +
       "</span>"
@@ -954,10 +963,10 @@
 
     return (
       '<div class="project-section" data-project-id="' + escapeAttr(project.id) + '">' +
-        '<button type="button" class="project-header" data-action="toggle-project" ' +
+        '<div role="button" tabindex="0" class="project-header" data-action="toggle-project" ' +
           'data-project-id="' + escapeAttr(project.id) + '" aria-expanded="' + expanded + '">' +
           renderProjectHeaderInner(project) +
-        "</button>" +
+        "</div>" +
         '<div class="project-body">' + bodyHtml + "</div>" +
       "</div>"
     );
@@ -993,10 +1002,10 @@
 
     return (
       '<section class="rock-section" data-rock-id="' + escapeAttr(rockId) + '">' +
-        '<button type="button" class="rock-header" data-action="toggle-rock" ' +
+        '<div role="button" tabindex="0" class="rock-header" data-action="toggle-rock" ' +
           'data-rock-id="' + escapeAttr(rockId) + '" aria-expanded="' + expanded + '">' +
           renderRockHeaderInner(rockId) +
-        "</button>" +
+        "</div>" +
         '<div class="rock-body">' + bodyHtml + "</div>" +
       "</section>"
     );
@@ -1335,16 +1344,16 @@
 
   function onMainClick(e) {
     // The overshoot flag has its own hover/focus popover (CSS-only, no click
-    // behaviour of its own) and now sits inside the Rock/project header
-    // BUTTON (§6.5). A click on it would otherwise bubble up and be read as
-    // a click on the row itself — since data-action lives on that button,
-    // not on the flag — toggling the row when someone only meant to read the
-    // warning. Confirmed in the browser before this guard existed: a plain
-    // click on the flag flipped state.expandedRocks with nothing else
-    // clicked. Every other badge in the row (CUTTABLE, missed-deadline, the
-    // finish text) has no interactive affordance of its own, so a click
-    // there toggling the row is correct — "the whole header row is the
-    // toggle" (§6.5) — this is the one exception, not a second one to widen.
+    // behaviour of its own) and now sits inside the Rock/project header row
+    // (§6.5). A click on it would otherwise bubble up and be read as a click
+    // on the row itself — since data-action lives on that row, not on the
+    // flag — toggling the row when someone only meant to read the warning.
+    // Confirmed in the browser before this guard existed: a plain click on
+    // the flag flipped state.expandedRocks with nothing else clicked. Every
+    // other badge in the row (CUTTABLE, missed-deadline, the finish text) has
+    // no interactive affordance of its own, so a click there toggling the row
+    // is correct — "the whole header row is the toggle" (§6.5) — this is the
+    // one exception, not a second one to widen.
     if (e.target.closest(".overshoot-wrap")) return;
 
     var el = e.target.closest("[data-action]");
@@ -1392,11 +1401,26 @@
   }
 
   function onMainKeydown(e) {
-    if (e.key !== "Enter") return;
     var el = e.target;
-    if (el && el.classList && el.classList.contains("deliverable-input")) {
+    if (e.key === "Enter" && el && el.classList && el.classList.contains("deliverable-input")) {
       e.preventDefault();
       onSaveDeliverable(el.getAttribute("data-task-id"));
+      return;
+    }
+    // §6.5's row toggle is a div[role="button"], not a real <button> — the
+    // overshoot flag it can contain has to be a real <button> of its own (a
+    // <button> may not contain another <button>), so the row gives up native
+    // button semantics and this restores just the one native behaviour that
+    // matters: Enter/Space activates it. Reads e.target directly, not
+    // closest("[data-action]") — pressing Enter/Space while the nested flag
+    // button has focus should act on the flag (nothing, today), not bubble
+    // up and toggle the row it sits in.
+    if (e.key === "Enter" || e.key === " ") {
+      var action = el && el.getAttribute && el.getAttribute("data-action");
+      if (action === "toggle-rock" || action === "toggle-project") {
+        e.preventDefault();
+        el.click();
+      }
     }
   }
 
@@ -1465,6 +1489,7 @@
       rockCounts: rockCounts,
       projectCounts: projectCounts,
       onMainClick: onMainClick,
+      onMainKeydown: onMainKeydown,
       patchRockBurnup: patchRockBurnup,
       patchProjectHeader: patchProjectHeader,
       patchTaskRow: patchTaskRow,

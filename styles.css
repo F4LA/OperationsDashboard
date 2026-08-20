@@ -34,7 +34,10 @@
   --text-faint: #8A9BB0;
 
   /* Semantic */
-  --green: #1F9D5F;
+  /* Darkened from #1F9D5F (measured 3.1:1 on --green-bg, under this app's
+     4.5:1 text bar) to clear it — measured 5.03:1 against --green-bg.
+     --green-bg, --red, --blue untouched (out of scope for this fix). */
+  --green: #177647;
   --green-bg: #E5F6EC;
   --yellow: #C28A1A;
   --yellow-bg: #FBF1DA;
@@ -336,6 +339,15 @@ a { color: var(--steel-600); }
   flex-shrink: 0;
 }
 .overshoot-flag {
+  /* button reset — a real <button> now (see board.js comment on
+     overshootFlagHtml): Safari excludes bare tabindex="0" elements from the
+     default keyboard Tab order unless Full Keyboard Access is on, but never
+     excludes actual buttons. */
+  appearance: none;
+  border: none;
+  margin: 0;
+  padding: 0;
+  font: inherit;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -491,10 +503,13 @@ main#main {
    Three levels: Rock (always rendered) > Project (rendered when its Rock is
    expanded) > Milestone (rendered when its Project is expanded, WITH its
    tasks — a milestone is not itself collapsible, §6.2). The whole header row
-   is the toggle (§6.5), so it is a real <button>, not a div with a click
-   handler on it — the same reasoning issues.js's .issue-head already
-   applies, reused here rather than reinvented. Neither header contains any
-   other control, so nothing collides with the row-sized hit target. */
+   is the toggle (§6.5) — a div[role="button"][tabindex="0"], not a real
+   <button>, because each row DOES contain another control: the overshoot
+   flag (a real <button> of its own, when the row is projecting past sprint
+   end). A <button> cannot legally contain another <button> — that was the
+   actual bug behind the flag being unreachable by keyboard Tab — so the row
+   is a div with button semantics instead, and Enter/Space activation is
+   wired alongside the click handler (onMainKeydown). */
 .rock-header,
 .project-header {
   /* button reset — everything below re-declares what the row actually needs */
