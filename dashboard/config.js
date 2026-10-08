@@ -12,7 +12,7 @@
     // Must match the `sprint.id` inside sprint-plan.json. Used only as the
     // sprintId field on every posted event — the plan's own sprint.id (once
     // fetched) is what the rest of the app treats as authoritative.
-    SPRINT_ID: "S3-2026",
+    SPRINT_ID: "S4-2026",
 
     /* ---------- Structure source: the plan JSON, read-only (§3, §10) ---------- */
     // Production path is the repo root per §10. Fetched cache-busted because the
