@@ -3642,7 +3642,8 @@
                   "workDays": 0.25,
                   "waitDays": 0,
                   "dependsOn": [
-                    "R5-M18-t7"
+                    "R5-M18-t4",
+                    "R5-M18-t6"
                   ],
                   "crossDependsOn": [],
                   "deferred": false
@@ -3653,7 +3654,7 @@
               "id": "R5-M19",
               "name": "End meso presentation produced for a real client, coach-reviewed",
               "dependsOn": [
-                "R5-M18"
+                "R5-M18-t4"
               ],
               "deferred": false,
               "tasks": [
