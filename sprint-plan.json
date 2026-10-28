@@ -2392,7 +2392,7 @@
       "cuttable": false,
       "projects": [
         {
-          "id": "R5-P1",
+          "id": "P1",
           "name": "Define the role, KPIs and dashboard",
           "objective": "Role, KPIs and head coach dashboard are agreed and measurable.",
           "owner": "Brent",
@@ -2408,7 +2408,7 @@
                   "desc": "Write down everything Bernardo does today as head coach, including what he does only occasionally, such as the quarterly coach audit.",
                   "owner": "Bernardo",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [],
                   "crossDependsOn": [],
@@ -2419,7 +2419,7 @@
                   "desc": "Add what the role should be doing and is not getting done today for lack of time.",
                   "owner": "Bernardo",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M1-t1"
@@ -2458,7 +2458,7 @@
                   "desc": "Brent and Bernardo agree the final list of responsibilities. Bernardo attends.",
                   "owner": "Brent",
                   "type": "meeting",
-                  "workDays": 0.25,
+                  "workDays": 0.1,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M1-t3",
@@ -2472,7 +2472,7 @@
                   "desc": "Bernardo reviews the agreed role definition and approves it.",
                   "owner": "Bernardo",
                   "type": "approval",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M1-t5"
@@ -2490,10 +2490,10 @@
               "tasks": [
                 {
                   "id": "R5-M2-t1",
-                  "desc": "List every place where retention and churn data lives today.",
+                  "desc": "Build a first retention dashboard and give Brent access.",
                   "owner": "Bernardo",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 2,
                   "waitDays": 0,
                   "dependsOn": [],
                   "crossDependsOn": [],
@@ -2501,10 +2501,10 @@
                 },
                 {
                   "id": "R5-M2-t2",
-                  "desc": "Decide the metrics the head coach needs. Bernardo attends.",
+                  "desc": "Review the retention dashboard: say for each metric whether the definition and the calculation are right, list the retention metrics that are missing and how each should be measured, and send Bernardo the detail in writing.",
                   "owner": "Brent",
-                  "type": "meeting",
-                  "workDays": 0.25,
+                  "type": "work",
+                  "workDays": 0.5,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M2-t1"
@@ -2514,39 +2514,27 @@
                 },
                 {
                   "id": "R5-M2-t3",
-                  "desc": "Define each agreed metric: what it counts and where the data comes from.",
-                  "owner": "Bernardo",
+                  "desc": "List what other data the head coach role needs beyond retention.",
+                  "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
-                    "R5-M2-t2"
+                    "R5-M1"
                   ],
                   "crossDependsOn": [],
                   "deferred": false
                 },
                 {
                   "id": "R5-M2-t4",
-                  "desc": "Check how each metric is calculated today and whether the numbers are correct.",
-                  "owner": "Bernardo",
-                  "type": "work",
-                  "workDays": 0.5,
-                  "waitDays": 0,
-                  "dependsOn": [
-                    "R5-M2-t3"
-                  ],
-                  "crossDependsOn": [],
-                  "deferred": false
-                },
-                {
-                  "id": "R5-M2-t5",
-                  "desc": "Validate Bernardo's check of the calculations.",
+                  "desc": "Decide which metrics get added and whether the other head coach data goes into the retention dashboard or a separate one. Bernardo attends.",
                   "owner": "Brent",
-                  "type": "work",
-                  "workDays": 1,
+                  "type": "meeting",
+                  "workDays": 0.2,
                   "waitDays": 0,
                   "dependsOn": [
-                    "R5-M2-t4"
+                    "R5-M2-t2",
+                    "R5-M2-t3"
                   ],
                   "crossDependsOn": [],
                   "deferred": false
@@ -2556,10 +2544,7 @@
             {
               "id": "R5-M3",
               "name": "KPIs defined, measurable ones measured",
-              "dependsOn": [
-                "R5-M1",
-                "R5-M2"
-              ],
+              "dependsOn": [],
               "deferred": false,
               "tasks": [
                 {
@@ -2578,10 +2563,12 @@
                   "desc": "Decide the KPIs Brent is unsure about and add the kickoff upsell rate. Bernardo attends.",
                   "owner": "Brent",
                   "type": "meeting",
-                  "workDays": 0.25,
+                  "workDays": 0.2,
                   "waitDays": 0,
                   "dependsOn": [
-                    "R5-M3-t1"
+                    "R5-M3-t1",
+                    "R5-M1",
+                    "R5-M2"
                   ],
                   "crossDependsOn": [],
                   "deferred": false
@@ -2611,7 +2598,7 @@
               "tasks": [
                 {
                   "id": "R5-M4-t1",
-                  "desc": "Build the head coach dashboard with the agreed and defined metrics.",
+                  "desc": "Add the metrics agreed in R5-M2-t4, to the retention dashboard or to a separate head coach dashboard, as agreed.",
                   "owner": "Bernardo",
                   "type": "work",
                   "workDays": 2,
@@ -2638,7 +2625,7 @@
           ]
         },
         {
-          "id": "R5-P2",
+          "id": "P2",
           "name": "Kickoff and roadmap automation",
           "objective": "Kickoff and roadmap builders are tested, released to the coaches and live.",
           "owner": "Bernardo",
@@ -2665,7 +2652,7 @@
                   "desc": "Record a Loom and send the Slack message asking Ceci, Jackie and Miguel to test the roadmap builder with their test client and DM Brent the files.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 0.1,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M5-t1"
@@ -2718,7 +2705,7 @@
                   "desc": "Create the fictional clients used to test the builder and later to calibrate the coaches.",
                   "owner": "Bernardo",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [],
                   "crossDependsOn": [],
@@ -2743,7 +2730,7 @@
                   "desc": "Brent tests the kickoff builder from his own account.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M7-t2"
@@ -2756,7 +2743,7 @@
                   "desc": "Record and send a video to the coaches showing how the kickoff builder works, and ask them to test it with their fictional client.",
                   "owner": "Bernardo",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 0.1,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M7-t3",
@@ -2783,7 +2770,7 @@
                   "desc": "Review the presentations the coaches sent and confirm the kickoff builder works.",
                   "owner": "Bernardo",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M7-t5"
@@ -2823,7 +2810,7 @@
           ]
         },
         {
-          "id": "R5-P3",
+          "id": "P3",
           "name": "Kickoff standard: SOP, calibration, audit, shipment",
           "objective": "Onboarding and kickoff SOP updated, coaches calibrated, kickoff calls audited, and the shipment system built with its first batch shipped.",
           "owner": "Brent",
@@ -2839,7 +2826,7 @@
                   "desc": "Write the coach competency questionnaire, completed by each coach after the calibration call.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [],
                   "crossDependsOn": [
@@ -2865,7 +2852,7 @@
                   "desc": "Load the updated SOP into NotebookLM.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M8-t2"
@@ -2888,7 +2875,7 @@
                   "desc": "One training call with Ceci, Miguel and Jackie on how to guide the kickoff call with the new presentation. Brent is considered calibrated and passed.",
                   "owner": "Brent",
                   "type": "meeting",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [],
                   "crossDependsOn": [],
@@ -2912,7 +2899,7 @@
                   "desc": "Record who passed.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 0.2,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M9-t2"
@@ -2946,9 +2933,11 @@
                   "desc": "Choose the kickoff calls to audit from each coach.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 0.2,
                   "waitDays": 0,
-                  "dependsOn": [],
+                  "dependsOn": [
+                    "R5-M10-t7"
+                  ],
                   "crossDependsOn": [],
                   "deferred": false
                 },
@@ -2970,7 +2959,7 @@
                   "desc": "Write the findings, separating what is one coach from what is the whole team.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 0.2,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M10-t2"
@@ -2983,7 +2972,7 @@
                   "desc": "Give feedback to each coach.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.4,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M10-t3"
@@ -2996,7 +2985,7 @@
                   "desc": "Contingent: update the SOP or the training materials if a problem is systemic.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M10-t3"
@@ -3009,12 +2998,25 @@
                   "desc": "Decide how often the head coach audits, how calls are picked and how feedback is recorded.",
                   "owner": "Brent",
                   "type": "meeting",
-                  "workDays": 0.25,
+                  "workDays": 0.2,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M10-t3"
                   ],
                   "crossDependsOn": [],
+                  "deferred": false
+                },
+                {
+                  "id": "R5-M10-t7",
+                  "desc": "Wait until Ceci, Jackie and Miguel have each run one kickoff call on the new system. Elapsed time only.",
+                  "owner": "Brent",
+                  "type": "work",
+                  "workDays": 0,
+                  "waitDays": 7,
+                  "dependsOn": [],
+                  "crossDependsOn": [
+                    "R5-M7-t8"
+                  ],
                   "deferred": false
                 }
               ]
@@ -3030,7 +3032,7 @@
                   "desc": "Meet with the coaches about how the upsell is presented at the kickoff.",
                   "owner": "Brent",
                   "type": "meeting",
-                  "workDays": 0.25,
+                  "workDays": 0.2,
                   "waitDays": 0,
                   "dependsOn": [],
                   "crossDependsOn": [],
@@ -3073,7 +3075,7 @@
                   "desc": "Confirm that the first order of about 50 shirts arrived.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 0.2,
                   "waitDays": 0,
                   "dependsOn": [],
                   "crossDependsOn": [],
@@ -3113,7 +3115,7 @@
                   "desc": "Message the clients who received it to confirm arrival and wait for their replies.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 0.2,
                   "waitDays": 2,
                   "dependsOn": [
                     "R5-M12-t4"
@@ -3126,7 +3128,7 @@
                   "desc": "Contingent: adjust the dashboard and the shipping process from what the first shipment shows.",
                   "owner": "Bernardo",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M12-t5"
@@ -3139,7 +3141,7 @@
           ]
         },
         {
-          "id": "R5-P4",
+          "id": "P4",
           "name": "Rebuild coach onboarding and start Mikari",
           "objective": "The current coach onboarding is reviewed, the required changes are implemented, and Mikari goes through it and starts coaching a client.",
           "owner": "Brent",
@@ -3155,7 +3157,7 @@
                   "desc": "Review the current coach onboarding on his own: what works, what is unclear, what is missing and what is unnecessary.",
                   "owner": "Bernardo",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [],
                   "crossDependsOn": [],
@@ -3177,7 +3179,7 @@
                   "desc": "Compare both reviews, agree the major gaps and mark every element kept, improved, deleted or added. Bernardo attends.",
                   "owner": "Brent",
                   "type": "meeting",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M13-t1",
@@ -3201,7 +3203,7 @@
                   "desc": "Decide which changes are required before Mikari starts. The rest goes to the next sprint's list.",
                   "owner": "Brent",
                   "type": "meeting",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [],
                   "crossDependsOn": [],
@@ -3212,7 +3214,7 @@
                   "desc": "Define what a new coach must learn, in what order, and what to demonstrate before coaching clients alone.",
                   "owner": "Brent",
                   "type": "meeting",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M14-t1"
@@ -3277,7 +3279,7 @@
                   "desc": "Review the implemented changes, including the training materials and the training SOP, and approve them before Mikari starts.",
                   "owner": "Bernardo",
                   "type": "approval",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M14-t2",
@@ -3304,7 +3306,7 @@
                   "desc": "Start Mikari on the updated coach onboarding and give her what she needs to go through it from start to finish.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 0.2,
                   "waitDays": 0,
                   "dependsOn": [],
                   "crossDependsOn": [],
@@ -3389,7 +3391,7 @@
           ]
         },
         {
-          "id": "R5-P5",
+          "id": "P5",
           "name": "End meso process and automation",
           "objective": "The end meso call structure is agreed and documented, and the automation produces the end meso presentation for a client, reviewed by the coach.",
           "owner": "Brent",
@@ -3405,7 +3407,7 @@
                   "desc": "Audit the current end meso deck and call structure on his own: what information coaches have, what decisions they make, what is missing and what is unnecessary.",
                   "owner": "Bernardo",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [],
                   "crossDependsOn": [],
@@ -3427,7 +3429,7 @@
                   "desc": "Compare both audits and write a proposal for Brent: what Bernardo would not do from Brent's audit and why, and what he would add.",
                   "owner": "Bernardo",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M17-t1",
@@ -3441,7 +3443,7 @@
                   "desc": "Talk through the proposal and agree what has to change in the call structure. Bernardo attends.",
                   "owner": "Brent",
                   "type": "meeting",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M17-t3"
@@ -3454,7 +3456,7 @@
                   "desc": "Define the data the call needs: program start date, starting weight, measurements and photos, data from about eight weeks ago, the most recent data, the original intake and the client's reason for starting, and the current roadmap with its history.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M17-t4"
@@ -3467,7 +3469,7 @@
                   "desc": "Define the coach's decisions: whether the outcome goal still makes sense or should change, whether training or nutrition needs adjusting, and whether the roadmap changes.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M17-t4"
@@ -3480,7 +3482,7 @@
                   "desc": "Write the agreed call structure into one document: purpose, the conversation, the client data required, the coach decisions required and the outputs afterwards.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 0.2,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M17-t4"
@@ -3493,7 +3495,7 @@
                   "desc": "Define what satisfaction is asked live at end meso and how dissatisfaction reaches the head coach.",
                   "owner": "Brent",
                   "type": "meeting",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M17-t4"
@@ -3506,7 +3508,7 @@
                   "desc": "Define the criteria for asking for referrals and a Google review at the second end meso.",
                   "owner": "Brent",
                   "type": "meeting",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M17-t4"
@@ -3519,7 +3521,7 @@
                   "desc": "Review the finished call structure document and approve it.",
                   "owner": "Bernardo",
                   "type": "approval",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M17-t5",
@@ -3548,7 +3550,7 @@
                   "desc": "Approve the end meso presentation design in Google Slides, with the agreed call structure in mind.",
                   "owner": "Bernardo",
                   "type": "approval",
-                  "workDays": 0.25,
+                  "workDays": 0.1,
                   "waitDays": 0,
                   "dependsOn": [],
                   "crossDependsOn": [],
@@ -3585,7 +3587,7 @@
                   "desc": "Test the path without history with an existing client, loading the data the builder asks for.",
                   "owner": "Bernardo",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 0.1,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M18-t3"
@@ -3611,7 +3613,7 @@
                   "desc": "Test the path with history on that client, loading made-up progress data.",
                   "owner": "Bernardo",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 0.1,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M18-t3",
@@ -3639,7 +3641,7 @@
                   "desc": "Hand the automation to the coaches so they can start using it.",
                   "owner": "Bernardo",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 0.1,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M18-t4",
@@ -3663,7 +3665,7 @@
                   "desc": "Review the end meso presentation produced for the existing client, before the call, as the coach would.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 0.1,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M18-t4"
@@ -3676,7 +3678,7 @@
           ]
         },
         {
-          "id": "R5-P6",
+          "id": "P6",
           "name": "Transfer the running responsibilities to Brent",
           "objective": "Each running responsibility is walked through, written into the SOP and run once by Brent.",
           "owner": "Brent",
@@ -3692,7 +3694,7 @@
                   "desc": "Record a Loom explaining to Brent how the Pulse and coaching calls are run today, with the tools and the data.",
                   "owner": "Bernardo",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 0.1,
                   "waitDays": 0,
                   "dependsOn": [],
                   "crossDependsOn": [],
@@ -3703,7 +3705,7 @@
                   "desc": "Write or confirm the SOP section for the Pulse and coaching calls.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M20-t1"
@@ -3718,7 +3720,7 @@
                   "desc": "Brent runs the Pulse and coaching call for the first time. Bernardo attends.",
                   "owner": "Brent",
                   "type": "meeting",
-                  "workDays": 0.25,
+                  "workDays": 0.1,
                   "waitDays": 5,
                   "dependsOn": [
                     "R5-M20-t2"
@@ -3731,7 +3733,7 @@
                   "desc": "Correct the SOP section with what the first run showed.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M20-t3"
@@ -3744,7 +3746,7 @@
                   "desc": "Write the SOP section for coach training, meaning the office hours. This is a new responsibility.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [],
                   "crossDependsOn": [
@@ -3757,7 +3759,7 @@
                   "desc": "Brent runs the office hours for the first time. Bernardo attends.",
                   "owner": "Brent",
                   "type": "meeting",
-                  "workDays": 0.25,
+                  "workDays": 0.2,
                   "waitDays": 5,
                   "dependsOn": [
                     "R5-M20-t5"
@@ -3770,7 +3772,7 @@
                   "desc": "Correct the SOP section with what the first run showed.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M20-t6"
@@ -3783,7 +3785,7 @@
                   "desc": "Give Brent the existing recorded retention training videos, with a note on which to watch and in what order.",
                   "owner": "Bernardo",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 0.2,
                   "waitDays": 0,
                   "dependsOn": [],
                   "crossDependsOn": [],
@@ -3807,7 +3809,7 @@
                   "desc": "Write the SOP section for retention training.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M20-t9"
@@ -3822,7 +3824,7 @@
                   "desc": "Brent runs the retention training live with all the coaches for the first time. Bernardo attends.",
                   "owner": "Brent",
                   "type": "meeting",
-                  "workDays": 0.25,
+                  "workDays": 0.2,
                   "waitDays": 20,
                   "dependsOn": [
                     "R5-M20-t10"
@@ -3835,7 +3837,7 @@
                   "desc": "Correct the SOP section with what the first run showed.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M20-t11"
@@ -3856,7 +3858,7 @@
                   "desc": "Record a Loom explaining how the flag system review is done today: how often, what each flag requires, when leadership gets involved, the two weekly satisfaction questions and early detection of a coach and client mismatch.",
                   "owner": "Bernardo",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [],
                   "crossDependsOn": [],
@@ -3867,7 +3869,7 @@
                   "desc": "Write or confirm the SOP section for the flag system review.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M21-t1"
@@ -3882,7 +3884,7 @@
                   "desc": "Brent runs the flag system review for the first time. Bernardo attends.",
                   "owner": "Brent",
                   "type": "meeting",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 5,
                   "dependsOn": [
                     "R5-M21-t2"
@@ -3895,7 +3897,7 @@
                   "desc": "Correct the SOP section with what the first run showed.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M21-t3"
@@ -3908,7 +3910,7 @@
                   "desc": "Write the SOP section for cadence monitoring (weekly, monthly, quarterly) using the cadence tracking document. This is a new responsibility.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [],
                   "crossDependsOn": [
@@ -3922,7 +3924,7 @@
                   "desc": "Brent runs cadence monitoring for the first time. Bernardo attends.",
                   "owner": "Brent",
                   "type": "meeting",
-                  "workDays": 0.25,
+                  "workDays": 0.2,
                   "waitDays": 5,
                   "dependsOn": [
                     "R5-M21-t5"
@@ -3935,7 +3937,7 @@
                   "desc": "Correct the SOP section with what the first run showed.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M21-t6"
@@ -3948,7 +3950,7 @@
                   "desc": "Record a Loom explaining how the review of the coaches' kickoff and end meso calls is done today.",
                   "owner": "Bernardo",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 0.1,
                   "waitDays": 0,
                   "dependsOn": [],
                   "crossDependsOn": [],
@@ -3959,7 +3961,7 @@
                   "desc": "Write or confirm the SOP section for the review of kickoff and end meso calls.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M21-t8"
@@ -3977,7 +3979,7 @@
                   "desc": "Brent runs the review of kickoff and end meso calls for the first time. Bernardo attends.",
                   "owner": "Brent",
                   "type": "meeting",
-                  "workDays": 0.5,
+                  "workDays": 0.4,
                   "waitDays": 5,
                   "dependsOn": [
                     "R5-M21-t9"
@@ -3990,7 +3992,7 @@
                   "desc": "Correct the SOP section with what the first run showed.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M21-t10"
@@ -4008,10 +4010,10 @@
               "tasks": [
                 {
                   "id": "R5-M22-t1",
-                  "desc": "One-hour meeting with Brent: Bernardo explains what the community calls must achieve and how the day is managed so Brent can organise them his way, and they decide that Gaby takes over posting the schedules. Brent attends.",
+                  "desc": "One planning meeting with Brent on community: Bernardo shows the systems he uses today to organise the community calls and what he does, how Brent can ask Gaby for help so it goes into the SOP, and they discuss community engagement ideas and birthday gift ideas and agree action steps. Whether engagement posts and birthday gifts are implemented, and how, is decided here. Brent attends.",
                   "owner": "Bernardo",
                   "type": "meeting",
-                  "workDays": 0.25,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [],
                   "crossDependsOn": [],
@@ -4022,7 +4024,7 @@
                   "desc": "Write the SOP section for organising the community calls.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M22-t1"
@@ -4037,7 +4039,7 @@
                   "desc": "Brent organises the first community calls his own way, with Gaby handling the posting.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 0.2,
                   "waitDays": 7,
                   "dependsOn": [
                     "R5-M22-t2"
@@ -4046,35 +4048,24 @@
                   "deferred": false
                 },
                 {
-                  "id": "R5-M22-t4",
-                  "desc": "One-hour meeting with Brent to decide how community engagement works: where the post comes from with Gaby, who sends the birthday gifts and what the gift is. Brent attends.",
-                  "owner": "Bernardo",
-                  "type": "meeting",
-                  "workDays": 0.25,
-                  "waitDays": 0,
-                  "dependsOn": [],
-                  "crossDependsOn": [],
-                  "deferred": false
-                },
-                {
                   "id": "R5-M22-t5",
-                  "desc": "Prepare what the process needs: message templates for Gaby, how the information is collected, and the systems behind it.",
+                  "desc": "Implement what R5-M22-t1 agreed for community engagement: message templates for Gaby, how the information is collected, and the systems behind it.",
                   "owner": "Bernardo",
                   "type": "work",
                   "workDays": 0.5,
                   "waitDays": 0,
                   "dependsOn": [
-                    "R5-M22-t4"
+                    "R5-M22-t1"
                   ],
                   "crossDependsOn": [],
                   "deferred": false
                 },
                 {
                   "id": "R5-M22-t6",
-                  "desc": "Write the SOP section for community engagement: birthday gifts and posts, and celebrating every client who renews.",
+                  "desc": "Write the SOP section for community engagement as agreed in R5-M22-t1.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M22-t5"
@@ -4089,7 +4080,7 @@
                   "desc": "Brent runs community engagement for the first time.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 0.2,
                   "waitDays": 7,
                   "dependsOn": [
                     "R5-M22-t6"
@@ -4121,7 +4112,7 @@
                   "desc": "Write the SOP section for the quarterly coach audit.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M23-t1"
@@ -4134,7 +4125,7 @@
                   "desc": "Correct the SOP section with what the audit showed.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 0.2,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M23-t2"
@@ -4147,7 +4138,7 @@
                   "desc": "Write the SOP section for reporting to Joey and Bernardo: systemic issues such as pricing and offer gaps, client and coach trends, and how the coaching system is evolving.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 0.1,
                   "waitDays": 0,
                   "dependsOn": [],
                   "crossDependsOn": [
@@ -4160,7 +4151,7 @@
                   "desc": "Brent gives the first report. Bernardo attends.",
                   "owner": "Brent",
                   "type": "meeting",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 20,
                   "dependsOn": [
                     "R5-M23-t4"
@@ -4173,10 +4164,23 @@
                   "desc": "Correct the SOP section with what the first report showed.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 0.2,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M23-t5"
+                  ],
+                  "crossDependsOn": [],
+                  "deferred": false
+                },
+                {
+                  "id": "R5-M23-t7",
+                  "desc": "Reissue the Coach Audit Analysis Template, the Coach Performance Evaluation Template and the Coaches Review Tracker with the audit's new categories and weights.",
+                  "owner": "Brent",
+                  "type": "work",
+                  "workDays": 0.3,
+                  "waitDays": 0,
+                  "dependsOn": [
+                    "R5-M23-t2"
                   ],
                   "crossDependsOn": [],
                   "deferred": false
@@ -4186,7 +4190,7 @@
           ]
         },
         {
-          "id": "R5-P7",
+          "id": "P7",
           "name": "SOPs and hand-off",
           "objective": "The head coach SOP is complete, everything points to Brent, and the coaching SOP is reviewed and updated.",
           "owner": "Brent",
@@ -4202,7 +4206,7 @@
                   "desc": "Start from Brent's first SOP draft and align it with the agreed role definition.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 0.2,
                   "waitDays": 0,
                   "dependsOn": [],
                   "crossDependsOn": [
@@ -4215,7 +4219,7 @@
                   "desc": "Put the outcomes of the end meso call, the flag review and the calibration into the SOP.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [],
                   "crossDependsOn": [
@@ -4249,7 +4253,7 @@
                   "desc": "Write Bernardo's role after the transfer into the SOP: support and escalation, not operator.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 0.2,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M24-t3"
@@ -4262,7 +4266,7 @@
                   "desc": "Make the final corrections, load the SOP into NotebookLM and confirm it references the right version.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.4,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M24-t4"
@@ -4283,7 +4287,7 @@
                   "desc": "Tell the coaching team that Brent is taking the role.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 0.1,
                   "waitDays": 0,
                   "dependsOn": [],
                   "crossDependsOn": [],
@@ -4294,7 +4298,7 @@
                   "desc": "List every system, channel, meeting and document the role touches, such as the Clients shared drive, GHL, Everfit, Slack and the roadmap builder project, and note what access Brent is missing.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 0.1,
                   "waitDays": 0,
                   "dependsOn": [],
                   "crossDependsOn": [
@@ -4307,7 +4311,7 @@
                   "desc": "Give Brent the access and admin rights he needs.",
                   "owner": "Bernardo",
                   "type": "approval",
-                  "workDays": 0.25,
+                  "workDays": 0.2,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M25-t2"
@@ -4320,7 +4324,7 @@
                   "desc": "Redirect what Gaby handles on the head coach's behalf so it points to Brent.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 0.2,
                   "waitDays": 0,
                   "dependsOn": [],
                   "crossDependsOn": [
@@ -4333,7 +4337,7 @@
                   "desc": "Decide what Bernardo stops doing and from when: from the day after the sprint closes he performs no head coach task and is escalation support. Bernardo attends.",
                   "owner": "Brent",
                   "type": "meeting",
-                  "workDays": 0.25,
+                  "workDays": 0.2,
                   "waitDays": 0,
                   "dependsOn": [],
                   "crossDependsOn": [
@@ -4346,7 +4350,7 @@
                   "desc": "Tell the coaching team who to go to for what, everywhere they currently go to Bernardo.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 0.2,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M25-t5"
@@ -4364,7 +4368,7 @@
                   "desc": "Check whether anything client-facing still names Bernardo in the role.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M25-t5"
@@ -4418,27 +4422,14 @@
                   "deferred": false
                 },
                 {
-                  "id": "R5-M26-t4",
-                  "desc": "Review the findings together and agree what changes; settle disagreements before anyone edits. Bernardo attends.",
-                  "owner": "Brent",
-                  "type": "meeting",
-                  "workDays": 0.25,
-                  "waitDays": 0,
-                  "dependsOn": [
-                    "R5-M26-t3"
-                  ],
-                  "crossDependsOn": [],
-                  "deferred": false
-                },
-                {
                   "id": "R5-M26-t5",
                   "desc": "List the processes that still need to be defined before they can be written down.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
-                    "R5-M26-t4"
+                    "R5-M26-t3"
                   ],
                   "crossDependsOn": [],
                   "deferred": false
@@ -4458,7 +4449,7 @@
                   "desc": "Update the coaching SOP: rewrite outdated sections, remove what is obsolete, add missing processes and clarify expectations.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [],
                   "crossDependsOn": [],
@@ -4469,7 +4460,7 @@
                   "desc": "Update the onboarding and kickoff sections of the coaching SOP once the new system exists.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M27-t1"
@@ -4484,7 +4475,7 @@
                   "desc": "Update the training section of the coaching SOP with the SOP on how and why training is structured.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.25,
+                  "workDays": 0.2,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M27-t1"
@@ -4513,7 +4504,7 @@
                   "desc": "Load the new SOP into NotebookLM, replacing what is out of date, and confirm the knowledge base points to the right version.",
                   "owner": "Brent",
                   "type": "work",
-                  "workDays": 0.5,
+                  "workDays": 0.3,
                   "waitDays": 0,
                   "dependsOn": [
                     "R5-M27-t4"
